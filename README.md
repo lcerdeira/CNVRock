@@ -1,7 +1,6 @@
 # deep-gw-cnv
 
-> Deep learning framework for [brief one-line description, e.g.
-> "gravitational-wave signal detection using convolutional neural networks"].
+Variational autoencoder-based genome-wide copy number variation detection
 
 ## Quick start
 

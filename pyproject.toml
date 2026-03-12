@@ -5,7 +5,7 @@ build-backend = "setuptools.backends.legacy:build"
 [project]
 name = "deep-gw-cnv"
 version = "0.1.0"
-description = "Deep learning framework for gravitational-wave CNV analysis"
+description = "Deep learning framework for genome-wide CNV analysis"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
