@@ -1,0 +1,59 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg-link
+pip-wheel-metadata/
+.installed.cfg
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+.env
+
+# ── Data & weights (large binary files — never commit) ────────────────────────
+data/raw/
+data/processed/
+weights/
+# Keep the placeholder / README files
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/README.md
+!weights/README.md
+
+# ── Experiment outputs (results are reproducible; only narratives are tracked) ─
+experiments/*/results/
+experiments/*/config.yaml
+# But keep the human-written README describing each experiment
+!experiments/*/README.md
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS noise ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Testing & coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml

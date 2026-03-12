@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "deep-gw-cnv"
+version = "0.1.0"
+description = "Deep learning framework for gravitational-wave CNV analysis"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0",
+    "numpy>=1.24",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+    "mypy>=1.0",
+    "jupyter>=1.0",
+]
+
+[project.scripts]
+# After `pip install -e .` these become shell commands:
+# train   configs/experiments/exp_001_baseline.yaml
+# evaluate configs/experiments/exp_001_baseline.yaml
+train    = "deep_gw_cnv.cli:train"
+evaluate = "deep_gw_cnv.cli:evaluate"
+predict  = "deep_gw_cnv.cli:predict"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

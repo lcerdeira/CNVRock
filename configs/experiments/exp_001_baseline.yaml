@@ -1,0 +1,24 @@
+# ============================================================
+# exp_001_baseline.yaml — initial baseline experiment
+# Inherits all defaults from configs/base.yaml.
+# ============================================================
+
+_base_: ../../base.yaml   # resolved by scripts/train.py
+
+# ------ model -----------------------------------------------
+model: baseline_cnn
+model_cfg:
+  in_channels: 1
+  num_classes: 2
+
+# ------ data ------------------------------------------------
+dataset: gw_strain
+
+# ------ training --------------------------------------------
+train:
+  epochs: 50
+  lr: 1.0e-3
+
+# ------ output ----------------------------------------------
+# output_dir is automatically set to experiments/exp_001_baseline/
+# by train.py when it detects this config filename.
