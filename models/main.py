@@ -47,13 +47,13 @@ class ConvEncoder(nn.Module):
     def __init__(self, latent_dim: int):
         super().__init__()
         self.conv = nn.Sequential(
-            self._block(1,   32,  stride=2),   # N_BINS_PADDED / 2
-            self._block(32,  64,  stride=2),   # / 4
-            self._block(64,  128, stride=2),   # / 8
-            self._block(128, 256, stride=2),   # / 16
-            self._block(256, 256, stride=2),   # / 32
+            self._block(1,   32,  stride=2),
+            self._block(32,  64,  stride=2),
+            self._block(64,  128, stride=2),
+            self._block(128, 256, stride=2),
+            self._block(256, 256, stride=2),
         )
-        self.flat_dim = 256 * (N_BINS_PADDED // 32)  # 256 * 7292 = 1,866,752
+        self.flat_dim = 256 * (N_BINS_PADDED // 32)
         self.mu     = nn.Linear(self.flat_dim, latent_dim)
         self.logvar = nn.Linear(self.flat_dim, latent_dim)
 
@@ -95,9 +95,9 @@ class ConvDecoder(nn.Module):
         )
 
     def forward(self, z):
-        h    = self.proj(z).view(z.size(0), 256, N_BINS_PADDED // 32)
-        recon = self.deconv(h).squeeze(1)                    # (batch, N_BINS_PADDED)
-        return recon[:, :N_BINS_RAW]                         # strip padding
+        h     = self.proj(z).view(z.size(0), 256, N_BINS_PADDED // 32)
+        recon = self.deconv(h).squeeze(1)
+        return recon[:, :N_BINS_RAW]
 
 
 class ConvVAE(nn.Module):
@@ -120,7 +120,6 @@ def compute_loss(x, outputs, beta):
     recon      = outputs["recon"]
     mu, logvar = outputs["z"]
 
-    # Reconstruction loss only over real bins (not padding)
     recon_loss = F.mse_loss(recon, x[:, :N_BINS_RAW], reduction="sum") / x.size(0)
     kl         = (-0.5 * (1 + logvar - mu.pow(2) - logvar.exp())).sum(1).mean()
 
@@ -133,7 +132,7 @@ def compute_loss(x, outputs, beta):
 
 def train_vae(model, dataloader, optimiser,
               epochs, max_beta, warmup_epochs,
-              patience, model_save_path="data/conv_vae.pth"):
+              patience, model_save_path="../data/conv_vae.pth"):
 
     assert torch.cuda.is_available(), "CUDA not available."
     device = torch.device("cuda")
@@ -148,7 +147,7 @@ def train_vae(model, dataloader, optimiser,
             beta                     = max_beta * min(1.0, epoch / warmup_epochs)
             total, tot_recon, tot_kl = 0, 0, 0
 
-            for batch in dataloader:
+            for i, batch in enumerate(dataloader):
                 x   = batch.to(device)
                 out = model(x)
                 loss, det = compute_loss(x, out, beta)
@@ -162,7 +161,10 @@ def train_vae(model, dataloader, optimiser,
                 tot_recon += det["recon"].item()
                 tot_kl    += det["kl"].item()
 
-            print(f"{epoch+1:04d} | loss {total:.2f} | recon {tot_recon:.2f} | kl {tot_kl:.2f} | beta {beta:.3f}")
+                if epoch == 0 or i % 50 == 0:
+                    print(f"  epoch {epoch+1} | batch {i}/{len(dataloader)} | loss {loss.item():.4f}", flush=True)
+
+            print(f"{epoch+1:04d} | loss {total:.2f} | recon {tot_recon:.2f} | kl {tot_kl:.2f} | beta {beta:.3f}", flush=True)
 
             if tot_recon < best_recon - 1e-3:
                 best_recon = tot_recon
@@ -193,7 +195,7 @@ def setup_and_train(
     max_beta        = 1.0,
     warmup_epochs   = 400,
     patience        = 50,
-    model_save_path = "data/conv_vae.pth",
+    model_save_path = "../data/conv_vae.pth",
 ):
     lsf_jobid = os.getenv("LSB_JOBID")
     if lsf_jobid:
@@ -206,7 +208,7 @@ def setup_and_train(
     model     = ConvVAE(latent_dim=latent_dim).to(device)
     optimiser = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
 
-    print(f"n_bins={N_BINS_RAW} (padded to {N_BINS_PADDED}) | latent_dim={latent_dim} | samples={len(ds)}")
+    print(f"n_bins={N_BINS_RAW} (padded to {N_BINS_PADDED}) | latent_dim={latent_dim} | samples={len(ds)}", flush=True)
     print(model)
 
     return train_vae(

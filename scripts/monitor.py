@@ -30,11 +30,6 @@ def check_job_is_alive(job_id) -> bool:
         cmd, text=True, check=False,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    # Log the result for debugging
-    print(f"bjobs return code: {result.returncode}")
-    print(f"bjobs stdout: {result.stdout}")
-    print(f"bjobs stderr: {result.stderr}")
-
     if result.returncode != 0:
         print("Return code is not 0")
         return False
