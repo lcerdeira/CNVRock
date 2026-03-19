@@ -16,7 +16,7 @@ workflow {
         ]}
         .set { reference_genome_ch }
 
-    manifest_ch = Channel.fromPath("paths_to_bams_crams.tsv")
+    manifest_ch = Channel.fromPath("../assets/paths_to_bams_crams.tsv")
 
     interval_list_ch = GenerateWholeGenomeIntervalList(reference_genome_ch)
 
