@@ -58,7 +58,7 @@ process GenerateWholeGenomeIntervalList {
         gatk PreprocessIntervals \
             --java-options          "-Xmx${java_Xmx}m" \
             --reference             ${meta.reference_fasta} \
-            --bin-length            100 \
+            --bin-length            1000 \
             --padding               0 \
             --interval-merging-rule OVERLAPPING_ONLY \
             --output                whole_genome.interval_list

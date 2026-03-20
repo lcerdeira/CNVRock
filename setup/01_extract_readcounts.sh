@@ -5,7 +5,7 @@ bsub \
     -o log.o \
     -e log.e \
     -n 1 \
-    -G gsu-pipelines \
+    -G team342 \
     -M 8000 \
     -R 'select[mem>=8000] rusage[mem=8000] span[hosts=1]' \
     -q basement \

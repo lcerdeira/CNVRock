@@ -43,7 +43,7 @@ def build_store(store_path: str, tsv_dir: str, sample_ids: list[str], n_workers:
     )
     store.attrs.update({
         "contig_names": CONTIGS,
-        "bin_size":     100,
+        "bin_size":     1000,
         "genome":       "PlasmoDB-54_Pfalciparum3D7",
         "n_bins":       n_bins,
         "sample_ids":   sample_ids,
@@ -69,7 +69,7 @@ tsv_files  = sorted(f for f in os.listdir(PATH_TO_READ_COUNTS) if f.endswith(".c
 sample_ids = [f.replace(".counts.tsv", "") for f in tsv_files]
 
 build_store(
-    store_path = "../../../data/raw/Pf9-53973-samples-100bp.zarr",
+    store_path = "../../../data/raw/Pf9-53973-samples-1000bp.zarr",
     tsv_dir    = PATH_TO_READ_COUNTS,
     sample_ids = sample_ids,
 )
