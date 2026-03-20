@@ -10,7 +10,7 @@ JOBID=$(bsub \
     -M 8000 \
     -R 'select[mem>=8000] rusage[mem=8000] span[hosts=1]' \
     -gpu "num=1:mode=exclusive_process" \
-    -q gpu-normal \
+    -q gpu-basement \
     "python main.py" 2>&1 | grep -oP '(?<=Job <)\d+(?=>)')
 
 echo "Submitted job $JOBID"
