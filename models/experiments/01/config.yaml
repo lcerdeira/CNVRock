@@ -1,0 +1,23 @@
+# Experiment 01 — ConvVAE baseline on Pf9 1000bp read-count data
+# Copy this folder to add a new experiment; only edit config.yaml.
+
+# Data
+store_path: "../../../data/Pf9-53973-samples-1000bp.zarr"
+out_dir:    "../../../data/results/pf9_conv_vae_01"
+normalise:  true   # apply log2(count + 1)
+
+# Model
+latent_dim: 16
+
+# Training
+batch_size:    128
+epochs:        5000
+lr:            1.0e-3
+weight_decay:  1.0e-5
+
+# Beta annealing (KL weight)
+max_beta:      1.0
+warmup_epochs: 400
+
+# Early stopping
+patience: 50
