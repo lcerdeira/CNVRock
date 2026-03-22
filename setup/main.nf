@@ -58,7 +58,7 @@ process GenerateWholeGenomeIntervalList {
         gatk PreprocessIntervals \
             --java-options          "-Xmx${java_Xmx}m" \
             --reference             ${meta.reference_fasta} \
-            --bin-length            1000 \
+            --bin-length            ${params.bin_length} \
             --padding               0 \
             --interval-merging-rule OVERLAPPING_ONLY \
             --output                whole_genome.interval_list
@@ -91,7 +91,7 @@ process GenerateReadCountFile {
             --input                   ${sample_meta.path_to_bam_cram} \
             --format                  TSV \
             --read-filter             MappingQualityReadFilter \
-            --minimum-mapping-quality 40 \
+            --minimum-mapping-quality ${params.minimum_mapping_quality} \
             --interval-merging-rule   OVERLAPPING_ONLY \
             --output                  ${sample_meta.sample_id}.counts.tsv.TEMP
 

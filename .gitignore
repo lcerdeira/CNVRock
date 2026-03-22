@@ -60,3 +60,5 @@ coverage.xml
 *.o
 *.e
 *.nextflow*
+*/work
+*/readcounts

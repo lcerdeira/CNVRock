@@ -7,8 +7,8 @@ JOBID=$(bsub \
     -e log.e \
     -n 1 \
     -G team342 \
-    -M 8000 \
-    -R 'select[mem>=8000] rusage[mem=8000] span[hosts=1]' \
+    -M 4000 \
+    -R 'select[mem>=4000] rusage[mem=4000] span[hosts=1]' \
     -gpu "num=1:mode=exclusive_process" \
     -q gpu-basement \
     "python main.py" 2>&1 | grep -oP '(?<=Job <)\d+(?=>)')
