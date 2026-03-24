@@ -17,7 +17,7 @@ workflow {
         .set { reference_genome_ch }
 
     manifest_ch              = Channel.fromPath("../assets/paths_to_bams_crams.tsv")
-    intervals_of_interest_ch = Channel.fromPath(params.intervals_of_interest)
+    intervals_of_interest_ch = Channel.fromPath("../assets/core-genome.bed")
 
     interval_list_ch = GenerateWholeGenomeIntervalList(reference_genome_ch)
 
