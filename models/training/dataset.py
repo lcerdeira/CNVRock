@@ -1,17 +1,17 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-import zarr
+import os
 from torch.utils.data import Dataset
 
 from architectures.conv_vae import N_BINS_RAW, N_BINS_PADDED
 
 
 class ReadCountDataset(Dataset):
-    def __init__(self, store_path: str, normalise: bool = True):
-        store           = zarr.open(store_path, mode="r")
-        self.counts     = store["counts"]
-        self.sample_ids = store.attrs["sample_ids"]
+    def __init__(self, npy_dir: str, normalise: bool = True):
+        # npy_dir should contain counts.npy and sample_ids.npy
+        self.counts     = np.load(os.path.join(npy_dir, "counts.npy"))
+        self.sample_ids = np.load(os.path.join(npy_dir, "sample_ids.npy"), allow_pickle=True)
         self.normalise  = normalise
 
     def __len__(self):

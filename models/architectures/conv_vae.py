@@ -6,8 +6,8 @@ import torch.nn as nn
 # Constants
 # ---------------------------------------------------------------------------
 
-N_BINS_RAW    = 23340
-N_BINS_PADDED = 23360   # next multiple of 32
+N_BINS_RAW    = 20814
+N_BINS_PADDED = 20832   # next multiple of 32
 
 
 # ---------------------------------------------------------------------------
