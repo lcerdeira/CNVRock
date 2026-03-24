@@ -109,14 +109,14 @@ process RestrictIntervalList {
     memory "1GB"
     queue  "normal"
 
-    publishDir ".",
+    publishDir "../assets/,
         mode: "copy", overwrite: true, failOnError: true
 
     input:
         val(meta)
 
     output:
-        path "restricted.interval_list"
+        path "core-genome.interval_list"
 
     script:
         def java_Xmx = task.memory.mega - 200
@@ -126,9 +126,9 @@ process RestrictIntervalList {
             --INPUT        ${meta.interval_list_of_genome} \
             --SECOND_INPUT ${meta.intervals_of_interest} \
             --ACTION       OVERLAPS \
-            --OUTPUT       restricted.interval_list.TEMP
+            --OUTPUT       core-genome.interval_list.TEMP
 
-        mv restricted.interval_list.TEMP restricted.interval_list
+        mv core-genome.interval_list.TEMP core-genome.interval_list
         """
 }
 
