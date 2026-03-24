@@ -1,4 +1,3 @@
-import zarr
 import os
 import numpy as np
 import pandas as pd
@@ -8,6 +7,8 @@ from tqdm.auto import tqdm
 from concurrent.futures import ThreadPoolExecutor
 
 PATH_TO_READ_COUNTS = "readcounts"
+OUT_DIR             = Path("../data/inputs/Pf9-53973-samples-1000bp-npy")
+
 CONTIGS = [
     "Pf3D7_01_v3", "Pf3D7_02_v3", "Pf3D7_03_v3", "Pf3D7_04_v3",
     "Pf3D7_05_v3", "Pf3D7_06_v3", "Pf3D7_07_v3", "Pf3D7_08_v3",
@@ -18,6 +19,7 @@ CONTIG_TO_IDX = {c: i for i, c in enumerate(CONTIGS)}
 
 REQUIRED_COLUMNS = {"CONTIG", "START", "END", "COUNT"}
 
+
 def read_counts_tsv(path: str) -> pd.DataFrame:
     p = Path(path)
 
@@ -27,7 +29,7 @@ def read_counts_tsv(path: str) -> pd.DataFrame:
     if p.stat().st_size == 0:
         raise ValueError(f"Readcounts file is empty (0 bytes): {path}")
 
-    # ── parse ─────────────────────────────────────────────────────────────────
+    # ── skip header lines ─────────────────────────────────────────────────────
     with open(path) as f:
         skip = sum(1 for line in f if line.startswith("@"))
 
@@ -54,11 +56,14 @@ def read_counts_tsv(path: str) -> pd.DataFrame:
             f"Sample contigs present: {df['CONTIG'].unique().tolist()}"
         )
 
-    df["POS"]        = ((df["START"] + df["END"]) / 2).astype(np.uint32)
-    df["CONTIG_IDX"] = df["CONTIG"].map(CONTIG_TO_IDX).astype(np.uint8)
-    result = df[["CONTIG_IDX", "POS", "COUNT"]]
+    # Keep CHROM (string), START, END, COUNT — no midpoint needed
+    df = df.rename(columns={"CONTIG": "CHROM"})
+    result = df[["CHROM", "START", "END", "COUNT"]].copy()
+    result["START"] = result["START"].astype(np.uint32)
+    result["END"]   = result["END"].astype(np.uint32)
+    result["COUNT"] = result["COUNT"].astype(np.uint32)
 
-    # ── integrity: no NaNs (catches truncated rows) ───────────────────────────
+    # ── integrity: no NaNs ────────────────────────────────────────────────────
     null_counts = result.isnull().sum()
     if null_counts.any():
         bad = null_counts[null_counts > 0].to_dict()
@@ -70,7 +75,7 @@ def read_counts_tsv(path: str) -> pd.DataFrame:
     return result
 
 
-def validate_all_files(tsv_dir: str, sample_ids: list[str], n_workers: int = 64) -> int:
+def validate_all_files(tsv_dir: str, sample_ids: list[str], n_workers: int = 16) -> int:
     """
     Read every file once, check shape consistency, and return the expected bin count.
     Raises a RuntimeError listing ALL bad files rather than stopping at the first.
@@ -101,7 +106,6 @@ def validate_all_files(tsv_dir: str, sample_ids: list[str], n_workers: int = 64)
             f"{len(errors)} file(s) failed validation:\n" + "\n".join(errors)
         )
 
-    # ── all counts must agree ─────────────────────────────────────────────────
     unique_shapes = set(bin_counts.values())
     if len(unique_shapes) > 1:
         from collections import Counter
@@ -120,31 +124,31 @@ def validate_all_files(tsv_dir: str, sample_ids: list[str], n_workers: int = 64)
     return n_bins
 
 
-def build_store(store_path: str, tsv_dir: str, sample_ids: list[str], n_workers: int = 64):
-    # ── validate everything before creating the store ─────────────────────────
+def build_npy(out_dir: Path, tsv_dir: str, sample_ids: list[str], n_workers: int = 16):
+    out_dir.mkdir(parents=True, exist_ok=True)
     n_bins    = validate_all_files(tsv_dir, sample_ids, n_workers)
     n_samples = len(sample_ids)
 
-    # Re-read first sample for coordinates (already validated above)
+    # ── contigs structured array from first sample (validated above) ──────────
     first_df = read_counts_tsv(os.path.join(tsv_dir, f"{sample_ids[0]}.counts.tsv"))
 
-    store = zarr.open(store_path, mode="w")
-    store.array("contig_idx", first_df["CONTIG_IDX"].values, dtype="u1", chunks=False)
-    store.array("pos",        first_df["POS"].values,        dtype="u4", chunks=False)
-    counts = store.zeros(
-        "counts",
-        shape=(n_samples, n_bins),
-        chunks=(100, n_bins),
-        dtype="u4",
-        compressor=zarr.Blosc(cname="lz4", clevel=5, shuffle=zarr.Blosc.SHUFFLE),
-    )
-    store.attrs.update({
-        "contig_names": CONTIGS,
-        "bin_size":     1000,
-        "genome":       "PlasmoDB-54_Pfalciparum3D7",
-        "n_bins":       n_bins,
-        "sample_ids":   sample_ids,
-    })
+    contigs_dtype = np.dtype([
+        ("chrom", object),
+        ("start", np.uint32),
+        ("end",   np.uint32),
+    ])
+    contigs = np.empty(n_bins, dtype=contigs_dtype)
+    contigs["chrom"] = first_df["CHROM"].values
+    contigs["start"] = first_df["START"].values.astype(np.uint32)
+    contigs["end"]   = first_df["END"].values.astype(np.uint32)
+
+    np.save(out_dir / "contigs.npy",    contigs)
+    np.save(out_dir / "sample_ids.npy", np.array(sample_ids, dtype=object))
+
+    print(f"Contigs saved: {n_bins} bins.")
+
+    # ── counts: (n_samples, n_bins) uint32, written row-by-row ───────────────
+    counts = np.zeros((n_samples, n_bins), dtype=np.uint32)
 
     def read_one(args):
         idx, sample_id = args
@@ -152,8 +156,9 @@ def build_store(store_path: str, tsv_dir: str, sample_ids: list[str], n_workers:
         try:
             df = read_counts_tsv(path)
         except Exception as exc:
-            # Re-raise with sample context so the traceback is actionable
-            raise RuntimeError(f"Failed reading sample '{sample_id}' ({path}): {exc}") from exc
+            raise RuntimeError(
+                f"Failed reading sample '{sample_id}' ({path}): {exc}"
+            ) from exc
 
         if len(df) != n_bins:
             raise RuntimeError(
@@ -167,16 +172,18 @@ def build_store(store_path: str, tsv_dir: str, sample_ids: list[str], n_workers:
         for idx, data in tqdm(pool.map(read_one, jobs), total=n_samples):
             counts[idx, :] = data
 
-    print(f"Done. Store shape: {counts.shape}")
-    return store
+    np.save(out_dir / "counts.npy", counts)
+    print(f"Done. counts shape: {counts.shape}  →  {out_dir}/counts.npy")
+
+    return counts
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 tsv_files  = sorted(f for f in os.listdir(PATH_TO_READ_COUNTS) if f.endswith(".counts.tsv"))
 sample_ids = [f.replace(".counts.tsv", "") for f in tsv_files]
 
-build_store(
-    store_path = "../data/inputs/Pf9-53973-samples-1000bp.zarr",
+build_npy(
+    out_dir    = OUT_DIR,
     tsv_dir    = PATH_TO_READ_COUNTS,
     sample_ids = sample_ids,
 )
