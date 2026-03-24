@@ -28,7 +28,8 @@ def page1():
         inputs["contigs"], inputs["counts"].loc[SAMPLE_ID],
         results["reconstructions"].loc[SAMPLE_ID]
     )
-
+    
     p = plot_copy_number(data)
-    html = file_html(p, CDN)                      # convert Bokeh figure → self-contained HTML
-    components.html(html, height=300)             # render it in Streamlit
+    p.sizing_mode = "stretch_width"
+    html = file_html(p, CDN)
+    components.html(html, height=300)

@@ -6,8 +6,7 @@ import pandas as pd
 import streamlit as st
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource
-from bokeh.resources import CDN
-from bokeh.embed import components
+from bokeh.models import NumeralTickFormatter, PanTool, WheelZoomTool
 
 @st.cache_data
 def load_results(results_dir):
@@ -34,17 +33,19 @@ def load_sample_meta():
             "QC pass", "Exclusion reason", "Sample type"]
         )
     cnv_calls = pd.read_csv(
-        "../assets/20260311_full_cnv_data_pf9.tsv", sep = "\t", index_col=0,
+        "../assets/20260313_full_cnv_data_pf9.tsv", sep = "\t", index_col=0,
         usecols = [
-            "CRT_curated_coverage_only", "CRT_faceaway_only",
-            "GCH1_curated_coverage_only", "GCH1_faceaway_only",
-            "MDR1_curated_coverage_only", "MDR1_faceaway_only",
-            "PM2_PM3_curated_coverage_only", "PM2_PM3_faceaway_only",
+            "Sample",
+            "CRT_uncurated_coverage_only", "CRT_curated_coverage_only", "CRT_faceaway_only",
+            "GCH1_uncurated_coverage_only", "GCH1_curated_coverage_only", "GCH1_faceaway_only",
+            "MDR1_uncurated_coverage_only", "MDR1_curated_coverage_only", "MDR1_faceaway_only",
+            "PM2_PM3_uncurated_coverage_only", "PM2_PM3_curated_coverage_only", "PM2_PM3_faceaway_only",
             "HRP2_uncurated_coverage_only", "HRP2_final_deletion_call",
             "HRP3_uncurated_coverage_only", "HRP3_final_deletion_call",
         ]
     )
-    return meta_df
+
+    return meta_df.merge(cnv_calls, left_index=True, right_index=True)
 
 @st.cache_data
 def load_inputs(inputs_path):
@@ -72,17 +73,23 @@ def process_sample(contigs, sample_inputs, sample_reconstruction):
 
 def plot_copy_number(data):
     chrom_options = data["chrom"].unique().tolist()
-    selected_chrom = st.select_slider("Chromosome", chrom_options, label_visibility = "hidden")
-    
+    selected_chrom = st.select_slider("Chromosome", chrom_options, label_visibility="hidden")
+
     filtered = data[data["chrom"] == selected_chrom].reset_index(drop=True)
-    x = np.arange(len(filtered))
+    x = filtered.start.values
     source = ColumnDataSource(data=dict(x=x, y=filtered["copy_ratio"].values))
+
+    p = figure(height=250, width=700, tools="pan,wheel_zoom,reset", sizing_mode="stretch_width", output_backend="webgl")
     
-    p = figure(height=250, width=700, title=f"Copy Number Profile — {selected_chrom}",
-               x_axis_label="Bin", y_axis_label="Copy Ratio",
-               tools="pan,wheel_zoom,box_zoom,reset,save")
+    for tool in p.toolbar.tools:
+        if isinstance(tool, PanTool):
+            tool.dimensions = "width"
+        elif isinstance(tool, WheelZoomTool):
+            tool.dimensions = "width"
+
     p.line('x', 'y', source=source, line_width=2)
-    p.circle('x', 'y', source=source, size=3, color="navy", alpha=0.5)
     p.y_range.start = -0.1
     p.y_range.end = 5.1
+    p.xaxis.formatter = NumeralTickFormatter(format="0,0")
+
     return p
