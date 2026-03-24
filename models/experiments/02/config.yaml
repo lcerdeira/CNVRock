@@ -1,10 +1,10 @@
 # Data
-store_path: "../../../data/inputs/Pf9-53973-samples-1000bp.zarr"
-out_dir:    "../../../data/results/pf9_conv_vae_01"
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/pf9_conv_vae_02"
 normalise:  true   # apply log2(count + 1)
 
 # Model
-latent_dim: 16
+latent_dim: 8
 
 # Training
 batch_size:    128
@@ -14,7 +14,7 @@ weight_decay:  1.0e-5
 
 # Beta annealing (KL weight)
 max_beta:      1.0
-warmup_epochs: 400
+warmup_epochs: 50
 
 # Early stopping
-patience: 50
+patience: 8
