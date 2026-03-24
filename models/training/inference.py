@@ -27,8 +27,10 @@ def run_inference(model, dataset, device, out_dir, batch_size=128):
             x     = batch.to(device)
             mu, _ = model.enc(x)
             recon = model.dec(mu)       # deterministic: use mu rather than sampled z
+            # Denormalize reconstructions: inverse of log2(count+1) is 2^x - 1
+            recon_denorm = torch.pow(2, recon) - 1
             all_mu.append(mu.cpu().numpy())
-            all_recon.append(recon.cpu().numpy())
+            all_recon.append(recon_denorm.cpu().numpy())
 
     latents = np.concatenate(all_mu,    axis=0)   # (n_samples, latent_dim)
     recons  = np.concatenate(all_recon, axis=0)   # (n_samples, n_bins)
@@ -38,5 +40,5 @@ def run_inference(model, dataset, device, out_dir, batch_size=128):
     np.save(os.path.join(out_dir, "sample_ids.npy"),      np.array(dataset.sample_ids))
 
     print(f"Saved latents      {latents.shape} → {out_dir}/latents.npy",          flush=True)
-    print(f"Saved recons       {recons.shape}  → {out_dir}/reconstructions.npy",  flush=True)
+    print(f"Saved recons (denorm) {recons.shape}  → {out_dir}/reconstructions.npy",  flush=True)
     print(f"Saved sample_ids   ({len(dataset.sample_ids)},) → {out_dir}/sample_ids.npy", flush=True)

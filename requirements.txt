@@ -5,3 +5,5 @@ scipy==1.17.1
 setuptools==82.0.1
 python-dotenv==1.2.2
 zarr==3.1.5
+streamlit==1.55.0
+bokeh==3.9.0
