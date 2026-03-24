@@ -33,6 +33,17 @@ def load_sample_meta():
             "Sample", "Study", "Country", "Admin level 1", "Year", "Population", "% callable",
             "QC pass", "Exclusion reason", "Sample type"]
         )
+    cnv_calls = pd.read_csv(
+        "../assets/20260311_full_cnv_data_pf9.tsv", sep = "\t", index_col=0,
+        usecols = [
+            "CRT_curated_coverage_only", "CRT_faceaway_only",
+            "GCH1_curated_coverage_only", "GCH1_faceaway_only",
+            "MDR1_curated_coverage_only", "MDR1_faceaway_only",
+            "PM2_PM3_curated_coverage_only", "PM2_PM3_faceaway_only",
+            "HRP2_uncurated_coverage_only", "HRP2_final_deletion_call",
+            "HRP3_uncurated_coverage_only", "HRP3_final_deletion_call",
+        ]
+    )
     return meta_df
 
 @st.cache_data

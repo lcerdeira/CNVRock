@@ -2,11 +2,7 @@
 # Copy this folder to add a new experiment; only edit config.yaml.
 
 # Data
-<<<<<<< HEAD
-store_path: "../../../data/Pf9-53973-samples-1000bp.zarr"
-=======
 store_path: "../../../data/inputs/Pf9-53973-samples-1000bp.zarr"
->>>>>>> 0721fad3f32fa3b072c3211eef79f67cef0ed82a
 out_dir:    "../../../data/results/pf9_conv_vae_01"
 normalise:  true   # apply log2(count + 1)
 

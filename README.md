@@ -2,15 +2,12 @@
 
 Convolutional VAE for genome-wide CNV detection from read-count data.
 
-<<<<<<< HEAD
-=======
 ```
 TODO:
-- move away from zarr. 1000bp bins enables training from memory
+
 
 ```
 
->>>>>>> 0721fad3f32fa3b072c3211eef79f67cef0ed82a
 ## Layout
 
 ```
