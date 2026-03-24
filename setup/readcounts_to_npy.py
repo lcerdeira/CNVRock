@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 from concurrent.futures import ThreadPoolExecutor
 
 PATH_TO_READ_COUNTS = "readcounts"
-OUT_DIR             = Path("../data/inputs/Pf9-53973-samples-1000bp-npy")
+OUT_DIR             = Path("../data/inputs/Pf9-53973-samples-1000bp-core-npy")
 
 CONTIGS = [
     "Pf3D7_01_v3", "Pf3D7_02_v3", "Pf3D7_03_v3", "Pf3D7_04_v3",
