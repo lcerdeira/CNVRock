@@ -22,16 +22,8 @@ dev = [
     "jupyter>=1.0",
 ]
 
-[project.scripts]
-# After `pip install -e .` these become shell commands:
-# train   configs/experiments/exp_001_baseline.yaml
-# evaluate configs/experiments/exp_001_baseline.yaml
-train    = "deep_gw_cnv.cli:train"
-evaluate = "deep_gw_cnv.cli:evaluate"
-predict  = "deep_gw_cnv.cli:predict"
-
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["models"]
 
 [tool.ruff]
 line-length = 100
