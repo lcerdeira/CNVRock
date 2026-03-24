@@ -17,14 +17,23 @@ workflow {
         .set { reference_genome_ch }
 
     manifest_ch              = Channel.fromPath("../assets/paths_to_bams_crams.tsv")
-    intervals_of_interest_ch = Channel.fromPath("../assets/core-genome.bed")
+    intervals_of_interest_ch = Channel.fromPath(params.intervals_of_interest)
 
     interval_list_ch = GenerateWholeGenomeIntervalList(reference_genome_ch)
 
-    combined_intervals_ch = intervals_of_interest_ch
+    converted_intervals_ch = intervals_of_interest_ch
+        .combine(reference_genome_ch)
+        .map { bed, ref_meta -> [
+            bed:      bed,
+            ref_meta: ref_meta
+        ]}
+
+    proper_intervals_ch = ConvertBedToIntervalList(converted_intervals_ch)
+
+    combined_intervals_ch = proper_intervals_ch
         .combine(interval_list_ch)
         .map { intervals_file, genome_intervals -> [
-            intervals_of_interest:  intervals_file,
+            intervals_of_interest:   intervals_file,
             interval_list_of_genome: genome_intervals
         ]}
 
@@ -75,9 +84,33 @@ process GenerateWholeGenomeIntervalList {
         """
 }
 
+process ConvertBedToIntervalList {
+    memory "1GB"
+    queue  "normal"
+
+    input:
+        val(meta)
+
+    output:
+        path "intervals_of_interest.interval_list"
+
+    script:
+        def java_Xmx = task.memory.mega - 200
+        """
+        gatk BedToIntervalList \
+            --java-options "-Xmx${java_Xmx}m" \
+            --INPUT                 ${meta.bed} \
+            --OUTPUT                intervals_of_interest.interval_list \
+            --SEQUENCE_DICTIONARY   ${meta.ref_meta.reference_dict}
+        """
+}
+
 process RestrictIntervalList {
     memory "1GB"
     queue  "normal"
+
+    publishDir ".",
+        mode: "copy", overwrite: true, failOnError: true
 
     input:
         val(meta)
