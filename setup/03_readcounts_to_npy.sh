@@ -7,7 +7,7 @@ bsub \
     -e "log.e" \
     -q basement \
     -G team342 \
-    -R "select[mem>48000] rusage[mem=48000]" \
-    -M 48000 \
-    -n 8 \
+    -R "select[mem>16000] rusage[mem=16000]" \
+    -M 16000 \
+    -n 4 \
     "PYTHONUNBUFFERED=1 python3 -u readcounts_to_npy.py"

@@ -75,7 +75,7 @@ def read_counts_tsv(path: str) -> pd.DataFrame:
     return result
 
 
-def validate_all_files(tsv_dir: str, sample_ids: list[str], n_workers: int = 64) -> int:
+def validate_all_files(tsv_dir: str, sample_ids: list[str], n_workers: int = 16) -> int:
     """
     Read every file once, check shape consistency, and return the expected bin count.
     Raises a RuntimeError listing ALL bad files rather than stopping at the first.
@@ -124,7 +124,7 @@ def validate_all_files(tsv_dir: str, sample_ids: list[str], n_workers: int = 64)
     return n_bins
 
 
-def build_npy(out_dir: Path, tsv_dir: str, sample_ids: list[str], n_workers: int = 64):
+def build_npy(out_dir: Path, tsv_dir: str, sample_ids: list[str], n_workers: int = 16):
     out_dir.mkdir(parents=True, exist_ok=True)
     n_bins    = validate_all_files(tsv_dir, sample_ids, n_workers)
     n_samples = len(sample_ids)
