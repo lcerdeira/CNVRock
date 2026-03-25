@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import os
 
-from src.utils import load_results, load_inputs, load_sample_meta, process_sample, plot_copy_number
+from src.utils import load_meta, load_results, load_inputs, load_meta, process_sample, plot_copy_number
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
@@ -16,9 +16,9 @@ def page1():
     if not RESULTS_DIR or not INPUTS_DIR:
         st.stop("Please select both a results directory and an inputs directory to proceed.")
 
-    results = load_results(os.path.join("../data/results/", RESULTS_DIR))
-    inputs  = load_inputs(os.path.join("../data/inputs/", INPUTS_DIR))
-    meta    = load_sample_meta()
+    results   = load_results(os.path.join("../data/results/", RESULTS_DIR))
+    inputs    = load_inputs(os.path.join("../data/inputs/", INPUTS_DIR))
+    meta, gff = load_meta()
 
     st.dataframe(meta)
 
@@ -33,3 +33,5 @@ def page1():
     p.sizing_mode = "stretch_width"
     html = file_html(p, CDN)
     components.html(html, height=300)
+    
+    st.dataframe(gff, hide_index = True)

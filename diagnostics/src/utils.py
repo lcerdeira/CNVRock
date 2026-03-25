@@ -12,7 +12,7 @@ from bokeh.models import NumeralTickFormatter, PanTool, WheelZoomTool
 def load_results(results_dir):
     latents         = np.load(os.path.join(results_dir, "latents.npy"))
     reconstructions = np.load(os.path.join(results_dir, "reconstructions.npy"))
-    sample_ids      = np.load(os.path.join(results_dir, "sample_ids.npy"))
+    sample_ids      = np.load(os.path.join(results_dir, "sample_ids.npy"), allow_pickle=True)
 
     latents_df = pd.DataFrame(latents, index=sample_ids)
     latents_df.columns = [f"latent_{i+1}" for i in range(latents_df.shape[1])]
@@ -25,7 +25,7 @@ def load_results(results_dir):
     }
 
 @st.cache_data
-def load_sample_meta():
+def load_meta():
     meta_df = pd.read_csv(
         "../assets/Pf_9_samples_20260227.txt", index_col=0, sep = "\t",
         usecols = [
@@ -44,8 +44,29 @@ def load_sample_meta():
             "HRP3_uncurated_coverage_only", "HRP3_final_deletion_call",
         ]
     )
+    gff = pd.read_csv(
+        "../assets/PlasmoDB-54_Pfalciparum3D7.gff",
+        sep="\t", comment="#", header=None,
+        names=["seqid", "source", "type", "start", "end", "score", "strand", "phase", "attributes"]
+    )
 
-    return meta_df.merge(cnv_calls, left_index=True, right_index=True)
+    def parse_attributes(attr_string):
+        attrs = {}
+        for item in attr_string.split(';'):
+            if "=" in item:
+                key, value = item.split('=', 1)
+                attrs[key] = value
+        return attrs
+    
+    attr_df = gff['attributes'].apply(parse_attributes).apply(pd.Series)
+    gff = pd.concat([gff, attr_df], axis=1)
+    gff = gff.loc[gff["type"].isin(["protein_coding_gene", "ncRNA"])].reset_index(drop = True).drop(
+        columns = [
+            "source", "attributes", "Note", "score", "protein_source_id",
+            "strand", "phase", "Parent", "gene_id", "type"]
+    ).sort_values("ID")
+
+    return meta_df.merge(cnv_calls, left_index=True, right_index=True), gff
 
 @st.cache_data
 def load_inputs(inputs_path):
