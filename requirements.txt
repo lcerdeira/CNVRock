@@ -6,4 +6,5 @@ setuptools==82.0.1
 python-dotenv==1.2.2
 streamlit==1.55.0
 bokeh==3.9.0
-
+scikit-learn==1.8.0
+matploitlib==3.10.8

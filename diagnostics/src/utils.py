@@ -1,10 +1,13 @@
 import os
 import random
-import zarr
 
 import numpy as np
 import pandas as pd
 import streamlit as st
+import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
+from sklearn.decomposition import PCA
+from matplotlib.lines import Line2D
 from bokeh.plotting import figure
 from bokeh.layouts import column
 from bokeh.models import ColumnDataSource
@@ -93,6 +96,71 @@ def process_sample(contigs, sample_inputs, sample_reconstruction):
     copy_ratio["copy_ratio"] = copy_ratio["input"] / (copy_ratio["reconstruction"] + 1e-6)
     
     return pd.concat([contigs, copy_ratio], axis=1)
+
+@st.cache_data
+def compute_pca(latents_df):
+    pca = PCA(n_components=2)
+    coords = pca.fit_transform(latents_df.values)
+    df = pd.DataFrame(coords, index=latents_df.index, columns=["PC1", "PC2"])
+    variance = pca.explained_variance_ratio_ * 100
+    return df, variance
+
+_KDE_CLASSES = {"gDNA": "green", "sWGA": "blue"}
+
+@st.cache_data
+def compute_pca_contours(pca_df, meta):
+    """Compute KDE contour paths per sample class. Cached — independent of selected sample."""
+    pca_with_type = pca_df.join(meta[["Sample type"]], how="left")
+
+    pad_x = (pca_df["PC1"].max() - pca_df["PC1"].min()) * 0.15
+    pad_y = (pca_df["PC2"].max() - pca_df["PC2"].min()) * 0.15
+    gx = np.linspace(pca_df["PC1"].min() - pad_x, pca_df["PC1"].max() + pad_x, 100)
+    gy = np.linspace(pca_df["PC2"].min() - pad_y, pca_df["PC2"].max() + pad_y, 100)
+    xx, yy = np.meshgrid(gx, gy)
+    grid_pts = np.vstack([xx.ravel(), yy.ravel()])
+
+    result = {}
+    for stype, color in _KDE_CLASSES.items():
+        subset = pca_with_type[pca_with_type["Sample type"] == stype]
+        if len(subset) < 5:
+            continue
+        kde = gaussian_kde(subset[["PC1", "PC2"]].values.T)
+        zz  = kde(grid_pts).reshape(xx.shape)
+        # Use percentiles of the grid density so levels are guaranteed within zz range
+        levels = np.percentile(zz, [96, 98, 99.8]).tolist()
+
+        fig, ax = plt.subplots()
+        cs = ax.contour(gx, gy, zz, levels=sorted(levels))
+        paths = [path.vertices for path in cs.get_paths()]
+        plt.close(fig)
+
+        result[stype] = (color, paths)
+    return result
+
+def plot_pca(pca_df, variance, contours, selected_sample):
+    fig, ax = plt.subplots(figsize=(4, 4))
+
+    other    = pca_df[pca_df.index != selected_sample]
+    selected = pca_df[pca_df.index == selected_sample]
+
+    for color, paths in contours.values():
+        for verts in paths:
+            ax.plot(verts[:, 0], verts[:, 1], color=color, alpha=0.7, linewidth=1.5)
+
+    ax.scatter(other["PC1"],    other["PC2"],    c="grey", s=8,  alpha=0.4, zorder=-1)
+    ax.scatter(selected["PC1"], selected["PC2"], c="red",  s=40, alpha=1.0, zorder=3)
+
+    handles = [
+        Line2D([0], [0], color=color, linewidth=1.5, label=stype)
+        for stype, (color, _) in contours.items()
+    ]
+    ax.legend(handles=handles, framealpha=0.7, fontsize=8)
+
+    ax.set_xlabel(f"PC1 ({variance[0]:.1f}%)")
+    ax.set_ylabel(f"PC2 ({variance[1]:.1f}%)")
+    fig.tight_layout()
+
+    return fig
 
 def plot_copy_number(data):
     chrom_options = data["chrom"].unique().tolist()

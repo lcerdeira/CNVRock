@@ -4,7 +4,10 @@ import pandas as pd
 import os
 import random
 
-from src.utils import load_meta, load_results, load_inputs, process_sample, plot_copy_number
+import matplotlib.pyplot as plt
+
+from src.utils import (load_meta, load_results, load_inputs, process_sample,
+                       compute_pca, compute_pca_contours, plot_pca, plot_copy_number)
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
@@ -35,13 +38,21 @@ def page1():
     with col2:
         st.button("I'm Feeling Lucky", on_click=on_lucky_click)
 
+    pca_df, variance = compute_pca(results["latents"])
+    contours = compute_pca_contours(pca_df, meta)
+
     data = process_sample(
         inputs["contigs"], inputs["counts"].loc[SAMPLE_ID],
         results["reconstructions"].loc[SAMPLE_ID]
     )
-    
-    layout = plot_copy_number(data)
-    html = file_html(layout, CDN)
-    components.html(html, height=500)
+
+    col_pca, col_cn = st.columns([1, 3])
+    with col_pca:
+        fig = plot_pca(pca_df, variance, contours, SAMPLE_ID)
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+    with col_cn:
+        cn_layout = plot_copy_number(data)
+        components.html(file_html(cn_layout, CDN), height=520)
     
     st.dataframe(gff, hide_index = True)
