@@ -1,10 +1,12 @@
 import os
+import random
 import zarr
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 from bokeh.plotting import figure
+from bokeh.layouts import column
 from bokeh.models import ColumnDataSource
 from bokeh.models import NumeralTickFormatter, PanTool, WheelZoomTool
 
@@ -94,23 +96,48 @@ def process_sample(contigs, sample_inputs, sample_reconstruction):
 
 def plot_copy_number(data):
     chrom_options = data["chrom"].unique().tolist()
-    selected_chrom = st.select_slider("Chromosome", chrom_options, label_visibility="hidden")
+
+    if st.session_state.get("lucky_chrom") == "__random__":
+        st.session_state["chrom_slider"] = random.choice(chrom_options)
+        st.session_state["lucky_chrom"] = st.session_state["chrom_slider"]
+
+    selected_chrom = st.select_slider("Chromosome", chrom_options, key="chrom_slider", label_visibility="hidden")
 
     filtered = data[data["chrom"] == selected_chrom].reset_index(drop=True)
-    x = filtered.start.values
-    source = ColumnDataSource(data=dict(x=x, y=filtered["copy_ratio"].values))
+    x       = filtered.start.values.astype(float)
+    y_ratio = filtered["copy_ratio"].values.astype(float)
+    y_input = filtered["input"].values.astype(float)
+    y_recon = filtered["reconstruction"].values.astype(float)
 
-    p = figure(height=250, width=700, tools="pan,wheel_zoom,reset", sizing_mode="stretch_width", output_backend="webgl")
-    
-    for tool in p.toolbar.tools:
-        if isinstance(tool, PanTool):
-            tool.dimensions = "width"
-        elif isinstance(tool, WheelZoomTool):
-            tool.dimensions = "width"
+    gaps    = np.where(np.diff(x) > 1000)[0] + 1
+    x       = np.insert(x,       gaps, np.nan)
+    y_ratio = np.insert(y_ratio, gaps, np.nan)
+    y_input = np.insert(y_input, gaps, np.nan)
+    y_recon = np.insert(y_recon, gaps, np.nan)
 
-    p.line('x', 'y', source=source, line_width=2)
-    p.y_range.start = -0.1
-    p.y_range.end = 5.1
-    p.xaxis.formatter = NumeralTickFormatter(format="0,0")
+    tools = "pan,wheel_zoom,reset"
+    fig_kwargs = dict(tools=tools, sizing_mode="stretch_width", output_backend="webgl")
+    p1 = figure(height=250, width=700, **fig_kwargs)
+    p2 = figure(height=200, width=700, x_range=p1.x_range, **fig_kwargs)
 
-    return p
+    for p in [p1, p2]:
+        for tool in p.toolbar.tools:
+            if isinstance(tool, PanTool):
+                tool.dimensions = "width"
+            elif isinstance(tool, WheelZoomTool):
+                tool.dimensions = "width"
+
+    s1 = ColumnDataSource(data=dict(x=x, y=y_ratio))
+    s2 = ColumnDataSource(data=dict(x=x, input=y_input, reconstruction=y_recon))
+
+    p1.line('x', 'y', source=s1, line_width=2)
+    p1.y_range.start = -0.1
+    p1.y_range.end = 5.1
+    p1.xaxis.formatter = NumeralTickFormatter(format="0,0")
+
+    p2.line('x', 'input',          source=s2, line_width=2, color="green", legend_label="input")
+    p2.line('x', 'reconstruction', source=s2, line_width=2, color="red",
+            legend_label="reconstruction")
+    p2.xaxis.formatter = NumeralTickFormatter(format="0,0")
+
+    return column([p1, p2], sizing_mode="stretch_width")

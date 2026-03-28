@@ -2,8 +2,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 import os
+import random
 
-from src.utils import load_meta, load_results, load_inputs, load_meta, process_sample, plot_copy_number
+from src.utils import load_meta, load_results, load_inputs, process_sample, plot_copy_number
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
@@ -22,16 +23,25 @@ def page1():
 
     st.dataframe(meta)
 
-    SAMPLE_ID = st.selectbox("Select sample ID", options = results["latents"].index, index=0)
+    sample_options = list(results["latents"].index)
+
+    def on_lucky_click():
+        st.session_state["sample_select"] = random.choice(sample_options)
+        st.session_state["lucky_chrom"] = "__random__"
+
+    col1, col2 = st.columns([4, 1], vertical_alignment="bottom")
+    with col1:
+        SAMPLE_ID = st.selectbox("Select sample ID", options=sample_options, key="sample_select")
+    with col2:
+        st.button("I'm Feeling Lucky", on_click=on_lucky_click)
 
     data = process_sample(
         inputs["contigs"], inputs["counts"].loc[SAMPLE_ID],
         results["reconstructions"].loc[SAMPLE_ID]
     )
     
-    p = plot_copy_number(data)
-    p.sizing_mode = "stretch_width"
-    html = file_html(p, CDN)
-    components.html(html, height=300)
+    layout = plot_copy_number(data)
+    html = file_html(layout, CDN)
+    components.html(html, height=500)
     
     st.dataframe(gff, hide_index = True)
