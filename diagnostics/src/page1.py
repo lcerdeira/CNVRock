@@ -7,7 +7,7 @@ import random
 import matplotlib.pyplot as plt
 
 from src.utils import (load_meta, load_results, load_inputs, process_sample,
-                       compute_pca, compute_pca_contours, plot_pca, plot_copy_number)
+                       compute_pca, compute_pca_contours, plot_latents, plot_pca, plot_copy_number)
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
@@ -48,6 +48,10 @@ def page1():
 
     col_pca, col_cn = st.columns([1, 3])
     with col_pca:
+        lat_fig = plot_latents(results["latents"].loc[SAMPLE_ID])
+        st.pyplot(lat_fig, use_container_width=True)
+        plt.close(lat_fig)
+
         fig = plot_pca(pca_df, variance, contours, SAMPLE_ID)
         st.pyplot(fig, use_container_width=True)
         plt.close(fig)

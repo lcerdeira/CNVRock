@@ -137,6 +137,34 @@ def compute_pca_contours(pca_df, meta):
         result[stype] = (color, paths)
     return result
 
+def plot_latents(latent_values):
+    vals   = latent_values.values.astype(float)
+    labels = [f"z{i+1}" for i in range(len(vals))]
+    abs_max = np.abs(vals).max() or 1.0
+
+    norm   = plt.Normalize(vmin=0, vmax=abs_max)
+    colors = plt.cm.Reds(norm(np.abs(vals)))
+
+    fig, ax = plt.subplots(figsize=(8, 1.8))
+    bars = ax.bar(labels, vals, color=colors, edgecolor="none")
+    ax.axhline(0, color="black", linewidth=0.6)
+
+    pad = abs_max * 0.04
+    for bar, val in zip(bars, vals):
+        x  = bar.get_x() + bar.get_width() / 2
+        if val >= 0:
+            ax.text(x, val + pad, f"{val:.1f}", ha="center", va="bottom", fontsize=7)
+        else:
+            ax.text(x, val - pad, f"{val:.1f}", ha="center", va="top",    fontsize=7)
+
+    ax.set_xlim(-0.5, len(vals) - 0.5)
+    ax.set_ylim(-abs_max * 1.25, abs_max * 1.25)
+    ax.tick_params(axis="x", labelsize=7)
+    ax.tick_params(axis="y", labelsize=7)
+    ax.set_ylabel("latent value", fontsize=8)
+    fig.tight_layout()
+    return fig
+
 def plot_pca(pca_df, variance, contours, selected_sample):
     fig, ax = plt.subplots(figsize=(4, 4))
 
