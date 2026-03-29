@@ -6,12 +6,16 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
+from scipy.spatial import cKDTree
 from sklearn.decomposition import PCA
+import umap
 from matplotlib.lines import Line2D
 from bokeh.plotting import figure
-from bokeh.layouts import column
-from bokeh.models import ColumnDataSource
+from bokeh.layouts import column, row as bk_row
+from bokeh.models import (ColumnDataSource, HoverTool, ColorBar,
+                           LinearColorMapper, CustomJS, Span)
 from bokeh.models import NumeralTickFormatter, PanTool, WheelZoomTool
+from bokeh.palettes import Plasma256
 
 @st.cache_data
 def load_results(results_dir):
@@ -189,6 +193,114 @@ def plot_pca(pca_df, variance, contours, selected_sample):
     fig.tight_layout()
 
     return fig
+
+@st.cache_data
+def compute_umap_coverage(latents_df, n_probes=300_000, empty_pct=95, umap_n_neighbors=30, umap_min_dist=0.1):
+    z   = latents_df.values
+    rng = np.random.default_rng(42)
+
+    lo, hi = z.min(axis=0), z.max(axis=0)
+    probes = rng.uniform(lo, hi, size=(n_probes, z.shape[1]))
+
+    tree = cKDTree(z)
+    dists, _ = tree.query(probes, k=1, workers=-1)
+    threshold    = np.percentile(dists, empty_pct)
+    empty_probes = probes[dists > threshold]
+    empty_dists  = dists[dists > threshold]
+
+    reducer   = umap.UMAP(n_components=2, n_neighbors=umap_n_neighbors,
+                          min_dist=umap_min_dist, random_state=42, low_memory=True)
+    embedding = reducer.fit_transform(empty_probes)
+
+    df             = pd.DataFrame(embedding, columns=["u1", "u2"])
+    df["nn_dist"]  = empty_dists
+    df[list(latents_df.columns)] = empty_probes
+    return df
+
+
+def plot_umap_coverage(umap_df, latents_df):
+    lat_cols = list(latents_df.columns)
+    n_lats   = len(lat_cols)
+    x_labels = [f"z{i+1}" for i in range(n_lats)]
+
+    y_abs_max = float(np.abs(umap_df[lat_cols].values).max()) * 1.15
+
+    src = ColumnDataSource({
+        "u1":      umap_df["u1"].values,
+        "u2":      umap_df["u2"].values,
+        "nn_dist": umap_df["nn_dist"].values,
+        **{c: umap_df[c].values for c in lat_cols},
+    })
+
+    bar_src = ColumnDataSource({
+        "x":     x_labels,
+        "top":   [0.0] * n_lats,
+        "color": ["#eeeeee"] * n_lats,
+    })
+
+    # --- Scatter ---
+    color_mapper = LinearColorMapper(
+        palette=Plasma256,
+        low=float(umap_df["nn_dist"].min()),
+        high=float(umap_df["nn_dist"].max()),
+    )
+    p_scatter = figure(
+        width=720, height=640,
+        output_backend="webgl",
+        tools="pan,wheel_zoom,box_zoom,reset",
+        title="UMAP of empty latent regions — hover to inspect",
+    )
+    p_scatter.scatter("u1", "u2", source=src, size=4, alpha=0.55,
+                      color={"field": "nn_dist", "transform": color_mapper})
+    p_scatter.add_layout(
+        ColorBar(color_mapper=color_mapper, label_standoff=8, width=12,
+                 title="dist to nearest sample"),
+        "right"
+    )
+    p_scatter.xaxis.axis_label = "UMAP 1"
+    p_scatter.yaxis.axis_label = "UMAP 2"
+
+    # --- Bar chart ---
+    p_bar = figure(
+        width=360, height=640,
+        x_range=x_labels,
+        y_range=(-y_abs_max, y_abs_max),
+        title="Latent values at cursor",
+        tools="",
+    )
+    p_bar.vbar(x="x", top="top", bottom=0, width=0.75, color="color", source=bar_src)
+    p_bar.add_layout(Span(location=0, dimension="width", line_color="black", line_width=1))
+    p_bar.xaxis.major_label_orientation = 0.5
+    p_bar.yaxis.axis_label = "latent value"
+    p_bar.xgrid.grid_line_color = None
+
+    # --- CustomJS hover callback (pure client-side — no round trips) ---
+    callback = CustomJS(args=dict(source=src, bar_source=bar_src, lat_cols=lat_cols), code="""
+        const indices = cb_data.index.indices;
+        if (!indices.length) return;
+        const i = indices[0];
+
+        const vals = lat_cols.map(c => source.data[c][i]);
+        const abs_max = Math.max(...vals.map(v => Math.abs(v)));
+
+        const colors = vals.map(v => {
+            if (abs_max === 0) return '#eeeeee';
+            const t = Math.abs(v) / abs_max;
+            // white (255,255,255) -> crimson (220,20,60)
+            const r = Math.round(255 - t * 35);
+            const g = Math.round(255 - t * 235);
+            const b = Math.round(255 - t * 195);
+            return `rgb(${r},${g},${b})`;
+        });
+
+        bar_source.data['top']   = vals;
+        bar_source.data['color'] = colors;
+        bar_source.change.emit();
+    """)
+    p_scatter.add_tools(HoverTool(callback=callback, tooltips=None, mode="mouse"))
+
+    return bk_row([p_scatter, p_bar])
+
 
 def plot_copy_number(data):
     chrom_options = data["chrom"].unique().tolist()
