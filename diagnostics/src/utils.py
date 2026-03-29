@@ -75,7 +75,7 @@ def load_meta():
             "strand", "phase", "Parent", "gene_id", "type"]
     ).sort_values("ID")
 
-    return meta_df.merge(cnv_calls, left_index=True, right_index=True), gff
+    return meta_df.merge(cnv_calls, left_index=True, right_index=True, how="left"), gff
 
 @st.cache_data
 def load_inputs(inputs_path):
@@ -195,27 +195,62 @@ def plot_pca(pca_df, variance, contours, selected_sample):
     return fig
 
 @st.cache_data
-def compute_umap_coverage(latents_df, n_probes=300_000, empty_pct=95, umap_n_neighbors=30, umap_min_dist=0.1):
-    z   = latents_df.values
-    rng = np.random.default_rng(42)
+def compute_coverage(latents_df, n_void=20_000, umap_n_neighbors=15, umap_min_dist=0.05):
+    z        = latents_df.values
+    lat_cols = list(latents_df.columns)
+    n_dims   = z.shape[1]
+    rng      = np.random.default_rng(42)
 
-    lo, hi = z.min(axis=0), z.max(axis=0)
-    probes = rng.uniform(lo, hi, size=(n_probes, z.shape[1]))
+    sample_tree   = cKDTree(z)
+    sample_dists  = sample_tree.query(z, k=2,   p=1, workers=-1)[0][:, 1]
+    cluster_dists = sample_tree.query(z, k=501, p=1, workers=-1)[0][:, -1]
+    cluster_radius = float(np.median(cluster_dists))  # ~7 — inter-cluster scale
 
-    tree = cKDTree(z)
-    dists, _ = tree.query(probes, k=1, workers=-1)
-    threshold    = np.percentile(dists, empty_pct)
-    empty_probes = probes[dists > threshold]
-    empty_dists  = dists[dists > threshold]
+    # Perturb real samples with Laplace noise targeting cluster-scale displacement
+    # E[L1 norm] = n_dims * noise_scale = 2 * cluster_radius
+    noise_scale = 2.0 * cluster_radius / n_dims
+    K           = 4  # perturbations per sample → ~215k candidates
+    anchors     = np.repeat(z, K, axis=0)
+    noise       = rng.laplace(loc=0.0, scale=noise_scale, size=anchors.shape)
+    candidates  = anchors + noise
+
+    cand_dists, _ = sample_tree.query(candidates, k=1, p=1, workers=-1)
+
+    # Keep probes in the inter-cluster void zone
+    mask        = (cand_dists > cluster_radius) & (cand_dists < 3.0 * cluster_radius)
+    probes      = candidates[mask]
+    probe_dists = cand_dists[mask]
+
+    if len(probes) < n_void:
+        raise ValueError(f"Only {len(probes)} probe candidates survived filtering (need {n_void})")
+
+    # Take the n_void closest to the boundary
+    top_idx     = np.argpartition(probe_dists, n_void)[:n_void]
+    probes      = probes[top_idx]
+    probe_dists = probe_dists[top_idx]
+
+    # PCA to 6D first, then UMAP
+    combined     = np.vstack([probes, z])
+    combined_pca = PCA(n_components=6).fit_transform(combined)
 
     reducer   = umap.UMAP(n_components=2, n_neighbors=umap_n_neighbors,
                           min_dist=umap_min_dist, random_state=42, low_memory=True)
-    embedding = reducer.fit_transform(empty_probes)
+    embedding = reducer.fit_transform(combined_pca)
 
-    df             = pd.DataFrame(embedding, columns=["u1", "u2"])
-    df["nn_dist"]  = empty_dists
-    df[list(latents_df.columns)] = empty_probes
-    return df
+    n_probes_ = len(probes)
+
+    probe_df            = pd.DataFrame(embedding[:n_probes_], columns=["u1", "u2"])
+    probe_df["nn_dist"] = probe_dists
+    probe_df["type"]    = "void_probe"
+    probe_df[lat_cols]  = probes
+
+    sample_df            = pd.DataFrame(embedding[n_probes_:], columns=["u1", "u2"])
+    sample_df["nn_dist"] = sample_dists
+    sample_df["type"]    = "sample"
+    sample_df[lat_cols]  = z
+    sample_df.index      = latents_df.index
+
+    return pd.concat([probe_df, sample_df])
 
 
 def plot_umap_coverage(umap_df, latents_df):
@@ -300,6 +335,138 @@ def plot_umap_coverage(umap_df, latents_df):
     p_scatter.add_tools(HoverTool(callback=callback, tooltips=None, mode="mouse"))
 
     return bk_row([p_scatter, p_bar])
+
+
+_SAMPLE_TYPE_COLORS = {
+    "gDNA":    "rgba(80,210,120,0.6)",
+    "sWGA":    "rgba(80,170,255,0.6)",
+    "aAMP":    "rgba(255,160,60,0.6)",
+    "Unknown": "rgba(180,180,180,0.5)",
+}
+
+def plot_coverage(coverage_df, latents_df, meta):
+    import json
+
+    lat_cols  = list(latents_df.columns)
+    n_lats    = len(lat_cols)
+    x_labels  = [f"z{i+1}" for i in range(n_lats)]
+    y_abs_max = float(np.abs(coverage_df[lat_cols].values).max()) * 1.15
+
+    probe_df  = coverage_df[coverage_df["type"] == "void_probe"]
+    sample_df = coverage_df[coverage_df["type"] == "sample"].copy()
+    sample_df = sample_df.join(meta[["Sample type"]], how="left")
+    sample_df["Sample type"] = sample_df["Sample type"].fillna("Unknown")
+
+    probe_payload = json.dumps({
+        "x":          probe_df["u1"].tolist(),
+        "y":          probe_df["u2"].tolist(),
+        "nn_dist":    probe_df["nn_dist"].tolist(),
+        "customdata": probe_df[lat_cols].values.tolist(),
+    })
+
+    ordered_types = [t for t in _SAMPLE_TYPE_COLORS if t in sample_df["Sample type"].values]
+    other_types   = [t for t in sample_df["Sample type"].unique() if t not in _SAMPLE_TYPE_COLORS]
+    type_payloads = {}
+    for stype in ordered_types + other_types:
+        sub = sample_df[sample_df["Sample type"] == stype]
+        type_payloads[stype] = {
+            "x":          sub["u1"].tolist(),
+            "y":          sub["u2"].tolist(),
+            "customdata": sub[lat_cols].values.tolist(),
+            "color":      _SAMPLE_TYPE_COLORS.get(stype, "rgba(180,180,180,0.5)"),
+        }
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<style>
+  html, body {{ margin: 0; height: 100%; background: #0e1117; }}
+  #wrap {{ display: flex; height: 100vh; gap: 0; }}
+  #scatter {{ flex: 3; min-width: 0; }}
+  #bar     {{ flex: 1; min-width: 0; }}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="scatter"></div><div id="bar"></div></div>
+<script>
+const probes      = {probe_payload};
+const typeData    = {json.dumps(type_payloads)};
+const X_LABELS    = {json.dumps(x_labels)};
+const N_LATS      = {n_lats};
+const Y_ABS_MAX   = {y_abs_max};
+
+const DARK  = '#0e1117';
+const PANEL = '#1a1f2e';
+const FONT  = {{color: '#e0e0e0'}};
+
+const sampleTraces = Object.entries(typeData).map(([name, d]) => ({{
+    type: 'scattergl', mode: 'markers',
+    name,
+    x: d.x, y: d.y,
+    customdata: d.customdata,
+    marker: {{size: 3, color: d.color}},
+    hovertemplate: `<extra>${{name}}</extra>`,
+}}));
+
+const probeTrace = {{
+    type: 'scattergl', mode: 'markers',
+    name: 'Void probes',
+    x: probes.x, y: probes.y,
+    customdata: probes.customdata,
+    marker: {{
+        size: 3, opacity: 0.5,
+        color: probes.nn_dist, colorscale: 'Plasma',
+        colorbar: {{
+            title: {{text: 'dist to<br>nearest<br>sample', font: FONT}},
+            tickfont: FONT, thickness: 14, len: 0.5, x: 1.02,
+        }},
+    }},
+    hovertemplate: 'dist: %{{marker.color:.3f}}<extra>Void probe</extra>',
+}};
+
+Plotly.newPlot('scatter', [...sampleTraces, probeTrace], {{
+    paper_bgcolor: DARK, plot_bgcolor: PANEL,
+    xaxis: {{title: 'UMAP 1', color: '#aaa', gridcolor: '#333', zerolinecolor: '#444'}},
+    yaxis: {{title: 'UMAP 2', color: '#aaa', gridcolor: '#333', zerolinecolor: '#444'}},
+    legend: {{font: FONT, bgcolor: 'rgba(30,35,50,0.85)', bordercolor: '#444', borderwidth: 1}},
+    margin: {{l:50, r:80, t:40, b:50}},
+    title: {{text: 'Latent space coverage — click legend to toggle', font: {{...FONT, size: 13}}}},
+    hovermode: 'closest',
+}}, {{responsive: true}});
+
+Plotly.newPlot('bar', [{{
+    type: 'bar',
+    x: X_LABELS,
+    y: new Array(N_LATS).fill(0),
+    marker: {{color: new Array(N_LATS).fill('#333')}},
+}}], {{
+    paper_bgcolor: DARK, plot_bgcolor: PANEL,
+    font: FONT,
+    yaxis: {{range: [-Y_ABS_MAX, Y_ABS_MAX], gridcolor: '#333', zerolinecolor: '#888',
+             title: {{text: 'latent value', font: FONT}}}},
+    xaxis: {{gridcolor: '#333', tickfont: {{size: 11}}}},
+    margin: {{l:55, r:20, t:50, b:50}},
+    title: {{text: 'Latent profile', font: {{...FONT, size: 14}}}},
+    bargap: 0.25,
+}}, {{responsive: true}});
+
+function updateBar(vals) {{
+    const amax = Math.max(...vals.map(v => Math.abs(v)));
+    const colors = vals.map(v => {{
+        if (amax === 0) return '#555';
+        const t = Math.abs(v) / amax;
+        return `rgb(${{Math.round(255-t*35)}},${{Math.round(255-t*235)}},${{Math.round(255-t*195)}})`;
+    }});
+    Plotly.restyle('bar', {{y: [vals], 'marker.color': [colors]}}, 0);
+}}
+
+document.getElementById('scatter').on('plotly_hover', function(ev) {{
+    updateBar(ev.points[0].customdata);
+}});
+</script>
+</body>
+</html>"""
 
 
 def plot_copy_number(data):

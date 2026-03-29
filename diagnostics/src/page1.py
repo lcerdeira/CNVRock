@@ -1,15 +1,10 @@
+import os
+
 import streamlit as st
 import streamlit.components.v1 as components
-import pandas as pd
-import os
-import random
-
-import matplotlib.pyplot as plt
 
 from src.utils import (load_meta, load_results, load_inputs, process_sample,
-                       compute_pca, compute_pca_contours, plot_latents, plot_pca, plot_copy_number)
-from bokeh.embed import file_html
-from bokeh.resources import CDN
+                       compute_pca, compute_pca_contours, plot_page1_html)
 
 def page1():
     st.title("First page")
@@ -27,16 +22,11 @@ def page1():
     st.dataframe(meta)
 
     sample_options = list(results["latents"].index)
-
-    def on_lucky_click():
-        st.session_state["sample_select"] = random.choice(sample_options)
-        st.session_state["lucky_chrom"] = "__random__"
-
-    col1, col2 = st.columns([4, 1], vertical_alignment="bottom")
-    with col1:
-        SAMPLE_ID = st.selectbox("Select sample ID", options=sample_options, key="sample_select")
-    with col2:
-        st.button("I'm Feeling Lucky", on_click=on_lucky_click)
+    SAMPLE_ID = st.selectbox(
+        "Coverage sample", options=sample_options, key="sample_select",
+        help="Changes which sample's coverage is loaded. "
+             "Sample selection inside the plot updates PCA and latents instantly.",
+    )
 
     pca_df, variance = compute_pca(results["latents"])
     contours = compute_pca_contours(pca_df, meta)
@@ -46,17 +36,7 @@ def page1():
         results["reconstructions"].loc[SAMPLE_ID]
     )
 
-    col_pca, col_cn = st.columns([1, 3])
-    with col_pca:
-        lat_fig = plot_latents(results["latents"].loc[SAMPLE_ID])
-        st.pyplot(lat_fig, use_container_width=True)
-        plt.close(lat_fig)
+    html = plot_page1_html(pca_df, variance, contours, results["latents"], data, SAMPLE_ID)
+    components.html(html, height=620)
 
-        fig = plot_pca(pca_df, variance, contours, SAMPLE_ID)
-        st.pyplot(fig, use_container_width=True)
-        plt.close(fig)
-    with col_cn:
-        cn_layout = plot_copy_number(data)
-        components.html(file_html(cn_layout, CDN), height=520)
-    
-    st.dataframe(gff, hide_index = True)
+    st.dataframe(gff, hide_index=True)
