@@ -49,11 +49,11 @@ def page1():
     col_pca, col_cn = st.columns([1, 3])
     with col_pca:
         lat_fig = plot_latents(results["latents"].loc[SAMPLE_ID])
-        st.pyplot(lat_fig, use_container_width=True)
+        st.pyplot(lat_fig, width="stretch")
         plt.close(lat_fig)
 
         fig = plot_pca(pca_df, variance, contours, SAMPLE_ID)
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig, width="stretch")
         plt.close(fig)
     with col_cn:
         cn_layout = plot_copy_number(data)

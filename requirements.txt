@@ -9,3 +9,4 @@ bokeh==3.9.0
 scikit-learn==1.8.0
 matplotlib==3.10.8
 umap-learn==0.5.11
+hmmlearn==0.3.3

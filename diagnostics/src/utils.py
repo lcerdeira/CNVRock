@@ -13,8 +13,8 @@ from matplotlib.lines import Line2D
 from bokeh.plotting import figure
 from bokeh.layouts import column, row as bk_row
 from bokeh.models import (ColumnDataSource, HoverTool, ColorBar,
-                           LinearColorMapper, CustomJS, Span)
-from bokeh.models import NumeralTickFormatter, PanTool, WheelZoomTool
+                           LinearColorMapper, CustomJS, Span, BoxAnnotation)
+from bokeh.models import NumeralTickFormatter, PanTool, WheelZoomTool, LabelSet
 from bokeh.palettes import Plasma256
 
 @st.cache_data
@@ -469,6 +469,99 @@ document.getElementById('scatter').on('plotly_hover', function(ev) {{
 </html>"""
 
 
+# CN 0 → 5: deep blue, light blue, grey, orange, red, dark red
+_CN_COLORS = ["#313695", "#74add1", "#888888", "#fdae61", "#d73027", "#a50026"]
+
+
+def _merge_short_runs(states, min_len):
+    """Absorb runs shorter than min_len into their preceding (or following) neighbor."""
+    states = states.copy()
+    changed = True
+    while changed:
+        changed = False
+        i = 0
+        while i < len(states):
+            j = i
+            while j < len(states) and states[j] == states[i]:
+                j += 1
+            if (j - i) < min_len:
+                fill = states[i - 1] if i > 0 else (states[j] if j < len(states) else states[i])
+                states[i:j] = fill
+                changed = True
+            i = j
+    return states
+
+
+def _confidence_color(conf):
+    """Red (low confidence) → black (high confidence)."""
+    r = int(215 * (1 - conf))
+    g = int(48  * (1 - conf))
+    b = int(39  * (1 - conf))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+@st.cache_data
+def fit_hmm_segments(positions, copy_ratios, n_states=6, self_transition=0.99, min_seg_bins=3):
+    """Fit a Gaussian HMM to copy ratios and return a DataFrame of segments."""
+    from hmmlearn.hmm import GaussianHMM
+
+    valid = np.isfinite(copy_ratios) & (copy_ratios > 0)
+    pos = positions[valid]
+    obs = np.clip(copy_ratios[valid], 0, 8).reshape(-1, 1)
+
+    if len(obs) < n_states * 3:
+        return pd.DataFrame(columns=["x0", "x1", "cn", "color", "conf_color", "label_x", "label"])
+
+    off = (1 - self_transition) / (n_states - 1)
+    transmat = np.full((n_states, n_states), off)
+    np.fill_diagonal(transmat, self_transition)
+
+    model = GaussianHMM(n_components=n_states, covariance_type="diag",
+                        n_iter=200, random_state=42,
+                        params="smc", init_params="smc")
+    model.transmat_ = transmat
+    model.fit(obs)
+    states     = model.predict(obs)
+    posteriors = model.predict_proba(obs)
+    means      = model.means_.flatten()
+
+    states = _merge_short_runs(states, min_len=min_seg_bins)
+    state_to_cn = np.clip(np.round(means).astype(int), 0, n_states - 1)
+
+    bin_size = float(np.median(np.diff(pos))) if len(pos) > 1 else 300.0
+
+    cn_seq   = state_to_cn[states]
+    bin_conf = posteriors[np.arange(len(states)), states]
+    obs_flat = obs.flatten()
+
+    def _segment_confidence(sl):
+        hmm_post  = float(bin_conf[sl].mean())
+        raw_std   = float(np.std(obs_flat[sl]))
+        # Lorentzian stability: ~1 when std<0.15, drops to ~0.5 at std=0.3,
+        # ~0.2 at std=0.5 — penalises zigzag heavily without crushing true CNVs
+        stability = 1.0 / (1.0 + (raw_std / 0.3) ** 2)
+        return hmm_post * stability
+
+    rows = []
+    seg_start = 0
+    for i in range(1, len(cn_seq)):
+        if cn_seq[i] != cn_seq[seg_start]:
+            rows.append({"x0": pos[seg_start], "x1": pos[i],
+                         "cn": int(cn_seq[seg_start]),
+                         "confidence": _segment_confidence(slice(seg_start, i))})
+            seg_start = i
+    rows.append({"x0": pos[seg_start], "x1": pos[-1] + bin_size,
+                 "cn": int(cn_seq[seg_start]),
+                 "confidence": _segment_confidence(slice(seg_start, None))})
+
+    segs = pd.DataFrame(rows)
+    segs["color"]      = segs["cn"].map(lambda cn: _CN_COLORS[cn])
+    segs["conf_color"] = segs["confidence"].map(_confidence_color)
+    segs["label_x"]    = (segs["x0"] + segs["x1"]) / 2
+    segs["label"]      = segs["confidence"].map(lambda c: f"{c:.2f}")
+    return segs
+
+
 def plot_copy_number(data):
     chrom_options = data["chrom"].unique().tolist()
 
@@ -502,13 +595,58 @@ def plot_copy_number(data):
             elif isinstance(tool, WheelZoomTool):
                 tool.dimensions = "width"
 
+    # HMM segmentation on the unpadded filtered data
+    segs = fit_hmm_segments(
+        filtered["start"].values.astype(float),
+        filtered["copy_ratio"].values.astype(float),
+    )
+
+    # Low-coverage vrects: bins where input or reconstruction < 10
+    low_cov = (filtered["input"].values < 10) | (filtered["reconstruction"].values < 10)
+    low_starts, low_ends = [], []
+    in_run = False
+    for i, flag in enumerate(low_cov):
+        if flag and not in_run:
+            low_starts.append(float(filtered["start"].iloc[i]))
+            in_run = True
+        elif not flag and in_run:
+            low_ends.append(float(filtered["start"].iloc[i]))
+            in_run = False
+    if in_run:
+        low_ends.append(float(filtered["start"].iloc[-1]))
     s1 = ColumnDataSource(data=dict(x=x, y=y_ratio))
     s2 = ColumnDataSource(data=dict(x=x, input=y_input, reconstruction=y_recon))
 
-    p1.line('x', 'y', source=s1, line_width=2)
+    for left, right in zip(low_starts, low_ends):
+        for p in [p1, p2]:
+            p.add_layout(BoxAnnotation(left=left, right=right,
+                                       fill_color="red", fill_alpha=0.10, line_color=None))
+
+    p1.line('x', 'y', source=s1, line_width=1, color="#aaaaaa", alpha=0.7)
     p1.y_range.start = -0.1
     p1.y_range.end = 5.1
     p1.xaxis.formatter = NumeralTickFormatter(format="0,0")
+
+    if len(segs) > 0:
+        seg_src = ColumnDataSource(dict(
+            x0=segs["x0"].tolist(),
+            x1=segs["x1"].tolist(),
+            y0=segs["cn"].tolist(),
+            y1=segs["cn"].tolist(),
+            cn=segs["cn"].tolist(),
+            color=segs["color"].tolist(),
+            label_x=segs["label_x"].tolist(),
+            label=segs["label"].tolist(),
+            conf_color=segs["conf_color"].tolist(),
+        ))
+        seg_line = p1.segment("x0", "y0", "x1", "y1", source=seg_src,
+                              line_color="color", line_width=3, line_alpha=0.95)
+        p1.add_layout(LabelSet(
+            x="label_x", y="y0", text="label", source=seg_src,
+            text_color="conf_color", text_font_size="9px",
+            text_align="center", y_offset=4,
+        ))
+        p1.add_tools(HoverTool(renderers=[seg_line], tooltips=[("CN", "@cn")]))
 
     p2.line('x', 'input',          source=s2, line_width=2, color="green", legend_label="input")
     p2.line('x', 'reconstruction', source=s2, line_width=2, color="red",
