@@ -2,7 +2,6 @@
 
 Convolutional VAE for genome-wide CNV detection from read-count data.
 
-![screenshot](assets/screenshots/Screenshot%202026-04-08%20at%2018.00.29.png)
 ![screenshot](assets/screenshots/Screenshot%202026-04-08%20at%2017.59.23.png)
 ![screenshot](assets/screenshots/Screenshot%202026-04-08%20at%2018.01.55.png)
 
