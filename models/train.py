@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from architectures import ConvVAE
 from training.dataset import ReadCountDataset
 from training.trainer import train_vae
-from training.inference import run_inference
+from training.wrap_up import run_hmm_all_samples, run_inference
 
 
 def get_device():
@@ -71,6 +71,7 @@ def main():
 
     os.makedirs(out_dir, exist_ok=True)
     checkpoint_path = os.path.join(out_dir, "checkpoint.pth")
+    log_path        = os.path.join(out_dir, "training_log.json")
 
     train_vae(
         model, dl, optimiser,
@@ -80,6 +81,7 @@ def main():
         patience        = cfg.get("patience", 50),
         device          = device,
         model_save_path = checkpoint_path,
+        log_path        = log_path,
     )
 
     if os.path.exists(checkpoint_path):
@@ -87,6 +89,9 @@ def main():
         print("Loaded best checkpoint for inference.", flush=True)
 
     run_inference(model, ds, device, out_dir, batch_size=cfg["batch_size"])
+
+    print("Fitting HMM segments...", flush=True)
+    run_hmm_all_samples(store_path, out_dir)
 
 
 if __name__ == "__main__":

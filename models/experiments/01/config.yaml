@@ -1,6 +1,6 @@
 # Data
 store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
-out_dir:    "../../../data/results/pf9_conv_vae_03"
+out_dir:    "../../../data/results/01_pf9_conv_vae"
 normalise:  true   # apply log2(count + 1)
 
 # Model

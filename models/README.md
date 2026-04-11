@@ -16,5 +16,5 @@ Loads config, builds the model, trains, then runs inference on every sample.
 | `architectures/01_conv_vae.py` | `ConvVAE` — 1-D convolutional encoder/decoder |
 | `training/dataset.py` | `ReadCountDataset` — reads a zarr store, log2-normalises |
 | `training/trainer.py` | `train_vae` — training loop with KL annealing + early stopping |
-| `training/inference.py` | `run_inference` — encodes every sample, saves latents & reconstructions |
+| `training/wrap_up.py` | `run_inference` + `run_hmm_all_samples` — inference, HMM segmentation, saves all outputs |
 | `experiments/` | One folder per experiment, each with a `config.yaml` and shell scripts |

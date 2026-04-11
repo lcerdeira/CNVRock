@@ -1,0 +1,2 @@
+- Remember there is a `.venv`. 
+- Keep the code simple but add comments at key points to make it easier to understand when revisiting it later. Tweak old code if it no longer complies with this. 

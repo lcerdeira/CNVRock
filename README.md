@@ -29,7 +29,6 @@ models/       all model code
 ```bash
 cd models/experiments/01
 bash run_mac.sh        # local (MPS or CPU)
-bash run_cluster.sh    # LSF GPU cluster
 ```
 
 Or directly:

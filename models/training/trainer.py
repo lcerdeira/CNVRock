@@ -1,3 +1,7 @@
+import json
+import os
+import tempfile
+
 import torch
 import torch.nn.functional as F
 
@@ -14,14 +18,27 @@ def compute_loss(x, outputs, beta):
     return recon_loss + beta * kl, {"recon": recon_loss, "kl": kl}
 
 
+def _write_json(path, data):
+    """Atomically write a JSON file (safe for concurrent readers)."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, path)
+    except Exception:
+        os.unlink(tmp)
+        raise
+
+
 def train_vae(model, dataloader, optimiser,
               epochs, max_beta, warmup_epochs,
-              patience, device, model_save_path=None):
+              patience, device, model_save_path=None, log_path=None):
 
     model.to(device)
 
     best_recon = float("inf")
     no_improve = 0
+    history    = []
 
     try:
         for epoch in range(epochs):
@@ -48,6 +65,22 @@ def train_vae(model, dataloader, optimiser,
 
             print(f"{epoch+1:04d} | loss {total:.2f} | recon {tot_recon:.2f} | kl {tot_kl:.2f} | beta {beta:.3f}", flush=True)
 
+            history.append({
+                "epoch": epoch + 1,
+                "loss":  round(total,     4),
+                "recon": round(tot_recon, 4),
+                "kl":    round(tot_kl,    4),
+                "beta":  round(beta,      4),
+            })
+
+            if log_path:
+                _write_json(log_path, {
+                    "status":       "running",
+                    "epoch":        epoch + 1,
+                    "total_epochs": epochs,
+                    "history":      history,
+                })
+
             if tot_recon < best_recon - 1e-3:
                 best_recon = tot_recon
                 no_improve = 0
@@ -61,5 +94,13 @@ def train_vae(model, dataloader, optimiser,
 
     except KeyboardInterrupt:
         print("Interrupted — returning model.")
+
+    if log_path:
+        _write_json(log_path, {
+            "status":       "done",
+            "epoch":        len(history),
+            "total_epochs": epochs,
+            "history":      history,
+        })
 
     return model

@@ -28,9 +28,13 @@ def load_results(results_dir):
 
     reconstructions_df = pd.DataFrame(reconstructions, index=sample_ids)
 
+    segs_path = os.path.join(results_dir, "segments.parquet")
+    segments  = pd.read_parquet(segs_path) if os.path.exists(segs_path) else None
+
     return {
         "latents": latents_df,
-        "reconstructions": reconstructions_df
+        "reconstructions": reconstructions_df,
+        "segments": segments,
     }
 
 @st.cache_data
@@ -474,8 +478,8 @@ _CN_COLORS = ["#313695", "#74add1", "#888888", "#fdae61", "#d73027", "#a50026"]
 
 
 def _merge_short_runs(states, min_len):
-    """Absorb runs shorter than min_len into their preceding (or following) neighbor."""
-    states = states.copy()
+    """Absorb runs shorter than min_len into their preceding (or following) neighbour."""
+    states  = states.copy()
     changed = True
     while changed:
         changed = False
@@ -485,11 +489,133 @@ def _merge_short_runs(states, min_len):
             while j < len(states) and states[j] == states[i]:
                 j += 1
             if (j - i) < min_len:
-                fill = states[i - 1] if i > 0 else (states[j] if j < len(states) else states[i])
+                if i > 0:
+                    fill = states[i - 1]
+                elif j < len(states):
+                    fill = states[j]
+                else:
+                    fill = states[i]
                 states[i:j] = fill
                 changed = True
             i = j
     return states
+
+
+@st.cache_data
+def fit_hmm_sample(data, n_states=6, self_transition=0.95, low_cov_threshold=10):
+    """Fit one HMM across all valid contigs of a single sample.
+
+    Means are fixed at integer copy numbers [0, 1, …, n_states-1] with
+    sigma=0.5 (decision boundaries at midpoints 0.5, 1.5, 2.5 …).
+    Only startprob is learned; transmat and emissions are fixed priors.
+
+    Bins are excluded before fitting if:
+      - input OR reconstruction < low_cov_threshold  (same threshold as the
+        red background in the copy-number plot)
+      - copy_ratio is non-finite or ≤ 0
+
+    Contigs are detected from spatial gaps in the remaining bin positions
+    (diff > 1.5 × median bin size), matching the hypervariable-region gaps
+    already visible in the plot.  Each contig is treated as an independent
+    HMM sequence via the `lengths` parameter.
+
+    Parameters
+    ----------
+    data : DataFrame from process_sample — needs chrom, start, copy_ratio,
+           input, reconstruction columns.
+
+    Returns
+    -------
+    DataFrame with columns: chrom, x0, x1, cn, confidence
+    """
+    from hmmlearn.hmm import GaussianHMM
+
+    # Build list of (chrom, pos_array, cr_array) per valid contig
+    contigs = []
+
+    for chrom in data["chrom"].unique():
+        sub = data[data["chrom"] == chrom]
+        pos = sub["start"].values.astype(float)
+        cr  = sub["copy_ratio"].values.astype(float)
+        inp = sub["input"].values.astype(float)
+        rec = sub["reconstruction"].values.astype(float)
+
+        # Mask low-coverage and invalid bins
+        valid = (
+            np.isfinite(cr) & (cr > 0) &
+            (inp >= low_cov_threshold) &
+            (rec >= low_cov_threshold)
+        )
+        pos_v = pos[valid]
+        cr_v  = np.clip(cr[valid], 0, 8)
+
+        if len(pos_v) < 2:
+            continue
+
+        # Detect contig boundaries: gaps > 1.5× median bin spacing
+        bin_size    = float(np.median(np.diff(pos_v)))
+        breaks      = np.where(np.diff(pos_v) > 1.5 * bin_size)[0] + 1
+        idx_groups  = np.split(np.arange(len(pos_v)), breaks)
+
+        for idx in idx_groups:
+            if len(idx) >= n_states * 3:
+                contigs.append((chrom, pos_v[idx], cr_v[idx]))
+
+    if not contigs:
+        return pd.DataFrame(columns=["chrom", "x0", "x1", "cn", "confidence"])
+
+    all_obs = np.concatenate([c[2] for c in contigs]).reshape(-1, 1)
+    lengths = np.array([len(c[2]) for c in contigs])
+
+    off      = (1 - self_transition) / (n_states - 1)
+    transmat = np.full((n_states, n_states), off)
+    np.fill_diagonal(transmat, self_transition)
+
+    model = GaussianHMM(n_components=n_states, covariance_type="diag",
+                        n_iter=200, random_state=42,
+                        params="s", init_params="")
+    model.transmat_  = transmat
+    model.means_     = np.arange(n_states, dtype=float).reshape(-1, 1)
+    model.covars_    = np.full((n_states, 1), 0.25)
+    model.startprob_ = np.full(n_states, 1.0 / n_states)
+    model.fit(all_obs, lengths=lengths)
+
+    all_states     = model.predict(all_obs, lengths=lengths)
+    all_posteriors = model.predict_proba(all_obs, lengths=lengths)
+
+    segs, ptr = [], 0
+    for chrom, pos, cr_arr in contigs:
+        length   = len(cr_arr)
+        states_c = all_states[ptr:ptr + length]
+        post_c   = all_posteriors[ptr:ptr + length]
+        ptr     += length
+
+        bin_conf = post_c[np.arange(length), states_c]
+        bin_size = float(np.median(np.diff(pos))) if length > 1 else 1000.0
+
+        def _seg_conf(sl, _bc=bin_conf, _oc=cr_arr):
+            hmm_post  = float(_bc[sl].mean())
+            stability = 1.0 / (1.0 + (float(np.std(_oc[sl])) / 0.3) ** 2)
+            return hmm_post * stability
+
+        rows, seg_start = [], 0
+        for i in range(1, length):
+            if states_c[i] != states_c[seg_start]:
+                rows.append({"x0": pos[seg_start], "x1": pos[i],
+                             "cn": int(states_c[seg_start]),
+                             "confidence": _seg_conf(slice(seg_start, i))})
+                seg_start = i
+        rows.append({"x0": pos[seg_start], "x1": pos[-1] + bin_size,
+                     "cn": int(states_c[seg_start]),
+                     "confidence": _seg_conf(slice(seg_start, None))})
+
+        df = pd.DataFrame(rows)
+        df.insert(0, "chrom", chrom)
+        segs.append(df)
+
+    return pd.concat(segs, ignore_index=True) if segs else pd.DataFrame(
+        columns=["chrom", "x0", "x1", "cn", "confidence"]
+    )
 
 
 def _confidence_color(conf):
@@ -500,69 +626,17 @@ def _confidence_color(conf):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-@st.cache_data
-def fit_hmm_segments(positions, copy_ratios, n_states=6, self_transition=0.99, min_seg_bins=3):
-    """Fit a Gaussian HMM to copy ratios and return a DataFrame of segments."""
-    from hmmlearn.hmm import GaussianHMM
-
-    valid = np.isfinite(copy_ratios) & (copy_ratios > 0)
-    pos = positions[valid]
-    obs = np.clip(copy_ratios[valid], 0, 8).reshape(-1, 1)
-
-    if len(obs) < n_states * 3:
-        return pd.DataFrame(columns=["x0", "x1", "cn", "color", "conf_color", "label_x", "label"])
-
-    off = (1 - self_transition) / (n_states - 1)
-    transmat = np.full((n_states, n_states), off)
-    np.fill_diagonal(transmat, self_transition)
-
-    model = GaussianHMM(n_components=n_states, covariance_type="diag",
-                        n_iter=200, random_state=42,
-                        params="smc", init_params="smc")
-    model.transmat_ = transmat
-    model.fit(obs)
-    states     = model.predict(obs)
-    posteriors = model.predict_proba(obs)
-    means      = model.means_.flatten()
-
-    states = _merge_short_runs(states, min_len=min_seg_bins)
-    state_to_cn = np.clip(np.round(means).astype(int), 0, n_states - 1)
-
-    bin_size = float(np.median(np.diff(pos))) if len(pos) > 1 else 300.0
-
-    cn_seq   = state_to_cn[states]
-    bin_conf = posteriors[np.arange(len(states)), states]
-    obs_flat = obs.flatten()
-
-    def _segment_confidence(sl):
-        hmm_post  = float(bin_conf[sl].mean())
-        raw_std   = float(np.std(obs_flat[sl]))
-        # Lorentzian stability: ~1 when std<0.15, drops to ~0.5 at std=0.3,
-        # ~0.2 at std=0.5 — penalises zigzag heavily without crushing true CNVs
-        stability = 1.0 / (1.0 + (raw_std / 0.3) ** 2)
-        return hmm_post * stability
-
-    rows = []
-    seg_start = 0
-    for i in range(1, len(cn_seq)):
-        if cn_seq[i] != cn_seq[seg_start]:
-            rows.append({"x0": pos[seg_start], "x1": pos[i],
-                         "cn": int(cn_seq[seg_start]),
-                         "confidence": _segment_confidence(slice(seg_start, i))})
-            seg_start = i
-    rows.append({"x0": pos[seg_start], "x1": pos[-1] + bin_size,
-                 "cn": int(cn_seq[seg_start]),
-                 "confidence": _segment_confidence(slice(seg_start, None))})
-
-    segs = pd.DataFrame(rows)
-    segs["color"]      = segs["cn"].map(lambda cn: _CN_COLORS[cn])
+def _render_segments(segs):
+    """Add rendering columns to a pre-computed segments DataFrame."""
+    segs = segs.copy()
+    segs["color"]      = segs["cn"].map(lambda cn: _CN_COLORS[min(cn, len(_CN_COLORS) - 1)])
     segs["conf_color"] = segs["confidence"].map(_confidence_color)
     segs["label_x"]    = (segs["x0"] + segs["x1"]) / 2
     segs["label"]      = segs["confidence"].map(lambda c: f"{c:.2f}")
     return segs
 
 
-def plot_copy_number(data):
+def plot_copy_number(data, segments=None):
     chrom_options = data["chrom"].unique().tolist()
 
     if st.session_state.get("lucky_chrom") == "__random__":
@@ -595,11 +669,12 @@ def plot_copy_number(data):
             elif isinstance(tool, WheelZoomTool):
                 tool.dimensions = "width"
 
-    # HMM segmentation on the unpadded filtered data
-    segs = fit_hmm_segments(
-        filtered["start"].values.astype(float),
-        filtered["copy_ratio"].values.astype(float),
-    )
+    # Load pre-computed HMM segments for this chromosome
+    if segments is not None and len(segments) > 0:
+        chrom_segs = segments[segments["chrom"] == selected_chrom]
+        segs = _render_segments(chrom_segs) if len(chrom_segs) > 0 else pd.DataFrame()
+    else:
+        segs = pd.DataFrame()
 
     # Low-coverage vrects: bins where input or reconstruction < 10
     low_cov = (filtered["input"].values < 10) | (filtered["reconstruction"].values < 10)

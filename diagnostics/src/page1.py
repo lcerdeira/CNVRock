@@ -7,7 +7,8 @@ import random
 import matplotlib.pyplot as plt
 
 from src.utils import (load_meta, load_results, load_inputs, process_sample,
-                       compute_pca, compute_pca_contours, plot_latents, plot_pca, plot_copy_number)
+                       compute_pca, compute_pca_contours, plot_latents, plot_pca,
+                       plot_copy_number, fit_hmm_sample)
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
@@ -32,11 +33,16 @@ def page1():
         st.session_state["sample_select"] = random.choice(sample_options)
         st.session_state["lucky_chrom"] = "__random__"
 
-    col1, col2 = st.columns([4, 1], vertical_alignment="bottom")
+    def on_random_sample_click():
+        st.session_state["sample_select"] = random.choice(sample_options)
+
+    col1, col2, col3 = st.columns([4, 1, 1], vertical_alignment="bottom")
     with col1:
         SAMPLE_ID = st.selectbox("Select sample ID", options=sample_options, key="sample_select")
     with col2:
-        st.button("I'm Feeling Lucky", on_click=on_lucky_click)
+        st.button("Random sample", on_click=on_random_sample_click, use_container_width=True)
+    with col3:
+        st.button("I'm Feeling Lucky", on_click=on_lucky_click, use_container_width=True)
 
     pca_df, variance = compute_pca(results["latents"])
     contours = compute_pca_contours(pca_df, meta)
@@ -56,7 +62,28 @@ def page1():
         st.pyplot(fig, width="stretch")
         plt.close(fig)
     with col_cn:
-        cn_layout = plot_copy_number(data)
+        precomputed = results["segments"]
+        if precomputed is not None:
+            sample_segs = precomputed[precomputed["sample_id"] == SAMPLE_ID]
+        else:
+            with st.expander("HMM parameters", expanded=False):
+                n_states          = st.slider("CN states",              3, 8,    6)
+                self_transition   = st.slider("Self-transition prob",   0.80, 0.999, 0.95,
+                                              step=0.005, format="%.3f")
+                low_cov_threshold = st.slider("Low-coverage threshold", 0, 100, 10)
+            with st.spinner("Fitting HMM…"):
+                sample_segs = fit_hmm_sample(
+                    data,
+                    n_states=n_states,
+                    self_transition=self_transition,
+                    low_cov_threshold=low_cov_threshold,
+                )
+        cn_layout = plot_copy_number(data, sample_segs)
         components.html(file_html(cn_layout, CDN), height=520)
-    
-    st.dataframe(gff, hide_index = True)
+
+    @st.dialog("Gene annotations", width="large")
+    def _show_gff(chrom):
+        st.dataframe(gff[gff["seqid"] == chrom], hide_index=True, use_container_width=True)
+
+    if st.button("Gene annotations"):
+        _show_gff(st.session_state.get("chrom_slider", data["chrom"].iloc[0]))
