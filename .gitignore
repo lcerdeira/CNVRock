@@ -19,6 +19,10 @@ venv/
 env/
 .env
 
+# ── Sensitive / large assets (never commit) ───────────────────────────────────
+assets/20260313_full_cnv_data_pf9.tsv
+assets/Pf_9_samples_20260227.txt
+
 # ── Data & weights (large binary files — never commit) ────────────────────────
 data/*
 weights/
