@@ -20,12 +20,13 @@ env/
 .env
 
 # ── Data & weights (large binary files — never commit) ────────────────────────
-data/
+data/*
 weights/
-# Keep the placeholder / README files
+# Keep the placeholder / README files and setup scripts
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/README.md
+!data/setup
 !weights/README.md
 
 # ── Experiment outputs (results are reproducible; only narratives are tracked) ─
