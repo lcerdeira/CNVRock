@@ -275,6 +275,67 @@ def _hmm_one_sample(args):
     )
 
 
+# ---------------------------------------------------------------------------
+# 3. Gene-level CNV calls
+# ---------------------------------------------------------------------------
+
+GENES_OF_INTEREST = [
+    {"call_id": "MDR1",    "contig": "Pf3D7_05_v3", "start": 955955,  "end": 963095},
+    {"call_id": "CRT",     "contig": "Pf3D7_07_v3", "start": 402385,  "end": 406341},
+    {"call_id": "GCH1",    "contig": "Pf3D7_12_v3", "start": 974226,  "end": 976097},
+    {"call_id": "PM2_PM3", "contig": "Pf3D7_14_v3", "start": 292244,  "end": 299101},
+]
+
+
+def call_gene_cnv(data, segments, gene, min_cn1_proportion=0.8, min_confidence=0.7,
+                  flank_padding=100_000):
+    """Call copy number for a single gene of interest.  See utils.py for full docstring."""
+    contig  = gene["contig"]
+    g_start = gene["start"]
+    g_end   = gene["end"]
+
+    result = {
+        "call_id":          gene["call_id"],
+        "cn":               -1,
+        "crr": None,
+    }
+
+    chrom_data = data[data["chrom"] == contig]
+    if len(chrom_data) == 0:
+        return result
+
+    s  = chrom_data["start"].values
+    cr = chrom_data["copy_ratio"].values
+    gene_mask  = (s >= g_start) & (s <= g_end)
+    flank_mask = (s < g_start - flank_padding) | (s > g_end + flank_padding)
+    mean_gene  = float(np.nanmean(cr[gene_mask]))  if gene_mask.any()  else None
+    mean_flank = float(np.nanmean(cr[flank_mask])) if flank_mask.any() else None
+    if mean_gene is not None and mean_flank and mean_flank > 0:
+        result["crr"] = mean_gene / mean_flank
+
+    if segments is None or len(segments) == 0:
+        return result
+
+    chrom_segs = segments[segments["chrom"] == contig]
+    if len(chrom_segs) == 0:
+        return result
+
+    # Chromosome sanity: most bins should be CN=1 with high confidence
+    high_conf_cn1 = chrom_segs[(chrom_segs["cn"] == 1) & (chrom_segs["confidence"] >= min_confidence)]
+    covered = np.zeros(len(s), dtype=bool)
+    for _, seg in high_conf_cn1.iterrows():
+        covered |= (s >= seg["x0"]) & (s < seg["x1"])
+    if covered.sum() / len(s) < min_cn1_proportion:
+        return result
+
+    # Single segment must span the entire gene
+    spanning = chrom_segs[(chrom_segs["x0"] <= g_start) & (chrom_segs["x1"] >= g_end)]
+    if len(spanning) > 0:
+        result["cn"] = int(spanning.iloc[0]["cn"])
+
+    return result
+
+
 def run_hmm_all_samples(store_path, out_dir, n_states=6, self_transition=0.99,
                         low_cov_threshold=10, n_jobs=-1):
     """Fit HMM on every sample/chromosome in parallel and write segments.parquet.
@@ -350,6 +411,29 @@ def run_hmm_all_samples(store_path, out_dir, n_states=6, self_transition=0.99,
         "eta_s":     0.0,
     })
     print(f"Saved segments ({len(segments):,} rows) → {out_path}", flush=True)
+
+    # Gene-level CNV calls for every sample
+    print("Computing gene CNV calls…", flush=True)
+    gene_rows = []
+    for idx, sid in enumerate(sample_ids):
+        # Reconstruct per-sample data DataFrame matching the process_sample schema
+        cr = copy_ratios[idx]
+        sample_data = pd.DataFrame({
+            "chrom":          chroms,
+            "start":          starts,
+            "copy_ratio":     cr,
+        })
+        sample_segs = segments[segments["sample_id"] == sid]
+        for call in [call_gene_cnv(sample_data, sample_segs, g) for g in GENES_OF_INTEREST]:
+            call["sample_id"] = sid
+            gene_rows.append(call)
+
+    gene_calls = pd.DataFrame(gene_rows)[
+        ["sample_id", "call_id", "cn", "crr"]
+    ]
+    gene_path = os.path.join(out_dir, "gene_calls.parquet")
+    gene_calls.to_parquet(gene_path, index=False)
+    print(f"Saved gene calls ({len(gene_calls):,} rows) → {gene_path}", flush=True)
 
 
 # ---------------------------------------------------------------------------

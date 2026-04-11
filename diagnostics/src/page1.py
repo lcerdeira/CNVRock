@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from src.utils import (load_meta, load_results, load_inputs, process_sample,
                        compute_pca, compute_pca_contours, plot_latents, plot_pca,
-                       plot_copy_number, fit_hmm_sample)
+                       plot_copy_number, fit_hmm_sample, call_all_genes)
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
@@ -80,6 +80,9 @@ def page1():
                 )
         cn_layout = plot_copy_number(data, sample_segs)
         components.html(file_html(cn_layout, CDN), height=520)
+
+    gene_calls = call_all_genes(data, sample_segs)
+    st.dataframe(pd.DataFrame(gene_calls), hide_index=True, use_container_width=True)
 
     @st.dialog("Gene annotations", width="large")
     def _show_gff(chrom):

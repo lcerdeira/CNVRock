@@ -501,6 +501,96 @@ def _merge_short_runs(states, min_len):
     return states
 
 
+# Genes of interest — (contig, start, end, call_id)
+GENES_OF_INTEREST = [
+    {"call_id": "MDR1",    "contig": "Pf3D7_05_v3", "start": 955955,  "end": 963095},
+    {"call_id": "CRT",     "contig": "Pf3D7_07_v3", "start": 402385,  "end": 406341},
+    {"call_id": "GCH1",    "contig": "Pf3D7_12_v3", "start": 974226,  "end": 976097},
+    {"call_id": "PM2_PM3", "contig": "Pf3D7_14_v3", "start": 292244,  "end": 299101},
+]
+
+
+def call_gene_cnv(data, segments, gene, min_cn1_proportion=0.8, min_confidence=0.7,
+                  flank_padding=100_000):
+    """Call copy number for a single gene of interest.
+
+    The call is based on two checks:
+      1. Chromosome sanity: if fewer than `min_cn1_proportion` of the chromosome's
+         bins are covered by CN=1 segments with confidence >= `min_confidence`, the
+         chromosome itself is likely aneuploid and the call is set to -1.
+      2. Gene coverage: a single HMM segment must span the entire gene (x0 <= start
+         and x1 >= end).  If no such segment exists, the call is -1.
+
+    Also computes floating-point copy ratio summaries:
+      - crr : mean copy ratio within the gene divided by the mean
+                           copy ratio outside [gene_start - flank_padding,
+                           gene_end + flank_padding]
+
+    Parameters
+    ----------
+    data     : DataFrame from process_sample (chrom, start, end, copy_ratio, …)
+    segments : DataFrame with chrom, x0, x1, cn, confidence  (HMM output)
+    gene     : dict with keys call_id, contig, start, end
+
+    Returns
+    -------
+    dict: call_id, cn (int or -1), crr
+    """
+    contig  = gene["contig"]
+    g_start = gene["start"]
+    g_end   = gene["end"]
+
+    result = {
+        "call_id":          gene["call_id"],
+        "cn":               -1,
+        "crr": None,
+    }
+
+    chrom_data = data[data["chrom"] == contig]
+    if len(chrom_data) == 0:
+        return result
+
+    # Copy-ratio summary: gene mean / flanking mean (raw signal, independent of HMM)
+    s = chrom_data["start"].values
+    cr = chrom_data["copy_ratio"].values
+    gene_mask  = (s >= g_start) & (s <= g_end)
+    flank_mask = (s < g_start - flank_padding) | (s > g_end + flank_padding)
+    mean_gene   = float(np.nanmean(cr[gene_mask]))   if gene_mask.any()  else None
+    mean_flank  = float(np.nanmean(cr[flank_mask]))  if flank_mask.any() else None
+    if mean_gene is not None and mean_flank and mean_flank > 0:
+        result["crr"] = mean_gene / mean_flank
+
+    if segments is None or len(segments) == 0:
+        return result
+
+    chrom_segs = segments[segments["chrom"] == contig]
+    if len(chrom_segs) == 0:
+        return result
+
+    # 1. Chromosome sanity check — what proportion of bins are CN=1 with high confidence?
+    high_conf_cn1 = chrom_segs[(chrom_segs["cn"] == 1) & (chrom_segs["confidence"] >= min_confidence)]
+    covered = np.zeros(len(s), dtype=bool)
+    for _, seg in high_conf_cn1.iterrows():
+        covered |= (s >= seg["x0"]) & (s < seg["x1"])
+    if covered.sum() / len(s) < min_cn1_proportion:
+        return result  # chromosome looks aneuploid — can't make a gene-level call
+
+    # 2. Single segment must span the entire gene
+    spanning = chrom_segs[(chrom_segs["x0"] <= g_start) & (chrom_segs["x1"] >= g_end)]
+    if len(spanning) > 0:
+        result["cn"] = int(spanning.iloc[0]["cn"])
+
+    return result
+
+
+def call_all_genes(data, segments):
+    """Run call_gene_cnv for every gene in GENES_OF_INTEREST.
+
+    Returns a list of dicts (one per gene), suitable for display or batch storage.
+    """
+    return [call_gene_cnv(data, segments, gene) for gene in GENES_OF_INTEREST]
+
+
 @st.cache_data
 def fit_hmm_sample(data, n_states=6, self_transition=0.95, low_cov_threshold=10):
     """Fit one HMM across all valid contigs of a single sample.
