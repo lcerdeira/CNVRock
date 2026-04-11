@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 # Allow running this file from any working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from architectures.conv_vae import ConvVAE
+from architectures import ConvVAE
 from training.dataset import ReadCountDataset
 from training.trainer import train_vae
 from training.inference import run_inference

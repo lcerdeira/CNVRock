@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from architectures.conv_vae import N_BINS_RAW
+from architectures import N_BINS_RAW
 
 
 def compute_loss(x, outputs, beta):

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import os
 from torch.utils.data import Dataset
 
-from architectures.conv_vae import N_BINS_RAW, N_BINS_PADDED
+from architectures import N_BINS_RAW, N_BINS_PADDED
 
 
 class ReadCountDataset(Dataset):

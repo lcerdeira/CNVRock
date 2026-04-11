@@ -1,3 +1,29 @@
+"""
+01_conv_vae — 1-D Convolutional Variational Autoencoder
+========================================================
+
+Architecture
+------------
+Input: (batch, N_BINS_RAW) read-count vector, log2(count + 1) normalised.
+
+Encoder — 5× Conv1d blocks (kernel=7, stride=2, same padding), doubling
+channels: 1 → 32 → 64 → 128 → 256 → 256.  Output is flattened and
+projected to mu and log-variance vectors of size `latent_dim`.
+
+Reparameterisation: z = mu + eps * exp(0.5 * logvar), eps ~ N(0, I).
+
+Decoder — mirrors the encoder with 5× ConvTranspose1d blocks, channels
+256 → 256 → 128 → 64 → 32 → 1.  Output is cropped back to N_BINS_RAW.
+
+Padding: N_BINS_RAW is rounded up to the next multiple of 32
+(N_BINS_PADDED) so that 5 stride-2 layers divide evenly.  The padding
+is added in the dataset loader and stripped in the decoder.
+
+Training objective: MSE reconstruction loss + beta-weighted KL divergence
+(beta annealed linearly over warmup_epochs).
+"""
+
+import math
 import torch
 import torch.nn as nn
 
@@ -7,7 +33,7 @@ import torch.nn as nn
 # ---------------------------------------------------------------------------
 
 N_BINS_RAW    = 20814
-N_BINS_PADDED = 20832   # next multiple of 32
+N_BINS_PADDED = math.ceil(N_BINS_RAW / 32) * 32   # → 20832
 
 
 # ---------------------------------------------------------------------------
