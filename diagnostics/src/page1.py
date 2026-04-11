@@ -40,9 +40,9 @@ def page1():
     with col1:
         SAMPLE_ID = st.selectbox("Select sample ID", options=sample_options, key="sample_select")
     with col2:
-        st.button("Random sample", on_click=on_random_sample_click, use_container_width=True)
+        st.button("Random sample", on_click=on_random_sample_click, width="stretch")
     with col3:
-        st.button("I'm Feeling Lucky", on_click=on_lucky_click, use_container_width=True)
+        st.button("I'm Feeling Lucky", on_click=on_lucky_click, width="stretch")
 
     pca_df, variance = compute_pca(results["latents"])
     contours = compute_pca_contours(pca_df, meta)
@@ -82,11 +82,11 @@ def page1():
         components.html(file_html(cn_layout, CDN), height=520)
 
     gene_calls = call_all_genes(data, sample_segs)
-    st.dataframe(pd.DataFrame(gene_calls), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(gene_calls), hide_index=True, width="stretch")
 
     @st.dialog("Gene annotations", width="large")
     def _show_gff(chrom):
-        st.dataframe(gff[gff["seqid"] == chrom], hide_index=True, use_container_width=True)
+        st.dataframe(gff[gff["seqid"] == chrom], hide_index=True, width="stretch")
 
     if st.button("Gene annotations"):
         _show_gff(st.session_state.get("chrom_slider", data["chrom"].iloc[0]))

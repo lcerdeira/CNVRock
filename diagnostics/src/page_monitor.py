@@ -1,7 +1,6 @@
 import json
 import os
 
-import pandas as pd
 import streamlit as st
 
 
@@ -45,37 +44,6 @@ def _training_monitor(log_path):
             st.line_chart(df[["beta"]], height=160)
 
 
-@st.fragment(run_every=3)
-def _hmm_monitor(progress_path):
-    data = _read_json(progress_path)
-    if data is None:
-        st.caption("No HMM progress yet.")
-        return
-
-    status  = data.get("status", "unknown")
-    current = data.get("current", 0)
-    total   = data.get("total",   1)
-    elapsed = data.get("elapsed_s", 0.0)
-    eta     = data.get("eta_s")
-
-    col_stat, col_bar = st.columns([1, 4])
-    with col_stat:
-        if status == "done":
-            st.success(f"Done  ({current:,} samples)")
-        else:
-            def _fmt_eta(s):
-                m, sec = divmod(int(s), 60)
-                return f"{m}m {sec:02d}s" if m else f"{sec}s"
-            eta_str = f" — ETA {_fmt_eta(eta)}" if eta is not None else ""
-            st.info(f"{current:,} / {total:,}{eta_str}")
-    with col_bar:
-        st.progress(current / max(total, 1))
-
-    if elapsed > 0 and current > 0 and status != "done":
-        rate = current / elapsed
-        st.caption(f"{rate:.1f} samples/s  |  {elapsed:.0f}s elapsed")
-
-
 def page_monitor():
     st.title("Monitor")
 
@@ -89,6 +57,3 @@ def page_monitor():
 
     st.subheader("Training")
     _training_monitor(os.path.join(out_dir, "training_log.json"))
-
-    st.subheader("HMM segmentation")
-    _hmm_monitor(os.path.join(out_dir, "hmm_progress.json"))

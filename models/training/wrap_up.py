@@ -111,7 +111,7 @@ def _merge_short_runs(states, min_len):
     return states
 
 
-def fit_hmm_segments(positions, copy_ratios, n_states=6, self_transition=0.99, min_seg_bins=3):
+def fit_hmm_segments(positions, copy_ratios, n_states=6, self_transition=0.99, min_seg_bins=2):
     """Fit a Gaussian HMM to copy ratios for a single chromosome.
 
     Parameters
@@ -364,11 +364,7 @@ def run_hmm_all_samples(store_path, out_dir, n_states=6, self_transition=0.99,
     starts = contigs["start"].values.astype(float)
     n      = len(sample_ids)
 
-    copy_ratios  = counts.astype(float) / (recons.astype(float) + 1e-6)   # (n, n_bins)
-    progress_path = os.path.join(out_dir, "hmm_progress.json")
-
-    _write_json(progress_path, {"status": "running", "current": 0, "total": n,
-                                "elapsed_s": 0.0, "eta_s": None})
+    copy_ratios = counts.astype(float) / (recons.astype(float) + 1e-6)   # (n, n_bins)
 
     args = [
         (sid, copy_ratios[idx], counts[idx].astype(float), recons[idx].astype(float),
@@ -387,52 +383,44 @@ def run_hmm_all_samples(store_path, out_dir, n_states=6, self_transition=0.99,
         start=1,
     ):
         results.append(result)
-        elapsed = time.time() - t0
-        eta     = (elapsed / i) * (n - i)
-        _write_json(progress_path, {
-            "status":    "running",
-            "current":   i,
-            "total":     n,
-            "elapsed_s": round(elapsed, 1),
-            "eta_s":     round(eta, 1),
-        })
         if i % 500 == 0 or i == n:
+            elapsed = time.time() - t0
+            eta     = (elapsed / i) * (n - i)
             print(f"  HMM {i}/{n} | elapsed {elapsed:.0f}s | eta {eta:.0f}s", flush=True)
 
+    # Filter out empty DataFrames before concat to avoid FutureWarning on all-NA columns
+    results = [r for r in results if len(r) > 0]
     segments = pd.concat(results, ignore_index=True)
     out_path = os.path.join(out_dir, "segments.parquet")
     segments.to_parquet(out_path, index=False)
-
-    _write_json(progress_path, {
-        "status":    "done",
-        "current":   n,
-        "total":     n,
-        "elapsed_s": round(time.time() - t0, 1),
-        "eta_s":     0.0,
-    })
     print(f"Saved segments ({len(segments):,} rows) → {out_path}", flush=True)
 
     # Gene-level CNV calls for every sample
-    print("Computing gene CNV calls…", flush=True)
+    print(f"Computing gene CNV calls for {n} samples…", flush=True)
+    t0        = time.time()
     gene_rows = []
     for idx, sid in enumerate(sample_ids):
         # Reconstruct per-sample data DataFrame matching the process_sample schema
-        cr = copy_ratios[idx]
         sample_data = pd.DataFrame({
-            "chrom":          chroms,
-            "start":          starts,
-            "copy_ratio":     cr,
+            "chrom":      chroms,
+            "start":      starts,
+            "copy_ratio": copy_ratios[idx],
         })
         sample_segs = segments[segments["sample_id"] == sid]
         for call in [call_gene_cnv(sample_data, sample_segs, g) for g in GENES_OF_INTEREST]:
             call["sample_id"] = sid
             gene_rows.append(call)
+        i = idx + 1
+        if i % 500 == 0 or i == n:
+            elapsed = time.time() - t0
+            eta     = (elapsed / i) * (n - i)
+            print(f"  Gene calls {i}/{n} | elapsed {elapsed:.0f}s | eta {eta:.0f}s", flush=True)
 
     gene_calls = pd.DataFrame(gene_rows)[
         ["sample_id", "call_id", "cn", "crr"]
     ]
-    gene_path = os.path.join(out_dir, "gene_calls.parquet")
-    gene_calls.to_parquet(gene_path, index=False)
+    gene_path = os.path.join(out_dir, "gene_calls.tsv")
+    gene_calls.to_csv(gene_path, sep="\t", index=False)
     print(f"Saved gene calls ({len(gene_calls):,} rows) → {gene_path}", flush=True)
 
 

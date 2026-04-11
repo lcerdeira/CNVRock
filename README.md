@@ -8,6 +8,11 @@ Convolutional VAE for genome-wide CNV detection from read-count data.
 ```
 TODO:
 
+- 
+
+- Set up flow such that I can send myself an email titled #CNV. If contents read so that I ask to set up an experiment, a new experiment directory is set up, using past observations from experiments to suggest the set up of the new experiment, communicated via README.md. It should have "Suggested changes to setup", 
+
+
 
 ```
 
