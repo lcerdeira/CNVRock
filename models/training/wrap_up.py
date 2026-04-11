@@ -322,9 +322,11 @@ def call_gene_cnv(data, segments, gene, min_cn1_proportion=0.8, min_confidence=0
 
     # Chromosome sanity: most bins should be CN=1 with high confidence
     high_conf_cn1 = chrom_segs[(chrom_segs["cn"] == 1) & (chrom_segs["confidence"] >= min_confidence)]
-    covered = np.zeros(len(s), dtype=bool)
-    for _, seg in high_conf_cn1.iterrows():
-        covered |= (s >= seg["x0"]) & (s < seg["x1"])
+    if len(high_conf_cn1) == 0:
+        return result
+    x0 = high_conf_cn1["x0"].values
+    x1 = high_conf_cn1["x1"].values
+    covered = ((s[:, None] >= x0) & (s[:, None] < x1)).any(axis=1)
     if covered.sum() / len(s) < min_cn1_proportion:
         return result
 
@@ -396,25 +398,58 @@ def run_hmm_all_samples(store_path, out_dir, n_states=6, self_transition=0.99,
     print(f"Saved segments ({len(segments):,} rows) → {out_path}", flush=True)
 
     # Gene-level CNV calls for every sample
+    # Outer loop = genes (4), inner loop = samples (n).  CRR is computed via a single
+    # numpy op over the full (n, n_bins) matrix — no Python loop per sample for that part.
     print(f"Computing gene CNV calls for {n} samples…", flush=True)
-    t0        = time.time()
+    t0 = time.time()
+
+    # Pre-filter segments to the 4 relevant chromosomes, then group by sample
+    gene_contigs   = {g["contig"] for g in GENES_OF_INTEREST}
+    segs_filtered  = segments[segments["chrom"].isin(gene_contigs)]
+    empty_segs     = pd.DataFrame(columns=["chrom", "x0", "x1", "cn", "confidence"])
+    segs_by_sample = {sid: grp for sid, grp in segs_filtered.groupby("sample_id")}
+
     gene_rows = []
-    for idx, sid in enumerate(sample_ids):
-        # Reconstruct per-sample data DataFrame matching the process_sample schema
-        sample_data = pd.DataFrame({
-            "chrom":      chroms,
-            "start":      starts,
-            "copy_ratio": copy_ratios[idx],
-        })
-        sample_segs = segments[segments["sample_id"] == sid]
-        for call in [call_gene_cnv(sample_data, sample_segs, g) for g in GENES_OF_INTEREST]:
-            call["sample_id"] = sid
-            gene_rows.append(call)
-        i = idx + 1
-        if i % 500 == 0 or i == n:
-            elapsed = time.time() - t0
-            eta     = (elapsed / i) * (n - i)
-            print(f"  Gene calls {i}/{n} | elapsed {elapsed:.0f}s | eta {eta:.0f}s", flush=True)
+    for gene in GENES_OF_INTEREST:
+        contig  = gene["contig"]
+        g_start = gene["start"]
+        g_end   = gene["end"]
+        call_id = gene["call_id"]
+        padding = 100_000
+
+        # Pre-compute bin masks for this gene — identical for every sample
+        chrom_mask   = chroms == contig
+        s            = starts[chrom_mask]
+        gene_mask_l  = (s >= g_start) & (s <= g_end)
+        flank_mask_l = (s < g_start - padding) | (s > g_end + padding)
+        n_chrom      = int(chrom_mask.sum())
+
+        # CRR: vectorised over all n samples in one shot
+        cr_chrom   = copy_ratios[:, chrom_mask]                      # (n, n_chrom_bins)
+        mean_gene  = np.nanmean(cr_chrom[:, gene_mask_l],  axis=1)   # (n,)
+        mean_flank = np.nanmean(cr_chrom[:, flank_mask_l], axis=1)   # (n,)
+        crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
+
+        # CN: per-sample segment lookup (fast — dict is pre-grouped, values are small)
+        for idx, sid in enumerate(sample_ids):
+            cn          = -1
+            sample_segs = segs_by_sample.get(sid, empty_segs)
+            chrom_segs  = sample_segs[sample_segs["chrom"] == contig]
+            if len(chrom_segs) > 0:
+                hc1 = chrom_segs[(chrom_segs["cn"] == 1) & (chrom_segs["confidence"] >= 0.7)]
+                if len(hc1) > 0:
+                    x0 = hc1["x0"].values
+                    x1 = hc1["x1"].values
+                    covered = ((s[:, None] >= x0) & (s[:, None] < x1)).any(axis=1)
+                    if covered.sum() / n_chrom >= 0.8:
+                        spanning = chrom_segs[(chrom_segs["x0"] <= g_start) & (chrom_segs["x1"] >= g_end)]
+                        if len(spanning) > 0:
+                            cn = int(spanning.iloc[0]["cn"])
+
+            crr_val = float(crr_all[idx]) if np.isfinite(crr_all[idx]) else None
+            gene_rows.append({"sample_id": sid, "call_id": call_id, "cn": cn, "crr": crr_val})
+
+        print(f"  Done {call_id} | elapsed {time.time() - t0:.0f}s", flush=True)
 
     gene_calls = pd.DataFrame(gene_rows)[
         ["sample_id", "call_id", "cn", "crr"]

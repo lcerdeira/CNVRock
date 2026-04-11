@@ -569,9 +569,12 @@ def call_gene_cnv(data, segments, gene, min_cn1_proportion=0.8, min_confidence=0
 
     # 1. Chromosome sanity check — what proportion of bins are CN=1 with high confidence?
     high_conf_cn1 = chrom_segs[(chrom_segs["cn"] == 1) & (chrom_segs["confidence"] >= min_confidence)]
-    covered = np.zeros(len(s), dtype=bool)
-    for _, seg in high_conf_cn1.iterrows():
-        covered |= (s >= seg["x0"]) & (s < seg["x1"])
+    if len(high_conf_cn1) == 0:
+        return result
+    x0 = high_conf_cn1["x0"].values
+    x1 = high_conf_cn1["x1"].values
+    # Vectorised: (n_bins, n_segs) broadcast — any segment covers each bin?
+    covered = ((s[:, None] >= x0) & (s[:, None] < x1)).any(axis=1)
     if covered.sum() / len(s) < min_cn1_proportion:
         return result  # chromosome looks aneuploid — can't make a gene-level call
 
