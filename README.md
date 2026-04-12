@@ -50,6 +50,29 @@ A new experiment can reuse any existing versioned component — just point `arch
 
 Outputs are written to the `out_dir` defined in the config: `checkpoint.pth`, `latents.npy`, `reconstructions.npy`, `sample_ids.npy`, `segments.parquet`, `gene_calls.tsv`, `evaluation.txt`.
 
+## Experiment proposal workflow
+
+Claude analyses the latest `evaluation.txt`, proposes the next experiment, creates the folder, and emails a summary. Reply "AUTHORISE" to run it on the Mac mini; reply with feedback to get a revised proposal.
+
+**First-time setup** (install the background polling daemon):
+```bash
+bash tools/install_daemon.sh
+```
+
+**To propose the next experiment** (invoke from Claude Code):
+```
+/propose-experiment
+```
+Claude sets up the experiment folder, writes a README, and emails a ≤100-line summary.
+
+**The daemon** (`tools/check_and_run.sh`, running via launchd every 5 min) checks for a reply:
+- `AUTHORISE` → runs the experiment automatically
+- Anything else → flags that feedback is waiting; open Claude Code and run `/check-reply`
+
+**Privacy:** `check_reply.py` searches only by the exact Message-ID of the proposal email. It never lists or reads any other email. Reply body content is never written to disk or logs.
+
+**VSCode vs Desktop:** Either works. The daemon runs independently of which editor is open.
+
 ## Diagnostics
 
 ```bash

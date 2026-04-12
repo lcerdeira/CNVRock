@@ -1,0 +1,47 @@
+# Versioned components — same VAE and HMM algorithm, tuned parameters only
+architecture: "01_conv_vae"
+hmm:          "01_gaussian_hmm"
+cnv:          "01_gene_cnv_caller"
+evaluation:   "01_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/02_hmm_tuned"
+normalise:  true
+
+# Model — must match experiment 01 checkpoint; no retraining required
+# Only HMM and CNV calling parameters changed, so we reuse the existing VAE.
+# run.sh invokes wrap_up.py (inference → HMM → CNV → eval) with the exp 01
+# checkpoint, skipping training entirely.
+latent_dim: 10
+
+# Training params below are required by wrap_up.py's model init but are NOT
+# used in this experiment — the checkpoint is loaded immediately after init.
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 50
+patience:      10
+
+# HMM segmentation
+# Rationale: exp 01 FN p50 was 1.53–1.67 for all genes >> 1.0, meaning the HMM
+# was seeing the amplification signal but still labelling it CN=1 (too sticky).
+# Lowering self_transition from 0.99 → 0.95 reduces stickiness.
+hmm_n_states:          6
+hmm_self_transition:   0.95   # was 0.99 — too sticky, suppressed real CNV calls
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling
+# Rationale: PM2_PM3 pred_normal CRR p50 = 0.90 (chr14 baseline slightly depressed),
+# so the 80% CN=1 sanity check was rejecting many callable samples. Relaxed to 0.70.
+# Confidence threshold relaxed proportionally.
+cnv_min_cn1_proportion: 0.70   # was 0.80
+cnv_min_confidence:     0.60   # was 0.70
+cnv_flank_padding:      100000
+
+# Evaluation
+pf9_gt_path:   "../../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../../assets/Pf_9_samples_20260227.txt"

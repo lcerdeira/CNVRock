@@ -1,0 +1,72 @@
+Hi Chiyun,
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Experiment 01 results summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• PM2_PM3: FNR = 1.00 — completely missed every amplification
+• GCH1:    FNR = 0.81, MDR1: FNR = 0.46, CRT: FNR = 0.23
+• PPV = 1.00 across all genes (zero false positives)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Diagnosis
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The CRR BY CALL OUTCOME table is the key signal. Every gene's false
+negatives had FN p50 well above 1.0 (1.53 for PM2_PM3, 1.35 for GCH1,
+1.60 for MDR1, 1.67 for CRT). Per the evaluation guidance, FN p50 >> 1.0
+means the reconstruction ratio signal IS elevated — the VAE is doing its
+job — but the HMM is labelling those bins as CN=1 anyway. The HMM is
+simply too sticky: with self_transition=0.99, it strongly resists leaving
+its current state. The model also has no false positives, meaning we have
+headroom to trade stickiness for recall. Additionally, PM2_PM3's
+"pred_normal" CRR p50 = 0.90 (slightly below 1.0) suggests chromosome 14
+has a mildly depressed baseline in many samples, causing the 80% CN=1
+sanity check to quietly disqualify callable samples before a call is
+even attempted.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Proposed experiment 02: HMM stickiness + CNV threshold tuning
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+No retraining required. Reuses the experiment 01 checkpoint. Only
+HMM and CNV calling parameters change (~1–2 hours on Mac mini).
+
+Changes from experiment 01:
+
+  hmm_self_transition:    0.99 → 0.95  (less sticky; transitions to
+                                         amplified states more readily)
+  cnv_min_cn1_proportion: 0.80 → 0.70  (accommodate depressed chr14
+                                         baseline in many samples)
+  cnv_min_confidence:     0.70 → 0.60  (relaxed proportionally)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+What I expect
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FNR should drop meaningfully, especially for PM2_PM3 and GCH1. PPV may
+dip slightly from 1.00 — lowering stickiness means more state transitions
+and some risk of FP calls. If PPV drops badly (say below 0.80), the next
+step would be to tighten cnv_min_confidence back up rather than reverting
+the HMM change.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+What we could do instead
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A) Retrain the VAE on a class-balanced dataset — the evaluation note
+   mentions the model may have learned elevated counts as its default.
+   Risk: much longer run (~24h), and the HMM issue may be a simpler fix.
+
+B) Tune hmm_n_states (6 → 8) to give the HMM finer-grained states for
+   detecting low-level amplifications (CRR ~1.3–1.5). Could combine with
+   this proposal.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run time estimate: ~1–2 hours (inference + HMM refit + eval; no training).
+
+Reply AUTHORISE to run experiment 02 on the Mac mini, or reply with
+feedback and I'll revise the proposal.
+
+Claude
