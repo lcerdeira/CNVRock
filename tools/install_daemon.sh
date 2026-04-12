@@ -21,7 +21,7 @@ cat > "$PLIST" <<EOF
         <string>$REPO_ROOT/tools/check_and_run.sh</string>
     </array>
     <key>StartInterval</key>
-    <integer>300</integer>
+    <integer>60</integer>
     <key>StandardOutPath</key>
     <string>$REPO_ROOT/tools/daemon.log</string>
     <key>StandardErrorPath</key>
@@ -34,5 +34,5 @@ EOF
 
 launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
-echo "Daemon installed and running. Polls every 5 minutes."
+echo "Daemon installed and running. Polls every 60 seconds."
 echo "To uninstall: launchctl unload $PLIST && rm $PLIST"

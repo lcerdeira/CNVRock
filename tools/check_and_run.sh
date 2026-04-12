@@ -22,28 +22,33 @@ CLAUDE_BIN="$(which claude 2>/dev/null \
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S')  $*" >> "$LOG"; }
 
-if [ ! -f "$MSGID_FILE" ]; then
-    log "No proposal pending (no msgid file). Exiting."
-    exit 0
+# Keep log bounded — trim to last 500 lines if it exceeds 1000
+if [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt 1000 ]; then
+    tail -500 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
 fi
 
-log "Checking for reply..."
+if [ ! -f "$MSGID_FILE" ]; then
+    exit 0  # nothing pending — silent exit
+fi
+
 RESULT=$("$PYTHON" "$TOOLS/check_reply.py" --msg-id-file "$MSGID_FILE" 2>>"$LOG") || true
 
 case "$RESULT" in
     NO_REPLY)
-        log "No reply yet."
-        ;;
+        ;;  # silent — don't clutter the log on every poll
 
     AUTHORISE)
         log "AUTHORISE received. Running experiment."
         EXPERIMENT=$(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null || echo "02")
+        # Capture proposal Message-ID for threading before cleanup
+        PROPOSAL_MSGID=$(cat "$MSGID_FILE" 2>/dev/null || true)
         # Clean up before running so a re-trigger can't happen mid-run
         rm -f "$MSGID_FILE" "$TOOLS/.last_proposal_experiment"
 
         "$PYTHON" "$TOOLS/send_email.py" \
-            --subject "CNV Experiment $EXPERIMENT — Running" \
-            --body "Experiment $EXPERIMENT has started on the Mac mini. I'll email you when it's done and propose the next one."
+            --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
+            --body "Experiment $EXPERIMENT has started on the Mac mini. I'll email you when it's done and propose the next one." \
+            --in-reply-to "$PROPOSAL_MSGID"
 
         cd "$REPO_ROOT/models"
         bash "experiments/$EXPERIMENT/run.sh" >> "$LOG" 2>&1
@@ -61,8 +66,9 @@ case "$RESULT" in
         else
             log "Claude CLI not found. Open Claude Code and run /propose-experiment to propose the next experiment."
             "$PYTHON" "$TOOLS/send_email.py" \
-                --subject "CNV Experiment $EXPERIMENT — Complete" \
-                --body "Experiment $EXPERIMENT has finished. Open Claude Code and run /propose-experiment to review the results and propose the next experiment."
+                --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
+                --body "Experiment $EXPERIMENT has finished. Open Claude Code and run /propose-experiment to review the results and propose the next experiment." \
+                --in-reply-to "$PROPOSAL_MSGID"
         fi
         ;;
 
@@ -71,9 +77,11 @@ case "$RESULT" in
         # Write a flag file so /propose-experiment knows to read pending feedback.
         # The feedback itself stays in your Gmail — it is never written to disk here.
         touch "$FEEDBACK_FILE"
+        PROPOSAL_MSGID=$(cat "$MSGID_FILE" 2>/dev/null || true)
         "$PYTHON" "$TOOLS/send_email.py" \
-            --subject "CNV — Feedback received" \
-            --body "Got it. I'll review your feedback and send a revised proposal shortly. Open Claude Code to proceed."
+            --subject "Re: CNV Experiment $(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null) Proposal" \
+            --body "Got it. I'll review your feedback and send a revised proposal shortly. Open Claude Code to proceed." \
+            --in-reply-to "$PROPOSAL_MSGID"
         # Leave msgid file in place until the new proposal replaces it
         ;;
 

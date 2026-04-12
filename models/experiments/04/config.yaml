@@ -1,0 +1,30 @@
+architecture: "01_conv_vae"
+hmm:          "02_gaussian_hmm"   
+cnv:          "02_gene_cnv_caller" 
+evaluation:   "01_pf9_evaluation"
+
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/04_boundary_fix"
+normalise:  true
+
+latent_dim: 10
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 50
+patience:      10
+
+hmm_n_states:          6
+hmm_self_transition:   0.75   
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+cnv_min_cn1_proportion: 0.55
+cnv_min_confidence:     0.50
+cnv_flank_padding:      100000
+cnv_crr_amp_threshold:  1.30  
+
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"

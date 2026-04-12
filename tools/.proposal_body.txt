@@ -1,72 +1,48 @@
 Hi Chiyun,
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Experiment 01 results summary
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Experiment 03 results summary:
+- CRT FNR improved to 0.21 (from 0.23); MDR1 FNR 0.40, GCH1 FNR 0.79
+- PM2_PM3 FNR remains 1.00 -- only 2 TPs, 460 FNs, pred_amp count = 12
+- FN p50 CRR unchanged vs exp 02: PM2_PM3 1.51, GCH1 1.33, MDR1 1.57
 
-• PM2_PM3: FNR = 1.00 — completely missed every amplification
-• GCH1:    FNR = 0.81, MDR1: FNR = 0.46, CRT: FNR = 0.23
-• PPV = 1.00 across all genes (zero false positives)
+My diagnosis:
+Three experiments of tuning self_transition have barely moved the needle
+because the root cause is the HMM state boundary, not the stickiness.
+State 2 was initialized at mean=2.0, placing the CN=1/CN=2 Viterbi boundary
+at CRR=1.5 -- exactly where PM2_PM3 FNs sit.  At CRR=1.51, state 1 and
+state 2 have nearly equal emission (ratio 1.04x).  The Viterbi self_transition
+penalty is 90x.  1.04^7 * 0.011 = 0.015, so the decoder always stays in
+state 1 regardless of signal length.  This is confirmed by FN p50 not
+moving at all between exp 02 and 03 (1.51 both times).
+For GCH1 (2 bins), the Viterbi cannot call amplification regardless of
+self_transition -- you would need self_transition < 0.22 for 2 bins to flip,
+which would destroy segmentation quality everywhere else.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Diagnosis
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Proposed experiment 04: HMM state boundary fix + CRR fallback
+Changes from exp 03:
+- New 02_gaussian_hmm: state 2 mean 2.0 -> 1.5 (boundary 1.5 -> 1.25)
+  Emission ratio at CRR=1.51 becomes 1.68x; path ratio 1.49 > 1 at 0.75
+- hmm_self_transition: 0.90 -> 0.75 (needed for 7-bin genes to flip)
+- New 02_gene_cnv_caller: CRR fallback -- if HMM says normal but gene/flank
+  CRR >= 1.30, call as CN=2.  Handles GCH1 (2 bins) directly.
+  TN p90 is 1.09-1.17 across all genes, giving clear margin.
 
-The CRR BY CALL OUTCOME table is the key signal. Every gene's false
-negatives had FN p50 well above 1.0 (1.53 for PM2_PM3, 1.35 for GCH1,
-1.60 for MDR1, 1.67 for CRT). Per the evaluation guidance, FN p50 >> 1.0
-means the reconstruction ratio signal IS elevated — the VAE is doing its
-job — but the HMM is labelling those bins as CN=1 anyway. The HMM is
-simply too sticky: with self_transition=0.99, it strongly resists leaving
-its current state. The model also has no false positives, meaning we have
-headroom to trade stickiness for recall. Additionally, PM2_PM3's
-"pred_normal" CRR p50 = 0.90 (slightly below 1.0) suggests chromosome 14
-has a mildly depressed baseline in many samples, causing the 80% CN=1
-sanity check to quietly disqualify callable samples before a call is
-even attempted.
+What I expect:
+PM2_PM3 pred_amp should jump from 12 to hundreds -- FNR from 1.00 to
+hopefully below 0.50.  MDR1 similar.  GCH1 CRR fallback catches ~50-60%
+of FNs (FN p25=1.20, p50=1.33 vs threshold 1.30).  CRT should hold.
+PPV should remain 1.00 given TN p90 well below 1.30.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Proposed experiment 02: HMM stickiness + CNV threshold tuning
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+What we could do instead:
+- If PPV drops with global 1.30 threshold: apply CRR fallback only to
+  GCH1 and PM2_PM3 (gene-specific thresholds) and raise to 1.35.
+- If PM2_PM3 FNR remains ~1.00 (VAE absorption hypothesis): retrain the
+  VAE with the PM2_PM3 gene region masked during loss computation so the
+  reconstruction cannot learn amplification patterns for that region.
 
-No retraining required. Reuses the experiment 01 checkpoint. Only
-HMM and CNV calling parameters change (~1–2 hours on Mac mini).
+Run time estimate: ~15-20 min (inference + HMM + CNV + eval, no training).
 
-Changes from experiment 01:
-
-  hmm_self_transition:    0.99 → 0.95  (less sticky; transitions to
-                                         amplified states more readily)
-  cnv_min_cn1_proportion: 0.80 → 0.70  (accommodate depressed chr14
-                                         baseline in many samples)
-  cnv_min_confidence:     0.70 → 0.60  (relaxed proportionally)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-What I expect
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-FNR should drop meaningfully, especially for PM2_PM3 and GCH1. PPV may
-dip slightly from 1.00 — lowering stickiness means more state transitions
-and some risk of FP calls. If PPV drops badly (say below 0.80), the next
-step would be to tighten cnv_min_confidence back up rather than reverting
-the HMM change.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-What we could do instead
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-A) Retrain the VAE on a class-balanced dataset — the evaluation note
-   mentions the model may have learned elevated counts as its default.
-   Risk: much longer run (~24h), and the HMM issue may be a simpler fix.
-
-B) Tune hmm_n_states (6 → 8) to give the HMM finer-grained states for
-   detecting low-level amplifications (CRR ~1.3–1.5). Could combine with
-   this proposal.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Run time estimate: ~1–2 hours (inference + HMM refit + eval; no training).
-
-Reply AUTHORISE to run experiment 02 on the Mac mini, or reply with
-feedback and I'll revise the proposal.
+Reply AUTHORISE to run this on the Mac mini, or reply with feedback
+and I will revise the proposal.
 
 Claude

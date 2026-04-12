@@ -39,5 +39,5 @@ cnv_flank_padding:      100000   # bp either side of gene used as flank for CRR
 # Evaluation  (evaluation/01_pf9_evaluation.py)
 # pf9_gt_path and pf9_meta_path are resolved relative to this config file.
 # Remove or comment out pf9_gt_path to skip evaluation.
-pf9_gt_path:   "../../../../assets/20260313_full_cnv_data_pf9.tsv"
-pf9_meta_path: "../../../../assets/Pf_9_samples_20260227.txt"
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"

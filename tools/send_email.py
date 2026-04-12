@@ -2,11 +2,13 @@
 Send a plain-text email via Gmail SMTP and print the Message-ID.
 
 Usage:
-    python tools/send_email.py --subject "..." --body "..." [--save-id path]
+    python tools/send_email.py --subject "..." --body "..." [--save-id path] [--in-reply-to "<msgid>"]
 
 Reads EMAIL_ADDRESS and EMAIL_PASSWORD from .env at the repo root.
 The Message-ID is printed to stdout so the caller can record it for
 reply tracking (check_reply.py).
+
+Pass --in-reply-to to thread the email under an existing conversation.
 """
 
 import argparse
@@ -29,17 +31,20 @@ def load_env(repo_root):
     return env
 
 
-def send(subject, body, save_id_path=None):
+def send(subject, body, save_id_path=None, in_reply_to=None):
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = load_env(repo_root)
     address  = env["EMAIL_ADDRESS"]
     password = env["EMAIL_PASSWORD"]
 
     msg = EmailMessage()
-    msg["From"]    = address
-    msg["To"]      = address
-    msg["Subject"] = subject
+    msg["From"]       = address
+    msg["To"]         = address
+    msg["Subject"]    = subject
     msg["Message-ID"] = make_msgid(domain="deep-gw-cnv")
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+        msg["References"]  = in_reply_to  # ensures Gmail threads correctly
     msg.set_content(body)
 
     with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
@@ -60,9 +65,10 @@ def send(subject, body, save_id_path=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--subject",  required=True)
-    parser.add_argument("--body",     required=True, help="Body text or @path to read from file")
-    parser.add_argument("--save-id",  default=None,  help="File to save the Message-ID into")
+    parser.add_argument("--subject",     required=True)
+    parser.add_argument("--body",        required=True, help="Body text or @path to read from file")
+    parser.add_argument("--save-id",     default=None,  help="File to save the Message-ID into")
+    parser.add_argument("--in-reply-to", default=None,  help="Message-ID to thread this email under")
     args = parser.parse_args()
 
     body = args.body
@@ -70,4 +76,4 @@ if __name__ == "__main__":
         with open(body[1:]) as f:
             body = f.read()
 
-    send(args.subject, body, args.save_id)
+    send(args.subject, body, args.save_id, args.in_reply_to)

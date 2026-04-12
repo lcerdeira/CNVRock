@@ -83,7 +83,12 @@ def check(msg_id_file, print_body=False):
         return
 
     # Body is intentionally NOT logged or written to disk.
-    if "AUTHORISE" in body.upper():
+    # Strip quoted lines ("> ...") so a forwarded/replied AUTHORISE in the
+    # original proposal doesn't trigger a false positive.
+    unquoted = "\n".join(
+        line for line in body.splitlines() if not line.startswith(">")
+    )
+    if "AUTHORISE" in unquoted.upper():
         print("AUTHORISE")
     else:
         print("FEEDBACK")
