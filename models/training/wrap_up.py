@@ -21,6 +21,7 @@ Imported by train.py:
 
 import argparse
 import os
+import shutil
 import sys
 
 import numpy as np
@@ -143,6 +144,23 @@ def main():
         run_evaluation(out_dir, cfg_resolved)
     else:
         print("Skipping evaluation (pf9_gt_path not set in config).", flush=True)
+
+    # ── Storage report ───────────────────────────────────────────────────────
+    out_bytes = sum(
+        os.path.getsize(os.path.join(dp, f))
+        for dp, _, files in os.walk(out_dir)
+        for f in files
+    )
+    disk       = shutil.disk_usage(out_dir)
+    out_gb     = out_bytes      / 1024 ** 3
+    free_gb    = disk.free      / 1024 ** 3
+    total_gb   = disk.total     / 1024 ** 3
+    used_pct   = 100 * disk.used / disk.total
+    print(
+        f"\nStorage — output dir: {out_gb:.2f} GB  |  "
+        f"disk free: {free_gb:.1f} / {total_gb:.1f} GB  ({used_pct:.1f}% used)",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

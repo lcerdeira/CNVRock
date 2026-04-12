@@ -319,3 +319,24 @@ Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/03/.
 2026-04-12 14:29:05  Checking for reply...
 2026-04-12 14:31:57  No reply yet.
 2026-04-12 14:36:57  Checking for reply...
+2026-04-12 14:41:12  AUTHORISE received. Running experiment.
+Sent. Message-ID: <177600127279.30184.6891184009884115852@deep-gw-cnv>
+Device: mps
+Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/01_pf9_conv_vae/checkpoint.pth
+Saved latents         (53973, 10) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/latents.npy
+Saved reconstructions (53973, 20814)  → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/reconstructions.npy
+Saved sample_ids      (53973,) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/sample_ids.npy
+Fitting HMM segments...
+Fitting HMM for 53973 samples (n_jobs=-1)...
+  HMM 500/53973 | elapsed 9s | eta 998s
+  HMM 1000/53973 | elapsed 17s | eta 914s
+  HMM 1500/53973 | elapsed 25s | eta 859s
+  HMM 2000/53973 | elapsed 32s | eta 837s
+  HMM 2500/53973 | elapsed 40s | eta 826s
+  HMM 3000/53973 | elapsed 47s | eta 801s
+  HMM 3500/53973 | elapsed 56s | eta 813s
+  HMM 4000/53973 | elapsed 63s | eta 792s
+  HMM 4500/53973 | elapsed 71s | eta 783s
+  HMM 5000/53973 | elapsed 80s | eta 787s
+  HMM 5500/53973 | elapsed 88s | eta 778s
+  HMM 6000/53973 | elapsed 97s | eta 773s
