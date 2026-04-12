@@ -2,6 +2,8 @@
 
 Analyse the latest experiment results and propose the next experiment. Set up the experiment folder, send an email proposal, and arm the reply-checking daemon.
 
+**Important:** You may be running autonomously from the launchd daemon (via `claude --print`). In that case there is no user present to approve actions. Do not ask for confirmation before writing files, creating folders, or sending email — all necessary permissions are pre-granted in `~/.claude/settings.json`. Proceed directly through all steps.
+
 ## Steps
 
 1. **Read context**
@@ -22,19 +24,26 @@ Analyse the latest experiment results and propose the next experiment. Set up th
    - What does high missingness delta suggest?
    Identify the single most impactful change to make.
 
-3. **Design experiment N+1**
+3. **Update experiment N's README with actual results**
+   Update `models/experiments/N/README.md` to record what actually happened:
+   - Change `Status: Proposed` → `Status: Complete <date>`
+   - Add an **Actual outcome** section with the key metrics table (Gene / FNR / PPV / MCC)
+   - Note where predictions matched and where they diverged, and why
+   - Add a one-line pointer to the next experiment: `→ See experiment N+1`
+
+4. **Design experiment N+1**
    - Keep changes minimal — one or two parameter knobs at most unless the analysis clearly demands more.
    - Reuse existing versioned components unless the algorithm itself must change.
    - If the architecture or a versioned component must change, create a new numbered file (e.g. `models/hmm/02_*.py`).
    - If only parameters change, just update the config.
 
-4. **Create the experiment folder**
+5. **Create the experiment folder**
    - Copy `models/experiments/N/` to `models/experiments/N+1/`.
    - Update `config.yaml` with the new parameters, including comments explaining the rationale for each change.
    - Update `run.sh` — if reusing the existing checkpoint, invoke `wrap_up.py` with the checkpoint path instead of `train.py`.
    - Write `README.md` with: hypothesis, what changed, what you expect to happen.
 
-5. **Write the email (≤ 100 lines)**
+6. **Write the email (≤ 100 lines)**
    Write to a temp file `tools/.proposal_body.txt` with this structure:
    ```
    Hi Chiyun,
@@ -63,7 +72,7 @@ Analyse the latest experiment results and propose the next experiment. Set up th
    Claude
    ```
 
-6. **Send the email and arm the daemon**
+7. **Send the email and arm the daemon**
    Run:
    ```bash
    .venv/bin/python tools/send_email.py \
@@ -78,6 +87,6 @@ Analyse the latest experiment results and propose the next experiment. Set up th
    ```
    If already installed, it will already be polling.
 
-7. **Update README.md** in `models/experiments/N+1/` with the proposal summary and date.
+8. **Update README.md** in `models/experiments/N+1/` with the proposal summary and date.
 
-8. **Clean up** `tools/pending_feedback.txt` if it existed (feedback has now been acted on).
+9. **Clean up** `tools/pending_feedback.txt` if it existed (feedback has now been acted on).

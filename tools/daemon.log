@@ -375,3 +375,87 @@ Fitting HMM for 53973 samples (n_jobs=-1)...
   HMM 22500/53973 | elapsed 445s | eta 622s
   HMM 23000/53973 | elapsed 456s | eta 614s
   HMM 23500/53973 | elapsed 464s | eta 601s
+  HMM 24000/53973 | elapsed 473s | eta 591s
+  HMM 24500/53973 | elapsed 484s | eta 582s
+  HMM 25000/53973 | elapsed 494s | eta 572s
+  HMM 25500/53973 | elapsed 503s | eta 561s
+  HMM 26000/53973 | elapsed 511s | eta 550s
+  HMM 26500/53973 | elapsed 521s | eta 540s
+  HMM 27000/53973 | elapsed 530s | eta 529s
+  HMM 27500/53973 | elapsed 537s | eta 517s
+  HMM 28000/53973 | elapsed 555s | eta 515s
+  HMM 28500/53973 | elapsed 566s | eta 506s
+  HMM 29000/53973 | elapsed 577s | eta 497s
+  HMM 29500/53973 | elapsed 593s | eta 492s
+  HMM 30000/53973 | elapsed 605s | eta 484s
+  HMM 30500/53973 | elapsed 622s | eta 478s
+  HMM 31000/53973 | elapsed 638s | eta 473s
+  HMM 31500/53973 | elapsed 651s | eta 465s
+  HMM 32000/53973 | elapsed 665s | eta 456s
+  HMM 32500/53973 | elapsed 686s | eta 453s
+  HMM 33000/53973 | elapsed 696s | eta 443s
+  HMM 33500/53973 | elapsed 707s | eta 432s
+  HMM 34000/53973 | elapsed 721s | eta 423s
+  HMM 34500/53973 | elapsed 739s | eta 417s
+  HMM 35000/53973 | elapsed 757s | eta 411s
+  HMM 35500/53973 | elapsed 770s | eta 401s
+  HMM 36000/53973 | elapsed 786s | eta 392s
+  HMM 36500/53973 | elapsed 803s | eta 384s
+  HMM 37000/53973 | elapsed 820s | eta 376s
+  HMM 37500/53973 | elapsed 838s | eta 368s
+  HMM 38000/53973 | elapsed 851s | eta 358s
+  HMM 38500/53973 | elapsed 870s | eta 350s
+  HMM 39000/53973 | elapsed 890s | eta 342s
+  HMM 39500/53973 | elapsed 909s | eta 333s
+  HMM 40000/53973 | elapsed 930s | eta 325s
+  HMM 40500/53973 | elapsed 947s | eta 315s
+  HMM 41000/53973 | elapsed 967s | eta 306s
+  HMM 41500/53973 | elapsed 987s | eta 297s
+  HMM 42000/53973 | elapsed 1004s | eta 286s
+  HMM 42500/53973 | elapsed 1014s | eta 274s
+  HMM 43000/53973 | elapsed 1033s | eta 264s
+  HMM 43500/53973 | elapsed 1062s | eta 256s
+  HMM 44000/53973 | elapsed 1079s | eta 245s
+  HMM 44500/53973 | elapsed 1102s | eta 235s
+  HMM 45000/53973 | elapsed 1122s | eta 224s
+  HMM 45500/53973 | elapsed 1134s | eta 211s
+  HMM 46000/53973 | elapsed 1152s | eta 200s
+  HMM 46500/53973 | elapsed 1163s | eta 187s
+  HMM 47000/53973 | elapsed 1177s | eta 175s
+  HMM 47500/53973 | elapsed 1205s | eta 164s
+  HMM 48000/53973 | elapsed 1227s | eta 153s
+  HMM 48500/53973 | elapsed 1251s | eta 141s
+  HMM 49000/53973 | elapsed 1278s | eta 130s
+  HMM 49500/53973 | elapsed 1303s | eta 118s
+  HMM 50000/53973 | elapsed 1328s | eta 106s
+  HMM 50500/53973 | elapsed 1352s | eta 93s
+  HMM 51000/53973 | elapsed 1372s | eta 80s
+  HMM 51500/53973 | elapsed 1383s | eta 66s
+  HMM 52000/53973 | elapsed 1401s | eta 53s
+  HMM 52500/53973 | elapsed 1424s | eta 40s
+  HMM 53000/53973 | elapsed 1448s | eta 27s
+  HMM 53500/53973 | elapsed 1466s | eta 13s
+  HMM 53973/53973 | elapsed 1478s | eta 0s
+Saved segments (21,601,549 rows) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/segments.parquet
+Calling gene CNVs...
+Computing gene CNV calls for 53973 samples…
+/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/02_gene_cnv_caller.py:195: RuntimeWarning: invalid value encountered in divide
+  crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
+  Done MDR1 | elapsed 17s
+  Done CRT | elapsed 30s
+  Done GCH1 | elapsed 44s
+  Done PM2_PM3 | elapsed 61s
+Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/gene_calls.tsv
+Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/evaluation.txt
+2026-04-12 15:13:19  Experiment 04 complete.
+2026-04-12 15:13:19  Invoking Claude to propose next experiment...
+I need permission to write new files. Once you approve, I'll create:
+
+1. **`models/cnv/03_gene_cnv_caller.py`** — adds a `min_crr_confirm=1.40` confirmation floor for CRT only (all other genes disabled at 0.0). After any cn=2 call, CRT requires CRR ≥ 1.40 or the call is downgraded to cn=1. This exploits the clear gap between FP p50=1.38 and TP p10=1.64.
+
+2. **`models/experiments/05/`** — copy of exp 04 with `cnv: "03_gene_cnv_caller"` and `out_dir: 05_crt_confirm_floor`.
+
+3. **Email** proposing the experiment and the reasoning.
+
+Could you approve the write permissions so I can proceed?
+2026-04-12 15:20:15  Next experiment proposed and email sent.

@@ -60,9 +60,18 @@ case "$RESULT" in
             cd "$REPO_ROOT"
             "$CLAUDE_BIN" --print \
                 "$(cat .claude/commands/propose-experiment.md)" \
-                >> "$LOG" 2>&1 \
-                && log "Next experiment proposed and email sent." \
-                || log "Claude proposal step failed — open Claude Code and run /propose-experiment manually."
+                >> "$LOG" 2>&1 || true
+            # Verify Claude actually armed the daemon — exit-code alone is not reliable.
+            # A successful proposal always writes .last_proposal_msgid.
+            if [ -f "$MSGID_FILE" ]; then
+                log "Next experiment proposed and email sent."
+            else
+                log "Claude proposal step did not complete (no msgid file). Sending fallback email."
+                "$PYTHON" "$TOOLS/send_email.py" \
+                    --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
+                    --body "Experiment $EXPERIMENT has finished but the automatic proposal failed. Open Claude Code and run /propose-experiment to review results and propose the next experiment." \
+                    --in-reply-to "$PROPOSAL_MSGID"
+            fi
         else
             log "Claude CLI not found. Open Claude Code and run /propose-experiment to propose the next experiment."
             "$PYTHON" "$TOOLS/send_email.py" \
