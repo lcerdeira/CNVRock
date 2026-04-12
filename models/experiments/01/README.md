@@ -14,4 +14,4 @@ Observations:
 
 Things to try next:
 - ought to do proper test-train-validation splits at some point
-- Maybe need to start data augmentation and doing smart things with down-sampling on CN=1 samples
+- Maybe need to start data augmentation and doing smart things with down-sampling on CN>1 samples
