@@ -14,9 +14,11 @@ import sys
 
 import importlib
 
+import numpy as np
+import pandas as pd
 import yaml
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 # Allow running this file from any working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -32,6 +34,41 @@ def get_device():
     if torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
+
+
+def _make_downsampled_loader(ds, cfg, resolve, downsample_ratio, batch_size, num_workers):
+    """Return a DataLoader that down-weights CNV-positive samples.
+
+    CNV-positive samples are drawn at `downsample_ratio` relative to normal
+    samples (e.g. 0.25 → sampled 4× less often). This prevents the VAE from
+    learning amplified profiles as the default state in datasets where CNVs
+    are common (e.g. PM2 in Pf9).
+    """
+    gt_path = cfg.get("pf9_gt_path")
+    if not gt_path:
+        raise ValueError("cnv_downsample_ratio requires pf9_gt_path to be set in config")
+
+    gt = pd.read_csv(resolve(gt_path), sep="\t", index_col="Sample")
+
+    # Any sample with at least one positive final amplification or deletion call
+    call_cols = [c for c in gt.columns if c.endswith("_final_amplification_call")
+                 or c.endswith("_final_deletion_call")]
+    cnv_positive = set(gt.index[(gt[call_cols] == 1).any(axis=1)])
+
+    sample_ids = ds.sample_ids
+    weights = np.where(
+        np.isin(sample_ids, list(cnv_positive)),
+        downsample_ratio,
+        1.0,
+    ).astype(np.float64)
+
+    n_cnv  = int((weights < 1.0).sum())
+    n_norm = int((weights == 1.0).sum())
+    print(f"CNV downsampling: {n_cnv} CNV-positive samples (ratio={downsample_ratio}), "
+          f"{n_norm} normal samples", flush=True)
+
+    sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+    return DataLoader(ds, batch_size=batch_size, sampler=sampler, num_workers=num_workers)
 
 
 def main():
@@ -65,7 +102,12 @@ def main():
     ds = ReadCountDataset(store_path, normalise=cfg["normalise"])
 
     num_workers = 8 if device.type == "cuda" else 0
-    dl = DataLoader(ds, batch_size=cfg["batch_size"], shuffle=True, num_workers=num_workers)
+
+    downsample_ratio = cfg.get("cnv_downsample_ratio")
+    if downsample_ratio is not None:
+        dl = _make_downsampled_loader(ds, cfg, resolve, downsample_ratio, cfg["batch_size"], num_workers)
+    else:
+        dl = DataLoader(ds, batch_size=cfg["batch_size"], shuffle=True, num_workers=num_workers)
 
     model     = ConvVAE(latent_dim=cfg["latent_dim"]).to(device)
     optimiser = torch.optim.Adam(

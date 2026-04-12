@@ -10,6 +10,7 @@ PYTHON="$REPO_ROOT/.venv/bin/python"
 TOOLS="$REPO_ROOT/tools"
 MSGID_FILE="$TOOLS/.last_proposal_msgid"
 FEEDBACK_FILE="$TOOLS/pending_feedback.txt"
+THREAD_MSGID_FILE="$TOOLS/.proposal_thread_msgid"
 LOG="$TOOLS/daemon.log"
 
 # Locate the Claude CLI — prefer a system install, fall back to the VSCode
@@ -48,11 +49,12 @@ case "$RESULT" in
 
     AUTHORISE)
         log "AUTHORISE received. Running experiment."
-        EXPERIMENT=$(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null || echo "02")
+        EXPERIMENT=$(printf "%02d" "$(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null || echo "2")")
         # Capture proposal Message-ID for threading before cleanup
         PROPOSAL_MSGID=$(cat "$MSGID_FILE" 2>/dev/null || true)
-        # Clean up before running so a re-trigger can't happen mid-run
-        rm -f "$MSGID_FILE" "$TOOLS/.last_proposal_experiment"
+        # Clean up before running so a re-trigger can't happen mid-run.
+        # Also clear the thread root — the next proposal starts a fresh chain.
+        rm -f "$MSGID_FILE" "$TOOLS/.last_proposal_experiment" "$THREAD_MSGID_FILE"
 
         "$PYTHON" "$TOOLS/send_email.py" \
             --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
@@ -93,15 +95,23 @@ case "$RESULT" in
 
     FEEDBACK)
         log "Feedback received (content not logged — invoking Claude to revise proposal)."
-        # Write a flag file so /propose-experiment knows to read pending feedback.
-        # The feedback itself stays in your Gmail — it is never written to disk here.
+        # Write flag so /propose-experiment knows to fetch pending feedback.
         touch "$FEEDBACK_FILE"
+
         PROPOSAL_MSGID=$(cat "$MSGID_FILE" 2>/dev/null || true)
-        EXPERIMENT=$(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null || echo "")
+        EXPERIMENT=$(printf "%02d" "$(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null || echo "0")")
+
+        # On the first feedback round, record the original proposal as the
+        # thread root so all revisions (and their acks) stay in one email chain.
+        if [ ! -f "$THREAD_MSGID_FILE" ]; then
+            echo "$PROPOSAL_MSGID" > "$THREAD_MSGID_FILE"
+        fi
+        THREAD_MSGID=$(cat "$THREAD_MSGID_FILE")
+
         "$PYTHON" "$TOOLS/send_email.py" \
             --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
             --body "Got it. I'll review your feedback and send a revised proposal shortly." \
-            --in-reply-to "$PROPOSAL_MSGID"
+            --in-reply-to "$THREAD_MSGID"
 
         if [ -n "$CLAUDE_BIN" ]; then
             log "Invoking Claude to revise proposal based on feedback..."
@@ -110,16 +120,34 @@ case "$RESULT" in
                 --permission-mode bypassPermissions \
                 "$(cat .claude/commands/propose-experiment.md)" \
                 >> "$LOG" 2>&1 || true
-            # A successful revised proposal replaces the msgid file.
+
+            # Always remove the flag here — never rely on Claude to clean it up.
+            # If Claude succeeded, the flag is redundant. If it failed, leaving it
+            # would silently block the daemon from polling on every future run.
+            rm -f "$FEEDBACK_FILE"
+
             if [ -f "$MSGID_FILE" ] && [ "$(cat "$MSGID_FILE")" != "$PROPOSAL_MSGID" ]; then
                 log "Revised proposal sent successfully."
             else
-                log "Claude did not complete the revised proposal. Open Claude Code and run /propose-experiment."
+                # Claude failed to send a revised proposal. Update the msgid file
+                # to point to a fallback email so the next poll doesn't re-detect
+                # the same user-reply and send another ack.
+                log "Claude did not complete the revised proposal. Sending fallback email."
+                "$PYTHON" "$TOOLS/send_email.py" \
+                    --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
+                    --body "Automatic proposal revision failed. Open Claude Code and run /propose-experiment to revise the proposal." \
+                    --in-reply-to "$THREAD_MSGID" \
+                    --save-id "$MSGID_FILE"
             fi
         else
-            log "Claude CLI not found. Open Claude Code and run /propose-experiment to revise the proposal."
+            rm -f "$FEEDBACK_FILE"
+            log "Claude CLI not found. Sending fallback email."
+            "$PYTHON" "$TOOLS/send_email.py" \
+                --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
+                --body "Claude CLI not found. Open Claude Code and run /propose-experiment to revise the proposal." \
+                --in-reply-to "$THREAD_MSGID" \
+                --save-id "$MSGID_FILE"
         fi
-        # Leave msgid file in place — /propose-experiment replaces it when the new proposal is sent
         ;;
 
     *)

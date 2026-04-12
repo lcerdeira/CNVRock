@@ -9,22 +9,25 @@ store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
 out_dir:    "../../../data/results/06_higher_beta_vae"
 normalise:  true
 
-# Model — full retrain with higher beta to improve latent structure.
-# max_beta raised 1.0 → 4.0: exp 05 results suggest the VAE latent space
-# doesn't cleanly separate amplified from normal coverage (GCH1 FN p50 CRR=1.18
-# ≈ 1.0; evaluation note warns about CNV-positive profiles being treated as
-# default). Higher beta forces stronger KL regularisation, pushing the latent
-# space toward a more structured representation where copy-number states are
-# better separated. warmup_epochs raised 50 → 100 so reconstruction has time
-# to stabilise before KL pressure becomes large.
+# Model — full retrain with CNV-sample downsampling only (ablation-clean).
+# Single change from exp 05: cnv_downsample_ratio isolates the training-
+# distribution fix without confounding higher-beta or warmup changes.
+#
+# cnv_downsample_ratio 0.25: CNV-positive samples are sampled at 1/4 the
+# rate of normal samples during training via WeightedRandomSampler. PM2
+# amplification is present in a large fraction of Pf9; without downsampling,
+# the VAE can learn that amplified coverage is the "normal" state.
+# Downsampling rebalances the effective training distribution so the model
+# treats amplification as the exception, not the baseline.
 latent_dim:    10
 batch_size:    128
 epochs:        300
 lr:            1.0e-3
 weight_decay:  1.0e-5
-max_beta:      4.0   # was 1.0
-warmup_epochs: 100   # was 50 — longer warmup needed at higher beta
+max_beta:      1.0
+warmup_epochs: 50
 patience:      10
+cnv_downsample_ratio: 0.25  # new — CNV-positive samples weighted 4× lower
 
 # HMM segmentation — unchanged from exp 05 to isolate the VAE change
 hmm_n_states:          6

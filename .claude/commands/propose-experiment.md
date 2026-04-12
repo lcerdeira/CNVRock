@@ -77,15 +77,27 @@ Analyse the latest experiment results and propose the next experiment. Set up th
    ```
 
 7. **Send the email and arm the daemon**
-   Run:
+   If `tools/.proposal_thread_msgid` exists (i.e. this is a revised proposal in a
+   feedback chain), thread the email under the original proposal:
+   ```bash
+   .venv/bin/python tools/send_email.py \
+       --subject "CNV Experiment N+1 Proposal" \
+       --body @tools/.proposal_body.txt \
+       --save-id tools/.last_proposal_msgid \
+       --in-reply-to "$(cat tools/.proposal_thread_msgid)"
+   ```
+   Otherwise (fresh proposal after an experiment completes):
    ```bash
    .venv/bin/python tools/send_email.py \
        --subject "CNV Experiment N+1 Proposal" \
        --body @tools/.proposal_body.txt \
        --save-id tools/.last_proposal_msgid
+   ```
+   Then:
+   ```bash
    echo "N+1" > tools/.last_proposal_experiment
    ```
-   Then, if the daemon is not yet installed:
+   If the daemon is not yet installed:
    ```bash
    bash tools/install_daemon.sh
    ```
@@ -93,4 +105,9 @@ Analyse the latest experiment results and propose the next experiment. Set up th
 
 8. **Update README.md** in `models/experiments/N+1/` with the proposal summary and date.
 
-9. **Clean up** `tools/pending_feedback.txt` if it existed (feedback has now been acted on).
+9. **Clean up** `tools/pending_feedback.txt` if it existed.
+   (When running via the daemon, the daemon removes this file after Claude exits.
+   When running interactively, remove it here so the daemon doesn't stay blocked.)
+   Do NOT remove `tools/.proposal_thread_msgid` — it must persist across multiple
+   feedback rounds so all revisions stay in the same email chain. The daemon clears
+   it when an AUTHORISE is received.

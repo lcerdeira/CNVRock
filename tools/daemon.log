@@ -793,3 +793,18 @@ Sent. Message-ID: <177602089071.37656.6560130495448846934@deep-gw-cnv>
 Sent. Message-ID: <177602119910.37707.10536366918929323849@deep-gw-cnv>
 2026-04-12 20:18:23  Feedback received (content not logged — open Claude Code to review).
 Sent. Message-ID: <177602150372.37959.5504513928676922431@deep-gw-cnv>
+2026-04-12 20:53:18  Feedback received (content not logged — invoking Claude to revise proposal).
+Sent. Message-ID: <177602359827.38825.8402549054943237086@deep-gw-cnv>
+2026-04-12 20:54:39  Invoking Claude to revise proposal based on feedback...
+2026-04-12 21:34:10  Feedback received (content not logged — invoking Claude to revise proposal).
+Sent. Message-ID: <177602605006.39613.18429737465327893767@deep-gw-cnv>
+2026-04-12 21:35:31  Invoking Claude to revise proposal based on feedback...
+2026-04-12 21:49:16  AUTHORISE received. Running experiment.
+Sent. Message-ID: <177602695662.39973.1719473266329172842@deep-gw-cnv>
+bash: experiments/6/run.sh: No such file or directory
+Device: mps
+CNV downsampling: 6944 CNV-positive samples (ratio=0.25), 47029 normal samples
+samples=53973 | latent_dim=10
+  epoch 1 | batch 0/422 | loss 1293198.7500
+  epoch 1 | batch 1/422 | loss 1229978.6250
+  epoch 1 | batch 2/422 | loss 1273401.8750
