@@ -5,4 +5,5 @@ import importlib as _il
 _m = _il.import_module("hmm.01_gaussian_hmm")
 
 fit_hmm_segments    = _m.fit_hmm_segments
+fit_hmm_sample      = _m.fit_hmm_sample
 run_hmm_all_samples = _m.run_hmm_all_samples

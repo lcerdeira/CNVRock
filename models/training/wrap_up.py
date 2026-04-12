@@ -22,24 +22,10 @@ Imported by train.py:
 import argparse
 import os
 import sys
-import tempfile
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-
-
-def _write_json(path, data):
-    """Atomically write a JSON file (safe for concurrent readers)."""
-    import json
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f)
-        os.replace(tmp, path)
-    except Exception:
-        os.unlink(tmp)
-        raise
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +76,7 @@ def run_inference(model, dataset, device, out_dir, batch_size=128):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Re-run inference + HMM wrap-up on an existing checkpoint."
+        description="Re-run inference, HMM fitting, CNV calling, and evaluation on an existing checkpoint."
     )
     parser.add_argument("config",     help="Path to experiment config.yaml")
     parser.add_argument("checkpoint", nargs="?",

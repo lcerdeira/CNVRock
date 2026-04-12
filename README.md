@@ -5,42 +5,38 @@ Convolutional VAE for genome-wide CNV detection from read-count data.
 ![screenshot](assets/screenshots/Screenshot%202026-04-08%20at%2017.59.23.png)
 ![screenshot](assets/screenshots/Screenshot%202026-04-08%20at%2018.01.55.png)
 
-```
-TODO:
-
-- Disconnect and version the HMM genotyper
-
-- Clean up codebase, compact it, add more pointers. Build in overarching structure at top-level README
-
-- Set up flow such that I can send myself an email titled #CNV. If contents read so that I ask to set up an experiment, a new experiment directory is set up, using past observations from experiments to suggest the set up of the new experiment, communicated via README.md. It should have "Suggested changes to setup", 
-
-
-
-```
-
 ## Layout
 
 ```
-data/         zarr stores (read counts) and results
-assets/       sample manifests and BAM/CRAM path lists
-setup/        scripts to extract read counts and convert to zarr
-models/       all model code
-  train.py          entry point — run any experiment
-  architectures/    model definitions (ConvVAE)
-  training/         dataset, trainer, inference helpers
-  experiments/      one folder per experiment, each self-contained
+data/
+  inputs/       read-count NPY stores
+  results/      per-experiment outputs (one folder per experiment)
+  setup/        scripts to extract read counts from BAMs/CRAMs
+
+assets/         sample manifests, BAM/CRAM path lists, reference files
+
+models/
+  train.py          entry point — runs a full experiment from a config
+  architectures/    versioned VAE definitions  (01_conv_vae.py, …)
+  hmm/              versioned HMM segmenters   (01_gaussian_hmm.py, …)
+  cnv/              versioned CNV callers       (01_gene_cnv_caller.py, …)
+  evaluation/       versioned evaluators        (01_pf9_evaluation.py, …)
+  training/         dataset loader, trainer, inference (non-versioned)
+  experiments/      one self-contained folder per experiment
+
+diagnostics/    Streamlit app for interactive sample inspection
 ```
 
 ## Running an experiment
 
 ```bash
 cd models/experiments/01
-bash run_mac.sh        # local (MPS or CPU)
+bash run.sh
 ```
 
 Or directly:
 ```bash
-python3 models/train.py models/experiments/01/config.yaml
+.venv/bin/python models/train.py models/experiments/01/config.yaml
 ```
 
 ## Adding a new experiment
@@ -50,10 +46,19 @@ cp -r models/experiments/01 models/experiments/02
 # edit models/experiments/02/config.yaml
 ```
 
-Outputs (`latents.npy`, `reconstructions.npy`, `sample_ids.npy`, `checkpoint.pth`) are written to the `out_dir` defined in the config.
+A new experiment can reuse any existing versioned component — just point `architecture`, `hmm`, `cnv`, and `evaluation` in `config.yaml` at the same numbered files and adjust the parameters. Only create a new versioned file (e.g. `02_gaussian_hmm.py`) when the algorithm itself changes, not just the parameters.
+
+Outputs are written to the `out_dir` defined in the config: `checkpoint.pth`, `latents.npy`, `reconstructions.npy`, `sample_ids.npy`, `segments.parquet`, `gene_calls.tsv`, `evaluation.txt`.
+
+## Diagnostics
+
+```bash
+cd diagnostics
+streamlit run app.py
+```
+
+Select an experiment from the dropdown — the app loads that experiment's config to resolve data paths, component versions, and all calling parameters automatically.
 
 ## Setup
 
-See [setup/](setup/) for Nextflow pipelines that extract read counts from BAMs/CRAMs and write zarr stores.
-
-## Quick start
+See [data/setup/](data/setup/) for scripts that extract read counts from BAMs/CRAMs and convert to NPY.
