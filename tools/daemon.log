@@ -340,3 +340,38 @@ Fitting HMM for 53973 samples (n_jobs=-1)...
   HMM 5000/53973 | elapsed 80s | eta 787s
   HMM 5500/53973 | elapsed 88s | eta 778s
   HMM 6000/53973 | elapsed 97s | eta 773s
+  HMM 6500/53973 | elapsed 103s | eta 755s
+  HMM 7000/53973 | elapsed 112s | eta 753s
+  HMM 7500/53973 | elapsed 119s | eta 740s
+  HMM 8000/53973 | elapsed 129s | eta 742s
+  HMM 8500/53973 | elapsed 137s | eta 730s
+  HMM 9000/53973 | elapsed 143s | eta 716s
+  HMM 9500/53973 | elapsed 152s | eta 711s
+  HMM 10000/53973 | elapsed 162s | eta 711s
+  HMM 10500/53973 | elapsed 170s | eta 705s
+  HMM 11000/53973 | elapsed 180s | eta 704s
+  HMM 11500/53973 | elapsed 190s | eta 701s
+  HMM 12000/53973 | elapsed 199s | eta 697s
+  HMM 12500/53973 | elapsed 207s | eta 687s
+  HMM 13000/53973 | elapsed 218s | eta 686s
+  HMM 13500/53973 | elapsed 230s | eta 689s
+  HMM 14000/53973 | elapsed 240s | eta 686s
+  HMM 14500/53973 | elapsed 250s | eta 680s
+  HMM 15000/53973 | elapsed 267s | eta 693s
+  HMM 15500/53973 | elapsed 285s | eta 706s
+  HMM 16000/53973 | elapsed 299s | eta 709s
+  HMM 16500/53973 | elapsed 308s | eta 701s
+  HMM 17000/53973 | elapsed 324s | eta 705s
+  HMM 17500/53973 | elapsed 334s | eta 696s
+  HMM 18000/53973 | elapsed 342s | eta 684s
+  HMM 18500/53973 | elapsed 352s | eta 675s
+  HMM 19000/53973 | elapsed 363s | eta 668s
+  HMM 19500/53973 | elapsed 370s | eta 654s
+  HMM 20000/53973 | elapsed 380s | eta 645s
+  HMM 20500/53973 | elapsed 392s | eta 640s
+  HMM 21000/53973 | elapsed 403s | eta 633s
+  HMM 21500/53973 | elapsed 419s | eta 633s
+  HMM 22000/53973 | elapsed 433s | eta 629s
+  HMM 22500/53973 | elapsed 445s | eta 622s
+  HMM 23000/53973 | elapsed 456s | eta 614s
+  HMM 23500/53973 | elapsed 464s | eta 601s
