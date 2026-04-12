@@ -12,6 +12,14 @@ MSGID_FILE="$TOOLS/.last_proposal_msgid"
 FEEDBACK_FILE="$TOOLS/pending_feedback.txt"
 LOG="$TOOLS/daemon.log"
 
+# Locate the Claude CLI — prefer a system install, fall back to the VSCode
+# extension binary (fragile: breaks on extension updates).
+# Run `brew install node && npm install -g @anthropic-ai/claude-code` for a
+# stable system install.
+CLAUDE_BIN="$(which claude 2>/dev/null \
+    || find "$HOME/.vscode/extensions" -name "claude" -type f 2>/dev/null | sort -r | head -1 \
+    || true)"
+
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S')  $*" >> "$LOG"; }
 
 if [ ! -f "$MSGID_FILE" ]; then
@@ -29,17 +37,33 @@ case "$RESULT" in
 
     AUTHORISE)
         log "AUTHORISE received. Running experiment."
-        # Determine which experiment the proposal was for from a companion file
         EXPERIMENT=$(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null || echo "02")
+        # Clean up before running so a re-trigger can't happen mid-run
+        rm -f "$MSGID_FILE" "$TOOLS/.last_proposal_experiment"
+
+        "$PYTHON" "$TOOLS/send_email.py" \
+            --subject "CNV Experiment $EXPERIMENT — Running" \
+            --body "Experiment $EXPERIMENT has started on the Mac mini. I'll email you when it's done and propose the next one."
+
         cd "$REPO_ROOT/models"
         bash "experiments/$EXPERIMENT/run.sh" >> "$LOG" 2>&1
         log "Experiment $EXPERIMENT complete."
-        # Send confirmation email
-        "$PYTHON" "$TOOLS/send_email.py" \
-            --subject "CNV Experiment $EXPERIMENT — Started" \
-            --body "Experiment $EXPERIMENT is now running on the Mac mini. I will update you when it completes."
-        # Clean up so the daemon doesn't re-trigger
-        rm -f "$MSGID_FILE" "$TOOLS/.last_proposal_experiment"
+
+        # Automatically propose the next experiment using Claude CLI
+        if [ -n "$CLAUDE_BIN" ]; then
+            log "Invoking Claude to propose next experiment..."
+            cd "$REPO_ROOT"
+            "$CLAUDE_BIN" --print \
+                "$(cat .claude/commands/propose-experiment.md)" \
+                >> "$LOG" 2>&1 \
+                && log "Next experiment proposed and email sent." \
+                || log "Claude proposal step failed — open Claude Code and run /propose-experiment manually."
+        else
+            log "Claude CLI not found. Open Claude Code and run /propose-experiment to propose the next experiment."
+            "$PYTHON" "$TOOLS/send_email.py" \
+                --subject "CNV Experiment $EXPERIMENT — Complete" \
+                --body "Experiment $EXPERIMENT has finished. Open Claude Code and run /propose-experiment to review the results and propose the next experiment."
+        fi
         ;;
 
     FEEDBACK)

@@ -37,7 +37,7 @@ def load_env(repo_root):
 
 
 def _fetch_reply_body(imap, original_msg_id):
-    """Search for and return the body of the reply to original_msg_id, or None."""
+    """Search for and return the decoded plain-text body of the reply, or None."""
     _, data = imap.search(None, f'HEADER "In-Reply-To" "{original_msg_id}"')
     uids = data[0].split()
     if not uids:
@@ -46,9 +46,17 @@ def _fetch_reply_body(imap, original_msg_id):
         uids = data[0].split()
     if not uids:
         return None
-    # Fetch ONLY the body of the single matching reply. Nothing else is read.
-    _, msg_data = imap.fetch(uids[-1], "(BODY[TEXT])")
-    return msg_data[0][1].decode(errors="replace").strip()
+    # Fetch the full RFC822 message so we can decode MIME properly (e.g. base64).
+    _, msg_data = imap.fetch(uids[-1], "(RFC822)")
+    raw = msg_data[0][1]
+    msg = email.message_from_bytes(raw)
+    # Walk parts and return the first text/plain payload.
+    for part in msg.walk():
+        if part.get_content_type() == "text/plain":
+            payload = part.get_payload(decode=True)  # handles base64/quoted-printable
+            if payload:
+                return payload.decode(part.get_content_charset() or "utf-8", errors="replace").strip()
+    return ""
 
 
 def check(msg_id_file, print_body=False):
