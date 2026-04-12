@@ -476,3 +476,9 @@ Sent. Message-ID: <177600788194.33610.13188394708508976107@deep-gw-cnv>
 Sent. Message-ID: <177600852135.33733.543768896814629460@deep-gw-cnv>
 2026-04-12 16:47:09  Feedback received (content not logged — open Claude Code to review).
 Sent. Message-ID: <177600882938.33912.5794986338150225958@deep-gw-cnv>
+2026-04-12 16:52:18  Feedback received (content not logged — open Claude Code to review).
+Sent. Message-ID: <177600913848.34359.16718960614930113782@deep-gw-cnv>
+2026-04-12 16:57:27  AUTHORISE received. Running experiment.
+Sent. Message-ID: <177600944782.34460.191509613978788604@deep-gw-cnv>
+Device: mps
+Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/01_pf9_conv_vae/checkpoint.pth

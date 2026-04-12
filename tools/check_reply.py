@@ -47,12 +47,33 @@ def _decode_body(raw_bytes):
     return ""
 
 
+# Body prefixes that identify daemon-sent ack emails (for legacy emails that
+# predate the X-CNV-Daemon header). These are matched case-insensitively
+# against the start of the decoded body.
+_ACK_BODY_PREFIXES = (
+    "got it. i'll review your feedback",
+    "experiment ",           # "Experiment N has started…" / "Experiment N has finished…"
+    "automatic proposal failed",
+)
+
+
+def _is_own_ack(parsed, body):
+    """Return True if this email is a daemon-sent ack we should skip."""
+    if parsed.get("X-CNV-Daemon"):
+        return True  # header present — definitive
+    # Fallback for old acks sent before the header was added.
+    if body:
+        lower = body.lower()
+        if any(lower.startswith(p) for p in _ACK_BODY_PREFIXES):
+            return True
+    return False
+
+
 def _fetch_reply_body(imap, original_msg_id, own_address):
     """Search for and return the decoded plain-text body of the user's reply, or None.
 
-    Takes the oldest matching reply. The user's reply arrives before our daemon
-    acknowledgment, so oldest-first naturally picks the right email even when both
-    share the same From address (self-email workflow).
+    Iterates oldest-first. Skips any email that looks like a daemon ack
+    (either via the X-CNV-Daemon header or known ack body prefixes).
     """
     _, data = imap.search(None, f'HEADER "In-Reply-To" "{original_msg_id}"')
     uids = data[0].split()
@@ -63,16 +84,16 @@ def _fetch_reply_body(imap, original_msg_id, own_address):
     if not uids:
         return None
 
-    # Iterate oldest-first, skipping any emails we sent ourselves (marked X-CNV-Daemon: ack).
     for uid in uids:
         _, msg_data = imap.fetch(uid, "(RFC822)")
         raw = msg_data[0][1]
         parsed = email.message_from_bytes(raw)
-        if parsed.get("X-CNV-Daemon"):
-            continue  # our own ack — skip
-        return _decode_body(raw)
+        body = _decode_body(raw)
+        if _is_own_ack(parsed, body):
+            continue  # daemon ack — skip
+        return body
 
-    return None  # only our own acks found — treat as no reply
+    return None  # only daemon acks found — treat as no reply
 
 
 def check(msg_id_file, print_body=False):
