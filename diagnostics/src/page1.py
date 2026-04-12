@@ -1,28 +1,31 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import os
 import random
 
 import matplotlib.pyplot as plt
 
 from src.utils import (load_meta, load_results, load_inputs, process_sample,
                        compute_pca, compute_pca_contours, plot_latents, plot_pca,
-                       plot_copy_number, fit_hmm_sample, call_all_genes)
+                       plot_copy_number,
+                       list_experiments, load_experiment_config,
+                       fit_hmm_sample_versioned, call_all_genes_versioned)
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
 def page1():
     st.title("First page")
 
-    RESULTS_DIR = st.selectbox("Select results directory", options = os.listdir("../data/results/"), index=0)
-    INPUTS_DIR  = st.selectbox("Select inputs directory", options = os.listdir("../data/inputs/"), index=0)
+    experiments = list_experiments()
+    EXPERIMENT  = st.selectbox("Experiment", options=experiments, index=0)
 
-    if not RESULTS_DIR or not INPUTS_DIR:
-        st.stop("Please select both a results directory and an inputs directory to proceed.")
+    if not EXPERIMENT:
+        st.stop("Please select an experiment to proceed.")
 
-    results   = load_results(os.path.join("../data/results/", RESULTS_DIR))
-    inputs    = load_inputs(os.path.join("../data/inputs/", INPUTS_DIR))
+    cfg = load_experiment_config(EXPERIMENT)
+
+    results = load_results(cfg["out_dir"])
+    inputs  = load_inputs(cfg["store_path"])
     meta, gff = load_meta()
 
     st.dataframe(meta)
@@ -66,22 +69,22 @@ def page1():
         if precomputed is not None:
             sample_segs = precomputed[precomputed["sample_id"] == SAMPLE_ID]
         else:
-            with st.expander("HMM parameters", expanded=False):
-                n_states          = st.slider("CN states",              3, 8,    6)
-                self_transition   = st.slider("Self-transition prob",   0.80, 0.999, 0.95,
-                                              step=0.005, format="%.3f")
-                low_cov_threshold = st.slider("Low-coverage threshold", 0, 100, 10)
             with st.spinner("Fitting HMM…"):
-                sample_segs = fit_hmm_sample(
-                    data,
-                    n_states=n_states,
-                    self_transition=self_transition,
-                    low_cov_threshold=low_cov_threshold,
+                sample_segs = fit_hmm_sample_versioned(
+                    cfg["hmm"], data,
+                    n_states          = cfg["hmm_n_states"],
+                    self_transition   = cfg["hmm_self_transition"],
+                    low_cov_threshold = cfg["hmm_low_cov_threshold"],
                 )
         cn_layout = plot_copy_number(data, sample_segs)
         components.html(file_html(cn_layout, CDN), height=520)
 
-    gene_calls = call_all_genes(data, sample_segs)
+    gene_calls = call_all_genes_versioned(
+        cfg["cnv"], data, sample_segs,
+        min_cn1_proportion = cfg["cnv_min_cn1_proportion"],
+        min_confidence     = cfg["cnv_min_confidence"],
+        flank_padding      = cfg["cnv_flank_padding"],
+    )
     st.dataframe(pd.DataFrame(gene_calls), hide_index=True, width="stretch")
 
     @st.dialog("Gene annotations", width="large")

@@ -1,3 +1,5 @@
+# Convenience re-export of the latest architecture.
+# Training and wrap-up load the version specified in config.yaml via importlib.
 import importlib as _il
 
 _m = _il.import_module("architectures.01_conv_vae")

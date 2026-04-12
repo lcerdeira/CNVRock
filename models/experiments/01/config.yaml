@@ -1,3 +1,9 @@
+# Versioned components — these determine which numbered implementation is loaded
+architecture: "01_conv_vae"
+hmm:          "01_gaussian_hmm"
+cnv:          "01_gene_cnv_caller"
+evaluation:   "01_pf9_evaluation"
+
 # Data
 store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
 out_dir:    "../../../data/results/01_pf9_conv_vae"
@@ -18,3 +24,20 @@ warmup_epochs: 50
 
 # Early stopping
 patience: 10
+
+# HMM segmentation  (hmm/01_gaussian_hmm.py)
+hmm_n_states:          6      # number of Gaussian copy-number states
+hmm_self_transition:   0.99   # transition-matrix diagonal; higher = stickier segments
+hmm_low_cov_threshold: 10     # exclude bins with raw or reconstructed count below this
+hmm_n_jobs:            -1     # joblib parallelism (-1 = all cores)
+
+# CNV calling  (cnv/01_gene_cnv_caller.py)
+cnv_min_cn1_proportion: 0.8      # fraction of chromosome bins that must be CN=1
+cnv_min_confidence:     0.7      # minimum HMM posterior for CN=1 sanity check
+cnv_flank_padding:      100000   # bp either side of gene used as flank for CRR
+
+# Evaluation  (evaluation/01_pf9_evaluation.py)
+# pf9_gt_path and pf9_meta_path are resolved relative to this config file.
+# Remove or comment out pf9_gt_path to skip evaluation.
+pf9_gt_path:   "../../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../../assets/Pf_9_samples_20260227.txt"

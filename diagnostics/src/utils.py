@@ -1,7 +1,10 @@
+import importlib
 import os
 import random
+import sys
 
 import numpy as np
+import yaml
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -477,238 +480,56 @@ document.getElementById('scatter').on('plotly_hover', function(ev) {{
 _CN_COLORS = ["#313695", "#74add1", "#888888", "#fdae61", "#d73027", "#a50026"]
 
 
-def _merge_short_runs(states, min_len):
-    """Absorb runs shorter than min_len into their preceding (or following) neighbour."""
-    states  = states.copy()
-    changed = True
-    while changed:
-        changed = False
-        i = 0
-        while i < len(states):
-            j = i
-            while j < len(states) and states[j] == states[i]:
-                j += 1
-            if (j - i) < min_len:
-                if i > 0:
-                    fill = states[i - 1]
-                elif j < len(states):
-                    fill = states[j]
-                else:
-                    fill = states[i]
-                states[i:j] = fill
-                changed = True
-            i = j
-    return states
+# ---------------------------------------------------------------------------
+# Versioned model loading
+# ---------------------------------------------------------------------------
+
+# models/ lives two levels up from diagnostics/src/
+_MODELS_DIR     = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../models"))
+_EXPERIMENTS_DIR = os.path.join(_MODELS_DIR, "experiments")
+
+if _MODELS_DIR not in sys.path:
+    sys.path.insert(0, _MODELS_DIR)
 
 
-# Genes of interest — (contig, start, end, call_id)
-GENES_OF_INTEREST = [
-    {"call_id": "MDR1",    "contig": "Pf3D7_05_v3", "start": 955955,  "end": 963095},
-    {"call_id": "CRT",     "contig": "Pf3D7_07_v3", "start": 402385,  "end": 406341},
-    {"call_id": "GCH1",    "contig": "Pf3D7_12_v3", "start": 974226,  "end": 976097},
-    {"call_id": "PM2_PM3", "contig": "Pf3D7_14_v3", "start": 292244,  "end": 299101},
-]
-
-
-def call_gene_cnv(data, segments, gene, min_cn1_proportion=0.8, min_confidence=0.7,
-                  flank_padding=100_000):
-    """Call copy number for a single gene of interest.
-
-    The call is based on two checks:
-      1. Chromosome sanity: if fewer than `min_cn1_proportion` of the chromosome's
-         bins are covered by CN=1 segments with confidence >= `min_confidence`, the
-         chromosome itself is likely aneuploid and the call is set to -1.
-      2. Gene coverage: a single HMM segment must span the entire gene (x0 <= start
-         and x1 >= end).  If no such segment exists, the call is -1.
-
-    Also computes floating-point copy ratio summaries:
-      - crr : mean copy ratio within the gene divided by the mean
-                           copy ratio outside [gene_start - flank_padding,
-                           gene_end + flank_padding]
-
-    Parameters
-    ----------
-    data     : DataFrame from process_sample (chrom, start, end, copy_ratio, …)
-    segments : DataFrame with chrom, x0, x1, cn, confidence  (HMM output)
-    gene     : dict with keys call_id, contig, start, end
-
-    Returns
-    -------
-    dict: call_id, cn (int or -1), crr
-    """
-    contig  = gene["contig"]
-    g_start = gene["start"]
-    g_end   = gene["end"]
-
-    result = {
-        "call_id":          gene["call_id"],
-        "cn":               -1,
-        "crr": None,
-    }
-
-    chrom_data = data[data["chrom"] == contig]
-    if len(chrom_data) == 0:
-        return result
-
-    # Copy-ratio summary: gene mean / flanking mean (raw signal, independent of HMM)
-    s = chrom_data["start"].values
-    cr = chrom_data["copy_ratio"].values
-    gene_mask  = (s >= g_start) & (s <= g_end)
-    flank_mask = (s < g_start - flank_padding) | (s > g_end + flank_padding)
-    mean_gene   = float(np.nanmean(cr[gene_mask]))   if gene_mask.any()  else None
-    mean_flank  = float(np.nanmean(cr[flank_mask]))  if flank_mask.any() else None
-    if mean_gene is not None and mean_flank and mean_flank > 0:
-        result["crr"] = mean_gene / mean_flank
-
-    if segments is None or len(segments) == 0:
-        return result
-
-    chrom_segs = segments[segments["chrom"] == contig]
-    if len(chrom_segs) == 0:
-        return result
-
-    # 1. Chromosome sanity check — what proportion of bins are CN=1 with high confidence?
-    high_conf_cn1 = chrom_segs[(chrom_segs["cn"] == 1) & (chrom_segs["confidence"] >= min_confidence)]
-    if len(high_conf_cn1) == 0:
-        return result
-    x0 = high_conf_cn1["x0"].values
-    x1 = high_conf_cn1["x1"].values
-    # Vectorised: (n_bins, n_segs) broadcast — any segment covers each bin?
-    covered = ((s[:, None] >= x0) & (s[:, None] < x1)).any(axis=1)
-    if covered.sum() / len(s) < min_cn1_proportion:
-        return result  # chromosome looks aneuploid — can't make a gene-level call
-
-    # 2. Single segment must span the entire gene
-    spanning = chrom_segs[(chrom_segs["x0"] <= g_start) & (chrom_segs["x1"] >= g_end)]
-    if len(spanning) > 0:
-        result["cn"] = int(spanning.iloc[0]["cn"])
-
-    return result
-
-
-def call_all_genes(data, segments):
-    """Run call_gene_cnv for every gene in GENES_OF_INTEREST.
-
-    Returns a list of dicts (one per gene), suitable for display or batch storage.
-    """
-    return [call_gene_cnv(data, segments, gene) for gene in GENES_OF_INTEREST]
+def list_experiments():
+    """Return sorted list of experiment folder names that contain a config.yaml."""
+    return sorted([
+        d for d in os.listdir(_EXPERIMENTS_DIR)
+        if d[0].isdigit()
+        and os.path.isfile(os.path.join(_EXPERIMENTS_DIR, d, "config.yaml"))
+    ])
 
 
 @st.cache_data
-def fit_hmm_sample(data, n_states=6, self_transition=0.95, low_cov_threshold=10):
-    """Fit one HMM across all valid contigs of a single sample.
+def load_experiment_config(experiment_id):
+    """Load the config.yaml for the given experiment and resolve all paths to absolute."""
+    config_dir  = os.path.join(_EXPERIMENTS_DIR, experiment_id)
+    config_path = os.path.join(config_dir, "config.yaml")
+    with open(config_path) as f:
+        cfg = yaml.safe_load(f)
+    # Resolve relative paths against the config file's own directory
+    for key in ("store_path", "out_dir", "pf9_gt_path", "pf9_meta_path"):
+        if key in cfg and not os.path.isabs(cfg[key]):
+            cfg[key] = os.path.normpath(os.path.join(config_dir, cfg[key]))
+    return cfg
 
-    Means are fixed at integer copy numbers [0, 1, …, n_states-1] with
-    sigma=0.5 (decision boundaries at midpoints 0.5, 1.5, 2.5 …).
-    Only startprob is learned; transmat and emissions are fixed priors.
 
-    Bins are excluded before fitting if:
-      - input OR reconstruction < low_cov_threshold  (same threshold as the
-        red background in the copy-number plot)
-      - copy_ratio is non-finite or ≤ 0
+@st.cache_data
+def fit_hmm_sample_versioned(hmm_version, data, n_states, self_transition, low_cov_threshold):
+    """Load fit_hmm_sample from the named HMM version and run it.
 
-    Contigs are detected from spatial gaps in the remaining bin positions
-    (diff > 1.5 × median bin size), matching the hypervariable-region gaps
-    already visible in the plot.  Each contig is treated as an independent
-    HMM sequence via the `lengths` parameter.
-
-    Parameters
-    ----------
-    data : DataFrame from process_sample — needs chrom, start, copy_ratio,
-           input, reconstruction columns.
-
-    Returns
-    -------
-    DataFrame with columns: chrom, x0, x1, cn, confidence
+    Results are cached by Streamlit — changing any argument invalidates the cache.
     """
-    from hmmlearn.hmm import GaussianHMM
+    fn = importlib.import_module(f"hmm.{hmm_version}").fit_hmm_sample
+    return fn(data, n_states, self_transition, low_cov_threshold)
 
-    # Build list of (chrom, pos_array, cr_array) per valid contig
-    contigs = []
 
-    for chrom in data["chrom"].unique():
-        sub = data[data["chrom"] == chrom]
-        pos = sub["start"].values.astype(float)
-        cr  = sub["copy_ratio"].values.astype(float)
-        inp = sub["input"].values.astype(float)
-        rec = sub["reconstruction"].values.astype(float)
-
-        # Mask low-coverage and invalid bins
-        valid = (
-            np.isfinite(cr) & (cr > 0) &
-            (inp >= low_cov_threshold) &
-            (rec >= low_cov_threshold)
-        )
-        pos_v = pos[valid]
-        cr_v  = np.clip(cr[valid], 0, 8)
-
-        if len(pos_v) < 2:
-            continue
-
-        # Detect contig boundaries: gaps > 1.5× median bin spacing
-        bin_size    = float(np.median(np.diff(pos_v)))
-        breaks      = np.where(np.diff(pos_v) > 1.5 * bin_size)[0] + 1
-        idx_groups  = np.split(np.arange(len(pos_v)), breaks)
-
-        for idx in idx_groups:
-            if len(idx) >= n_states * 3:
-                contigs.append((chrom, pos_v[idx], cr_v[idx]))
-
-    if not contigs:
-        return pd.DataFrame(columns=["chrom", "x0", "x1", "cn", "confidence"])
-
-    all_obs = np.concatenate([c[2] for c in contigs]).reshape(-1, 1)
-    lengths = np.array([len(c[2]) for c in contigs])
-
-    off      = (1 - self_transition) / (n_states - 1)
-    transmat = np.full((n_states, n_states), off)
-    np.fill_diagonal(transmat, self_transition)
-
-    model = GaussianHMM(n_components=n_states, covariance_type="diag",
-                        n_iter=200, random_state=42,
-                        params="s", init_params="")
-    model.transmat_  = transmat
-    model.means_     = np.arange(n_states, dtype=float).reshape(-1, 1)
-    model.covars_    = np.full((n_states, 1), 0.25)
-    model.startprob_ = np.full(n_states, 1.0 / n_states)
-    model.fit(all_obs, lengths=lengths)
-
-    all_states     = model.predict(all_obs, lengths=lengths)
-    all_posteriors = model.predict_proba(all_obs, lengths=lengths)
-
-    segs, ptr = [], 0
-    for chrom, pos, cr_arr in contigs:
-        length   = len(cr_arr)
-        states_c = all_states[ptr:ptr + length]
-        post_c   = all_posteriors[ptr:ptr + length]
-        ptr     += length
-
-        bin_conf = post_c[np.arange(length), states_c]
-        bin_size = float(np.median(np.diff(pos))) if length > 1 else 1000.0
-
-        def _seg_conf(sl, _bc=bin_conf, _oc=cr_arr):
-            hmm_post  = float(_bc[sl].mean())
-            stability = 1.0 / (1.0 + (float(np.std(_oc[sl])) / 0.3) ** 2)
-            return hmm_post * stability
-
-        rows, seg_start = [], 0
-        for i in range(1, length):
-            if states_c[i] != states_c[seg_start]:
-                rows.append({"x0": pos[seg_start], "x1": pos[i],
-                             "cn": int(states_c[seg_start]),
-                             "confidence": _seg_conf(slice(seg_start, i))})
-                seg_start = i
-        rows.append({"x0": pos[seg_start], "x1": pos[-1] + bin_size,
-                     "cn": int(states_c[seg_start]),
-                     "confidence": _seg_conf(slice(seg_start, None))})
-
-        df = pd.DataFrame(rows)
-        df.insert(0, "chrom", chrom)
-        segs.append(df)
-
-    return pd.concat(segs, ignore_index=True) if segs else pd.DataFrame(
-        columns=["chrom", "x0", "x1", "cn", "confidence"]
-    )
+def call_all_genes_versioned(cnv_version, data, segments,
+                             min_cn1_proportion, min_confidence, flank_padding):
+    """Load call_all_genes from the named CNV version and run it."""
+    fn = importlib.import_module(f"cnv.{cnv_version}").call_all_genes
+    return fn(data, segments, min_cn1_proportion, min_confidence, flank_padding)
 
 
 def _confidence_color(conf):

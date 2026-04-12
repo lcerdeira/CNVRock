@@ -12,6 +12,8 @@ import argparse
 import os
 import sys
 
+import importlib
+
 import yaml
 import torch
 from torch.utils.data import DataLoader
@@ -19,10 +21,9 @@ from torch.utils.data import DataLoader
 # Allow running this file from any working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from architectures import ConvVAE
 from training.dataset import ReadCountDataset
 from training.trainer import train_vae
-from training.wrap_up import run_hmm_all_samples, run_inference
+from training.wrap_up import run_inference
 
 
 def get_device():
@@ -48,6 +49,12 @@ def main():
     store_path = resolve(cfg["store_path"])
     out_dir    = resolve(cfg["out_dir"])
 
+    # Load versioned components named in config
+    ConvVAE           = importlib.import_module(f"architectures.{cfg['architecture']}").ConvVAE
+    run_hmm_all_samples = importlib.import_module(f"hmm.{cfg['hmm']}").run_hmm_all_samples
+    run_cnv_calls       = importlib.import_module(f"cnv.{cfg['cnv']}").run_cnv_calls
+    run_evaluation      = importlib.import_module(f"evaluation.{cfg['evaluation']}").run_evaluation
+
     lsf_jobid = os.getenv("LSB_JOBID")
     if lsf_jobid:
         print(f"LSF job: {lsf_jobid}\n{'='*50}", flush=True)
@@ -55,7 +62,7 @@ def main():
     device = get_device()
     print(f"Device: {device}", flush=True)
 
-    ds = ReadCountDataset(store_path, normalise=cfg.get("normalise", True))
+    ds = ReadCountDataset(store_path, normalise=cfg["normalise"])
 
     num_workers = 8 if device.type == "cuda" else 0
     dl = DataLoader(ds, batch_size=cfg["batch_size"], shuffle=True, num_workers=num_workers)
@@ -63,8 +70,8 @@ def main():
     model     = ConvVAE(latent_dim=cfg["latent_dim"]).to(device)
     optimiser = torch.optim.Adam(
         model.parameters(),
-        lr=cfg.get("lr", 1e-3),
-        weight_decay=cfg.get("weight_decay", 1e-5),
+        lr=cfg["lr"],
+        weight_decay=cfg["weight_decay"],
     )
 
     print(f"samples={len(ds)} | latent_dim={cfg['latent_dim']}", flush=True)
@@ -76,9 +83,9 @@ def main():
     train_vae(
         model, dl, optimiser,
         epochs          = cfg["epochs"],
-        max_beta        = cfg.get("max_beta", 1.0),
-        warmup_epochs   = cfg.get("warmup_epochs", 400),
-        patience        = cfg.get("patience", 50),
+        max_beta        = cfg["max_beta"],
+        warmup_epochs   = cfg["warmup_epochs"],
+        patience        = cfg["patience"],
         device          = device,
         model_save_path = checkpoint_path,
         log_path        = log_path,
@@ -91,7 +98,19 @@ def main():
     run_inference(model, ds, device, out_dir, batch_size=cfg["batch_size"])
 
     print("Fitting HMM segments...", flush=True)
-    run_hmm_all_samples(store_path, out_dir)
+    run_hmm_all_samples(store_path, out_dir, cfg)
+
+    print("Calling gene CNVs...", flush=True)
+    run_cnv_calls(store_path, out_dir, cfg)
+
+    if cfg.get("pf9_gt_path"):
+        cfg_resolved = dict(cfg)
+        cfg_resolved["pf9_gt_path"] = resolve(cfg["pf9_gt_path"])
+        if cfg.get("pf9_meta_path"):
+            cfg_resolved["pf9_meta_path"] = resolve(cfg["pf9_meta_path"])
+        run_evaluation(out_dir, cfg_resolved)
+    else:
+        print("Skipping evaluation (pf9_gt_path not set in config).", flush=True)
 
 
 if __name__ == "__main__":
