@@ -1,12 +1,12 @@
 # Versioned components
 architecture: "01_conv_vae"
 hmm:          "02_gaussian_hmm"
-cnv:          "03_gene_cnv_caller"   # per-gene CRR thresholds
+cnv:          "03_gene_cnv_caller"   # bin-count-gated CRR fallback
 evaluation:   "01_pf9_evaluation"
 
 # Data
 store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
-out_dir:    "../../../data/results/05_per_gene_crr"
+out_dir:    "../../../data/results/05_bincount_fallback"
 normalise:  true
 
 # Model — reuses experiment 01 checkpoint; no retraining required
@@ -26,20 +26,17 @@ hmm_low_cov_threshold: 10
 hmm_n_jobs:            -1
 
 # CNV calling
-cnv_min_cn1_proportion: 0.55
-cnv_min_confidence:     0.50
-cnv_flank_padding:      100000
+cnv_min_cn1_proportion:    0.55
+cnv_min_confidence:        0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30   # unchanged — not tuned to labelled data
 
-# Per-gene CRR fallback thresholds (version 03 caller)
-# Rationale: exp 04 FP/TP CRR distributions show clean gene-specific gaps.
-# CRT:  FP p75=1.58, TP p10=1.64 → raise to 1.60; eliminates ~75% of FPs, FNR stays 0.00
-# MDR1: FP p90=1.48, TP p10=1.51 → raise to 1.50; eliminates most FPs, FNR ~unchanged
-# GCH1: FP p90=1.40, TP p10=1.37 → overlap; keep at 1.30 to preserve TP recall
-# PM2_PM3: FP p90=1.46, TP p10=1.40 → overlap; keep at 1.30
-cnv_crr_amp_threshold_crt:     1.60   # was 1.30 globally
-cnv_crr_amp_threshold_gch1:    1.30   # unchanged
-cnv_crr_amp_threshold_mdr1:    1.50   # was 1.30 globally
-cnv_crr_amp_threshold_pm2_pm3: 1.30   # unchanged
+# CRR fallback is only applied to genes spanning fewer than this many bins.
+# Genes with >= 3 bins are handled by the HMM alone; the fallback exists
+# only for ultra-short loci (e.g. GCH1, ~2 bins) where Viterbi is physically
+# unable to overcome the self_transition penalty. This threshold generalises
+# to genome-wide calling without relying on per-gene labelled ground truth.
+cnv_crr_min_bins_fallback: 3
 
 # Evaluation
 pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"

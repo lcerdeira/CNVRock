@@ -38,10 +38,11 @@ def send(subject, body, save_id_path=None, in_reply_to=None):
     password = env["EMAIL_PASSWORD"]
 
     msg = EmailMessage()
-    msg["From"]       = address
-    msg["To"]         = address
-    msg["Subject"]    = subject
-    msg["Message-ID"] = make_msgid(domain="deep-gw-cnv")
+    msg["From"]           = address
+    msg["To"]             = address
+    msg["Subject"]        = subject
+    msg["Message-ID"]     = make_msgid(domain="deep-gw-cnv")
+    msg["X-CNV-Daemon"]   = "ack"   # marks all our outgoing emails so the reply checker ignores them
     if in_reply_to:
         msg["In-Reply-To"] = in_reply_to
         msg["References"]  = in_reply_to  # ensures Gmail threads correctly

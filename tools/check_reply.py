@@ -36,27 +36,43 @@ def load_env(repo_root):
     return env
 
 
-def _fetch_reply_body(imap, original_msg_id):
-    """Search for and return the decoded plain-text body of the reply, or None."""
-    _, data = imap.search(None, f'HEADER "In-Reply-To" "{original_msg_id}"')
-    uids = data[0].split()
-    if not uids:
-        # Some clients use References instead of In-Reply-To
-        _, data = imap.search(None, f'HEADER "References" "{original_msg_id}"')
-        uids = data[0].split()
-    if not uids:
-        return None
-    # Fetch the full RFC822 message so we can decode MIME properly (e.g. base64).
-    _, msg_data = imap.fetch(uids[-1], "(RFC822)")
-    raw = msg_data[0][1]
-    msg = email.message_from_bytes(raw)
-    # Walk parts and return the first text/plain payload.
+def _decode_body(raw_bytes):
+    """Parse an RFC822 message and return its decoded plain-text body, or ''."""
+    msg = email.message_from_bytes(raw_bytes)
     for part in msg.walk():
         if part.get_content_type() == "text/plain":
             payload = part.get_payload(decode=True)  # handles base64/quoted-printable
             if payload:
                 return payload.decode(part.get_content_charset() or "utf-8", errors="replace").strip()
     return ""
+
+
+def _fetch_reply_body(imap, original_msg_id, own_address):
+    """Search for and return the decoded plain-text body of the user's reply, or None.
+
+    Takes the oldest matching reply. The user's reply arrives before our daemon
+    acknowledgment, so oldest-first naturally picks the right email even when both
+    share the same From address (self-email workflow).
+    """
+    _, data = imap.search(None, f'HEADER "In-Reply-To" "{original_msg_id}"')
+    uids = data[0].split()
+    if not uids:
+        # Some clients set References instead of In-Reply-To
+        _, data = imap.search(None, f'HEADER "References" "{original_msg_id}"')
+        uids = data[0].split()
+    if not uids:
+        return None
+
+    # Iterate oldest-first, skipping any emails we sent ourselves (marked X-CNV-Daemon: ack).
+    for uid in uids:
+        _, msg_data = imap.fetch(uid, "(RFC822)")
+        raw = msg_data[0][1]
+        parsed = email.message_from_bytes(raw)
+        if parsed.get("X-CNV-Daemon"):
+            continue  # our own ack — skip
+        return _decode_body(raw)
+
+    return None  # only our own acks found — treat as no reply
 
 
 def check(msg_id_file, print_body=False):
@@ -71,7 +87,7 @@ def check(msg_id_file, print_body=False):
     with imaplib.IMAP4_SSL("imap.gmail.com") as imap:
         imap.login(address, password)
         imap.select("INBOX")
-        body = _fetch_reply_body(imap, original_msg_id)
+        body = _fetch_reply_body(imap, original_msg_id, address)
 
     if body is None:
         print("NO_REPLY")

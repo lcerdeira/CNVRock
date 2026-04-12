@@ -42,6 +42,10 @@ Analyse the latest experiment results and propose the next experiment. Set up th
    - Update `config.yaml` with the new parameters, including comments explaining the rationale for each change.
    - Update `run.sh` — if reusing the existing checkpoint, invoke `wrap_up.py` with the checkpoint path instead of `train.py`.
    - Write `README.md` with: hypothesis, what changed, what you expect to happen.
+   - If this is a **revised proposal** (i.e. `tools/pending_feedback.txt` existed), add a **Proposal history** section to the README:
+     - Summarise what your original proposal was (parameters and rationale).
+     - Summarise the feedback received (paraphrase — do not paste verbatim; feedback is never stored on disk).
+     - Describe what changed between the original and revised proposal, and why.
 
 6. **Write the email (≤ 100 lines)**
    Write to a temp file `tools/.proposal_body.txt` with this structure:
