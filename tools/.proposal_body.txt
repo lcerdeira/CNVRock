@@ -1,0 +1,50 @@
+Hi Chiyun,
+
+Experiment 05 results summary:
+- PM2_PM3: FNR=0.98 (367 FN, 7 TP) — near-total failure; HMM discarding real signal
+  (FN p50 CRR=1.47)
+- GCH1: FNR=0.29, PPV=0.95 — persistent; FN p50 CRR=1.18 ≈ 1.0 suggests weak
+  latent signal, not just HMM
+- CRT: FNR=0.04, PPV=1.00, MCC=0.98 — near-perfect; bin-count gate worked as predicted
+- MDR1: FNR=0.11, PPV=1.00 — FPs eliminated; some FNs remain (FN p50 CRR=1.43)
+
+My diagnosis:
+The bin-count gate cleanly fixed CRT and MDR1 FPs. PM2_PM3 is the worst failure —
+signal is clearly there (CRR p50=1.47) but Viterbi discards it. GCH1 is different:
+FN p50 CRR=1.18 is close to 1.0, pointing upstream to the VAE representation rather
+than the HMM. If the VAE latent space doesn't separate amplified from normal coverage,
+the HMM has nothing to work with. PM2 amplification is extremely common in Pf9, so the
+model may have learned to encode it as "normal." The evaluation guidance flags this
+directly: high FNR can result from the model treating CNV-positive counts as the
+default state.
+
+Proposed experiment 06 (revised): Retrain VAE with higher beta (max_beta 1.0 → 4.0)
+Changes from 05:
+- max_beta: 1.0 → 4.0
+  Stronger KL regularisation forces a more structured latent space. Instead of letting
+  the model use all latent capacity freely, higher beta compresses variation into fewer
+  effective dimensions — normal and amplified coverage should occupy more distinct regions,
+  giving the HMM cleaner signal.
+- warmup_epochs: 50 → 100
+  Reconstruction needs time to stabilise before KL pressure becomes large. Longer warmup
+  avoids the model collapsing the latent space before it has learned useful structure.
+- hmm_self_transition held at 0.75 (exp 05 value) to isolate the VAE effect.
+
+What I expect:
+GCH1 FNR should improve — the weak-signal FNs are most likely to benefit from a more
+structured latent space. PM2_PM3 is an HMM transition bottleneck; better VAE
+representations may help at the margins but won't fully fix it (we can address that
+with hmm_self_transition tuning in exp 07 once we see the VAE improvement). CRT and
+MDR1 should stay stable.
+
+What we could do instead:
+1. Lower hmm_self_transition (0.75 → 0.65) — directly fixes PM2_PM3 without retraining;
+   original exp 06 plan. Fast (~25 min), but doesn't address the upstream VAE issue.
+2. Increase latent_dim (10 → 20) — more capacity; complementary to higher beta but
+   less targeted at latent structure.
+
+Run time estimate: Full VAE retrain (~3–4 hrs on Mac mini MPS) + HMM ~25 min + eval ~2 min.
+
+Reply AUTHORISE to run this on the Mac mini, or reply with feedback and I'll revise.
+
+Claude

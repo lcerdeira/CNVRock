@@ -1,0 +1,46 @@
+# Versioned components
+architecture: "01_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "03_gene_cnv_caller"   # bin-count-gated CRR fallback
+evaluation:   "01_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/06_higher_beta_vae"
+normalise:  true
+
+# Model — full retrain with higher beta to improve latent structure.
+# max_beta raised 1.0 → 4.0: exp 05 results suggest the VAE latent space
+# doesn't cleanly separate amplified from normal coverage (GCH1 FN p50 CRR=1.18
+# ≈ 1.0; evaluation note warns about CNV-positive profiles being treated as
+# default). Higher beta forces stronger KL regularisation, pushing the latent
+# space toward a more structured representation where copy-number states are
+# better separated. warmup_epochs raised 50 → 100 so reconstruction has time
+# to stabilise before KL pressure becomes large.
+latent_dim:    10
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      4.0   # was 1.0
+warmup_epochs: 100   # was 50 — longer warmup needed at higher beta
+patience:      10
+
+# HMM segmentation — unchanged from exp 05 to isolate the VAE change
+hmm_n_states:          6
+hmm_self_transition:   0.75
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling
+cnv_min_cn1_proportion:    0.55
+cnv_min_confidence:        0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30   # unchanged — not tuned to labelled data
+
+# CRR fallback only for genes < 3 bins (GCH1 ~2 bins); HMM handles the rest.
+cnv_crr_min_bins_fallback: 3
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"

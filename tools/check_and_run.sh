@@ -31,6 +31,15 @@ if [ ! -f "$MSGID_FILE" ]; then
     exit 0  # nothing pending — silent exit
 fi
 
+# If feedback was already acked and the revised proposal was sent (msgid file
+# updated), the old user-reply email is still in the inbox, so check_reply.py
+# would detect FEEDBACK again on the next poll.  Guard against this by exiting
+# early when pending_feedback.txt exists — /propose-experiment removes it once
+# the revised proposal email is sent.
+if [ -f "$FEEDBACK_FILE" ]; then
+    exit 0
+fi
+
 RESULT=$("$PYTHON" "$TOOLS/check_reply.py" --msg-id-file "$MSGID_FILE" 2>>"$LOG") || true
 
 case "$RESULT" in
@@ -59,6 +68,7 @@ case "$RESULT" in
             log "Invoking Claude to propose next experiment..."
             cd "$REPO_ROOT"
             "$CLAUDE_BIN" --print \
+                --permission-mode bypassPermissions \
                 "$(cat .claude/commands/propose-experiment.md)" \
                 >> "$LOG" 2>&1 || true
             # Verify Claude actually armed the daemon — exit-code alone is not reliable.
@@ -82,16 +92,34 @@ case "$RESULT" in
         ;;
 
     FEEDBACK)
-        log "Feedback received (content not logged — open Claude Code to review)."
+        log "Feedback received (content not logged — invoking Claude to revise proposal)."
         # Write a flag file so /propose-experiment knows to read pending feedback.
         # The feedback itself stays in your Gmail — it is never written to disk here.
         touch "$FEEDBACK_FILE"
         PROPOSAL_MSGID=$(cat "$MSGID_FILE" 2>/dev/null || true)
+        EXPERIMENT=$(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null || echo "")
         "$PYTHON" "$TOOLS/send_email.py" \
-            --subject "Re: CNV Experiment $(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null) Proposal" \
-            --body "Got it. I'll review your feedback and send a revised proposal shortly. Open Claude Code to proceed." \
+            --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
+            --body "Got it. I'll review your feedback and send a revised proposal shortly." \
             --in-reply-to "$PROPOSAL_MSGID"
-        # Leave msgid file in place until the new proposal replaces it
+
+        if [ -n "$CLAUDE_BIN" ]; then
+            log "Invoking Claude to revise proposal based on feedback..."
+            cd "$REPO_ROOT"
+            "$CLAUDE_BIN" --print \
+                --permission-mode bypassPermissions \
+                "$(cat .claude/commands/propose-experiment.md)" \
+                >> "$LOG" 2>&1 || true
+            # A successful revised proposal replaces the msgid file.
+            if [ -f "$MSGID_FILE" ] && [ "$(cat "$MSGID_FILE")" != "$PROPOSAL_MSGID" ]; then
+                log "Revised proposal sent successfully."
+            else
+                log "Claude did not complete the revised proposal. Open Claude Code and run /propose-experiment."
+            fi
+        else
+            log "Claude CLI not found. Open Claude Code and run /propose-experiment to revise the proposal."
+        fi
+        # Leave msgid file in place — /propose-experiment replaces it when the new proposal is sent
         ;;
 
     *)

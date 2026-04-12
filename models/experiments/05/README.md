@@ -1,6 +1,6 @@
 # Experiment 05 — Bin-count-gated CRR fallback
 
-**Status:** Proposed 2026-04-12
+**Status:** Complete 2026-04-12
 
 **No retraining. No re-segmentation.** Reuses exp 01 checkpoint and exp 04 HMM segments.
 Only the CNV caller changes (03_gene_cnv_caller.py).
@@ -53,6 +53,25 @@ is intended to generalise. For unlabelled regions of the genome:
   risks miscalibrating the caller for the rest of the genome.
 - Future calibration approaches: population-level CRR distributions as a null,
   holdout regions with known copy number, or cross-validation across populations.
+
+## Actual outcome
+
+| Gene    | FNR  | PPV  | MCC  | FN p50 CRR | Notes                              |
+|---------|------|------|------|------------|------------------------------------|
+| CRT     | 0.04 | 1.00 | 0.98 | 1.50       | Near-perfect; FP eliminated ✓      |
+| GCH1    | 0.29 | 0.95 | 0.80 | 1.18       | Persistent — weak signal + HMM     |
+| MDR1    | 0.11 | 1.00 | 0.94 | 1.43       | FP eliminated ✓; some FN remain    |
+| PM2_PM3 | 0.98 | 1.00 | 0.14 | 1.47       | Near-total failure — HMM bottleneck|
+
+**Prediction vs reality:**
+- CRT and MDR1 FPs eliminated as predicted — the bin-count gate worked perfectly.
+- PM2_PM3 was predicted to see a slight FP reduction with small FNR risk. Instead FNR=0.98,
+  catastrophically worse than exp 04 (where the CRR fallback rescued it). With 7 bins and
+  `hmm_self_transition=0.75`, Viterbi cannot overcome the transition cost — the HMM alone
+  is insufficient. FN p50 CRR=1.47 >> 1.0 confirms signal is present; the HMM discards it.
+- GCH1 unchanged as predicted; 2-bin CRR fallback still active.
+
+→ See experiment 06 (lower `hmm_self_transition` 0.75 → 0.65)
 
 ## Proposal history
 
