@@ -21,6 +21,7 @@ from bokeh.models import NumeralTickFormatter, PanTool, WheelZoomTool, LabelSet
 from bokeh.palettes import Plasma256
 
 @st.cache_data
+@st.cache_data
 def load_results(results_dir):
     latents         = np.load(os.path.join(results_dir, "latents.npy"))
     reconstructions = np.load(os.path.join(results_dir, "reconstructions.npy"))
@@ -526,10 +527,12 @@ def fit_hmm_sample_versioned(hmm_version, data, n_states, self_transition, low_c
 
 
 def call_all_genes_versioned(cnv_version, data, segments,
-                             min_cn1_proportion, min_confidence, flank_padding):
+                             min_cn1_proportion, min_confidence, flank_padding,
+                             crr_amp_threshold, crr_min_bins_fallback):
     """Load call_all_genes from the named CNV version and run it."""
     fn = importlib.import_module(f"cnv.{cnv_version}").call_all_genes
-    return fn(data, segments, min_cn1_proportion, min_confidence, flank_padding)
+    return fn(data, segments, min_cn1_proportion, min_confidence, flank_padding,
+              crr_amp_threshold, crr_min_bins_fallback)
 
 
 def _confidence_color(conf):

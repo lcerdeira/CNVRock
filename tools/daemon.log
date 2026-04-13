@@ -1,563 +1,3 @@
-2026-04-12 11:29:57  Checking for reply...
-2026-04-12 11:33:09  No reply yet.
-2026-04-12 11:38:10  Checking for reply...
-2026-04-12 11:41:24  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177599048450.26165.1992293426221055837@deep-gw-cnv>
-2026-04-12 11:47:46  Checking for reply...
-2026-04-12 11:50:36  AUTHORISE received. Running experiment.
-Sent. Message-ID: <177599103654.26762.4682095425172734428@deep-gw-cnv>
-Device: mps
-Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/01_pf9_conv_vae/checkpoint.pth
-Device: mps
-Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/01_pf9_conv_vae/checkpoint.pth
-Saved latents         (53973, 10) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/02/../../../data/results/02_hmm_tuned/latents.npy
-Saved reconstructions (53973, 20814)  → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/02/../../../data/results/02_hmm_tuned/reconstructions.npy
-Saved sample_ids      (53973,) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/02/../../../data/results/02_hmm_tuned/sample_ids.npy
-Fitting HMM segments...
-Fitting HMM for 53973 samples (n_jobs=-1)...
-  HMM 500/53973 | elapsed 7s | eta 801s
-  HMM 1000/53973 | elapsed 14s | eta 734s
-  HMM 1500/53973 | elapsed 18s | eta 647s
-  HMM 2000/53973 | elapsed 24s | eta 624s
-  HMM 2500/53973 | elapsed 29s | eta 603s
-  HMM 3000/53973 | elapsed 34s | eta 584s
-  HMM 3500/53973 | elapsed 41s | eta 586s
-  HMM 4000/53973 | elapsed 45s | eta 567s
-  HMM 4500/53973 | elapsed 51s | eta 560s
-  HMM 5000/53973 | elapsed 57s | eta 560s
-  HMM 5500/53973 | elapsed 63s | eta 555s
-  HMM 6000/53973 | elapsed 69s | eta 551s
-  HMM 6500/53973 | elapsed 74s | eta 539s
-  HMM 7000/53973 | elapsed 80s | eta 537s
-  HMM 7500/53973 | elapsed 86s | eta 531s
-  HMM 8000/53973 | elapsed 92s | eta 531s
-  HMM 8500/53973 | elapsed 98s | eta 522s
-  HMM 9000/53973 | elapsed 102s | eta 512s
-  HMM 9500/53973 | elapsed 108s | eta 508s
-  HMM 10000/53973 | elapsed 115s | eta 504s
-  HMM 10500/53973 | elapsed 121s | eta 502s
-  HMM 11000/53973 | elapsed 129s | eta 502s
-  HMM 11500/53973 | elapsed 135s | eta 498s
-  HMM 12000/53973 | elapsed 141s | eta 494s
-  HMM 12500/53973 | elapsed 146s | eta 486s
-  HMM 13000/53973 | elapsed 153s | eta 483s
-  HMM 13500/53973 | elapsed 161s | eta 484s
-  HMM 14000/53973 | elapsed 168s | eta 481s
-  HMM 14500/53973 | elapsed 175s | eta 476s
-  HMM 15000/53973 | elapsed 185s | eta 481s
-  HMM 15500/53973 | elapsed 196s | eta 486s
-  HMM 16000/53973 | elapsed 205s | eta 486s
-  HMM 16500/53973 | elapsed 211s | eta 479s
-  HMM 17000/53973 | elapsed 220s | eta 479s
-  HMM 17500/53973 | elapsed 227s | eta 472s
-  HMM 18000/53973 | elapsed 233s | eta 465s
-  HMM 18500/53973 | elapsed 239s | eta 459s
-  HMM 19000/53973 | elapsed 246s | eta 453s
-  HMM 19500/53973 | elapsed 251s | eta 444s
-  HMM 20000/53973 | elapsed 258s | eta 437s
-  HMM 20500/53973 | elapsed 266s | eta 434s
-  HMM 21000/53973 | elapsed 273s | eta 429s
-  HMM 21500/53973 | elapsed 283s | eta 427s
-  HMM 22000/53973 | elapsed 292s | eta 424s
-  HMM 22500/53973 | elapsed 299s | eta 418s
-  HMM 23000/53973 | elapsed 307s | eta 414s
-  HMM 23500/53973 | elapsed 313s | eta 405s
-  HMM 24000/53973 | elapsed 319s | eta 399s
-  HMM 24500/53973 | elapsed 326s | eta 392s
-  HMM 25000/53973 | elapsed 333s | eta 385s
-  HMM 25500/53973 | elapsed 339s | eta 378s
-  HMM 26000/53973 | elapsed 344s | eta 371s
-  HMM 26500/53973 | elapsed 351s | eta 364s
-  HMM 27000/53973 | elapsed 357s | eta 357s
-  HMM 27500/53973 | elapsed 362s | eta 349s
-  HMM 28000/53973 | elapsed 373s | eta 346s
-  HMM 28500/53973 | elapsed 381s | eta 340s
-  HMM 29000/53973 | elapsed 388s | eta 334s
-  HMM 29500/53973 | elapsed 398s | eta 330s
-  HMM 30000/53973 | elapsed 406s | eta 324s
-  HMM 30500/53973 | elapsed 415s | eta 320s
-  HMM 31000/53973 | elapsed 425s | eta 315s
-  HMM 31500/53973 | elapsed 435s | eta 310s
-  HMM 32000/53973 | elapsed 444s | eta 305s
-  HMM 32500/53973 | elapsed 456s | eta 301s
-  HMM 33000/53973 | elapsed 462s | eta 294s
-  HMM 33500/53973 | elapsed 468s | eta 286s
-  HMM 34000/53973 | elapsed 477s | eta 280s
-  HMM 34500/53973 | elapsed 488s | eta 275s
-  HMM 35000/53973 | elapsed 498s | eta 270s
-  HMM 35500/53973 | elapsed 504s | eta 262s
-  HMM 36000/53973 | elapsed 513s | eta 256s
-  HMM 36500/53973 | elapsed 522s | eta 250s
-  HMM 37000/53973 | elapsed 531s | eta 244s
-  HMM 37500/53973 | elapsed 540s | eta 237s
-  HMM 38000/53973 | elapsed 546s | eta 229s
-  HMM 38500/53973 | elapsed 554s | eta 223s
-  HMM 39000/53973 | elapsed 563s | eta 216s
-  HMM 39500/53973 | elapsed 570s | eta 209s
-  HMM 40000/53973 | elapsed 578s | eta 202s
-  HMM 40500/53973 | elapsed 586s | eta 195s
-  HMM 41000/53973 | elapsed 595s | eta 188s
-  HMM 41500/53973 | elapsed 604s | eta 181s
-  HMM 42000/53973 | elapsed 611s | eta 174s
-  HMM 42500/53973 | elapsed 616s | eta 166s
-  HMM 43000/53973 | elapsed 625s | eta 159s
-  HMM 43500/53973 | elapsed 638s | eta 154s
-  HMM 44000/53973 | elapsed 646s | eta 146s
-  HMM 44500/53973 | elapsed 656s | eta 140s
-  HMM 45000/53973 | elapsed 665s | eta 133s
-  HMM 45500/53973 | elapsed 672s | eta 125s
-  HMM 46000/53973 | elapsed 680s | eta 118s
-  HMM 46500/53973 | elapsed 685s | eta 110s
-  HMM 47000/53973 | elapsed 692s | eta 103s
-  HMM 47500/53973 | elapsed 705s | eta 96s
-  HMM 48000/53973 | elapsed 716s | eta 89s
-  HMM 48500/53973 | elapsed 728s | eta 82s
-  HMM 49000/53973 | elapsed 741s | eta 75s
-  HMM 49500/53973 | elapsed 754s | eta 68s
-  HMM 50000/53973 | elapsed 768s | eta 61s
-  HMM 50500/53973 | elapsed 783s | eta 54s
-  HMM 51000/53973 | elapsed 794s | eta 46s
-  HMM 51500/53973 | elapsed 800s | eta 38s
-  HMM 52000/53973 | elapsed 811s | eta 31s
-  HMM 52500/53973 | elapsed 825s | eta 23s
-  HMM 53000/53973 | elapsed 841s | eta 15s
-  HMM 53500/53973 | elapsed 853s | eta 8s
-  HMM 53973/53973 | elapsed 862s | eta 0s
-Saved segments (17,160,050 rows) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/02/../../../data/results/02_hmm_tuned/segments.parquet
-Calling gene CNVs...
-Computing gene CNV calls for 53973 samples…
-/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/01_gene_cnv_caller.py:183: RuntimeWarning: invalid value encountered in divide
-  crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
-  Done MDR1 | elapsed 16s
-  Done CRT | elapsed 27s
-  Done GCH1 | elapsed 41s
-  Done PM2_PM3 | elapsed 56s
-Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/02/../../../data/results/02_hmm_tuned/gene_calls.tsv
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/Users/jiayichiyun/Code/deep-gw-cnv/models/training/wrap_up.py", line 149, in <module>
-    main()
-    ~~~~^^
-  File "/Users/jiayichiyun/Code/deep-gw-cnv/models/training/wrap_up.py", line 143, in main
-    run_evaluation(out_dir, cfg_resolved)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/jiayichiyun/Code/deep-gw-cnv/models/evaluation/01_pf9_evaluation.py", line 103, in run_evaluation
-    pf9_cnv = pd.read_csv(pf9_gt_path, sep="\t", usecols=gt_cols)
-  File "/Users/jiayichiyun/Code/deep-gw-cnv/.venv/lib/python3.14/site-packages/pandas/io/parsers/readers.py", line 1026, in read_csv
-    return _read(filepath_or_buffer, kwds)
-  File "/Users/jiayichiyun/Code/deep-gw-cnv/.venv/lib/python3.14/site-packages/pandas/io/parsers/readers.py", line 620, in _read
-    parser = TextFileReader(filepath_or_buffer, **kwds)
-  File "/Users/jiayichiyun/Code/deep-gw-cnv/.venv/lib/python3.14/site-packages/pandas/io/parsers/readers.py", line 1620, in __init__
-    self._engine = self._make_engine(f, self.engine)
-                   ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
-  File "/Users/jiayichiyun/Code/deep-gw-cnv/.venv/lib/python3.14/site-packages/pandas/io/parsers/readers.py", line 1880, in _make_engine
-    self.handles = get_handle(
-                   ~~~~~~~~~~^
-        f,
-        ^^
-    ...<6 lines>...
-        storage_options=self.options.get("storage_options", None),
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/Users/jiayichiyun/Code/deep-gw-cnv/.venv/lib/python3.14/site-packages/pandas/io/common.py", line 873, in get_handle
-    handle = open(
-        handle,
-    ...<3 lines>...
-        newline="",
-    )
-FileNotFoundError: [Errno 2] No such file or directory: '/Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/02/../../../../assets/20260313_full_cnv_data_pf9.tsv'
-2026-04-12 12:18:08  No proposal pending (no msgid file). Exiting.
-2026-04-12 12:23:08  No proposal pending (no msgid file). Exiting.
-2026-04-12 12:28:09  No proposal pending (no msgid file). Exiting.
-2026-04-12 12:33:09  No proposal pending (no msgid file). Exiting.
-2026-04-12 12:38:09  No proposal pending (no msgid file). Exiting.
-2026-04-12 12:43:09  Checking for reply...
-2026-04-12 12:46:10  No reply yet.
-2026-04-12 12:51:10  Checking for reply...
-2026-04-12 12:53:57  No reply yet.
-2026-04-12 12:58:58  Checking for reply...
-2026-04-12 13:01:56  AUTHORISE received. Running experiment.
-Sent. Message-ID: <177599531683.28432.2706040834603664889@deep-gw-cnv>
-Device: mps
-Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/01_pf9_conv_vae/checkpoint.pth
-Saved latents         (53973, 10) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/03/../../../data/results/03_hmm_threshold_tuned/latents.npy
-Saved reconstructions (53973, 20814)  → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/03/../../../data/results/03_hmm_threshold_tuned/reconstructions.npy
-Saved sample_ids      (53973,) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/03/../../../data/results/03_hmm_threshold_tuned/sample_ids.npy
-Fitting HMM segments...
-Fitting HMM for 53973 samples (n_jobs=-1)...
-  HMM 500/53973 | elapsed 7s | eta 795s
-  HMM 1000/53973 | elapsed 13s | eta 711s
-  HMM 1500/53973 | elapsed 19s | eta 664s
-  HMM 2000/53973 | elapsed 25s | eta 645s
-  HMM 2500/53973 | elapsed 30s | eta 620s
-  HMM 3000/53973 | elapsed 35s | eta 600s
-  HMM 3500/53973 | elapsed 41s | eta 598s
-  HMM 4000/53973 | elapsed 47s | eta 584s
-  HMM 4500/53973 | elapsed 52s | eta 573s
-  HMM 5000/53973 | elapsed 59s | eta 574s
-  HMM 5500/53973 | elapsed 65s | eta 570s
-  HMM 6000/53973 | elapsed 71s | eta 566s
-  HMM 6500/53973 | elapsed 76s | eta 556s
-  HMM 7000/53973 | elapsed 83s | eta 555s
-  HMM 7500/53973 | elapsed 88s | eta 548s
-  HMM 8000/53973 | elapsed 95s | eta 547s
-  HMM 8500/53973 | elapsed 101s | eta 539s
-  HMM 9000/53973 | elapsed 106s | eta 529s
-  HMM 9500/53973 | elapsed 112s | eta 524s
-  HMM 10000/53973 | elapsed 119s | eta 522s
-  HMM 10500/53973 | elapsed 125s | eta 519s
-  HMM 11000/53973 | elapsed 133s | eta 518s
-  HMM 11500/53973 | elapsed 139s | eta 515s
-  HMM 12000/53973 | elapsed 146s | eta 510s
-  HMM 12500/53973 | elapsed 151s | eta 502s
-  HMM 13000/53973 | elapsed 158s | eta 499s
-  HMM 13500/53973 | elapsed 167s | eta 501s
-  HMM 14000/53973 | elapsed 174s | eta 497s
-  HMM 14500/53973 | elapsed 181s | eta 493s
-  HMM 15000/53973 | elapsed 192s | eta 499s
-  HMM 15500/53973 | elapsed 203s | eta 503s
-  HMM 16000/53973 | elapsed 212s | eta 504s
-  HMM 16500/53973 | elapsed 219s | eta 496s
-  HMM 17000/53973 | elapsed 228s | eta 496s
-  HMM 17500/53973 | elapsed 235s | eta 491s
-  HMM 18000/53973 | elapsed 242s | eta 483s
-  HMM 18500/53973 | elapsed 249s | eta 477s
-  HMM 19000/53973 | elapsed 256s | eta 471s
-  HMM 19500/53973 | elapsed 261s | eta 461s
-  HMM 20000/53973 | elapsed 268s | eta 454s
-  HMM 20500/53973 | elapsed 276s | eta 450s
-  HMM 21000/53973 | elapsed 284s | eta 446s
-  HMM 21500/53973 | elapsed 294s | eta 444s
-  HMM 22000/53973 | elapsed 303s | eta 440s
-  HMM 22500/53973 | elapsed 311s | eta 435s
-  HMM 23000/53973 | elapsed 319s | eta 430s
-  HMM 23500/53973 | elapsed 325s | eta 421s
-  HMM 24000/53973 | elapsed 332s | eta 414s
-  HMM 24500/53973 | elapsed 339s | eta 408s
-  HMM 25000/53973 | elapsed 346s | eta 401s
-  HMM 25500/53973 | elapsed 352s | eta 393s
-  HMM 26000/53973 | elapsed 358s | eta 385s
-  HMM 26500/53973 | elapsed 365s | eta 379s
-  HMM 27000/53973 | elapsed 371s | eta 371s
-  HMM 27500/53973 | elapsed 377s | eta 363s
-  HMM 28000/53973 | elapsed 388s | eta 360s
-  HMM 28500/53973 | elapsed 396s | eta 354s
-  HMM 29000/53973 | elapsed 404s | eta 348s
-  HMM 29500/53973 | elapsed 414s | eta 344s
-  HMM 30000/53973 | elapsed 422s | eta 337s
-  HMM 30500/53973 | elapsed 432s | eta 333s
-  HMM 31000/53973 | elapsed 443s | eta 328s
-  HMM 31500/53973 | elapsed 452s | eta 322s
-  HMM 32000/53973 | elapsed 460s | eta 316s
-  HMM 32500/53973 | elapsed 472s | eta 312s
-  HMM 33000/53973 | elapsed 479s | eta 304s
-  HMM 33500/53973 | elapsed 486s | eta 297s
-  HMM 34000/53973 | elapsed 494s | eta 290s
-  HMM 34500/53973 | elapsed 506s | eta 285s
-  HMM 35000/53973 | elapsed 516s | eta 280s
-  HMM 35500/53973 | elapsed 523s | eta 272s
-  HMM 36000/53973 | elapsed 531s | eta 265s
-  HMM 36500/53973 | elapsed 541s | eta 259s
-  HMM 37000/53973 | elapsed 550s | eta 253s
-  HMM 37500/53973 | elapsed 559s | eta 245s
-  HMM 38000/53973 | elapsed 565s | eta 238s
-  HMM 38500/53973 | elapsed 573s | eta 230s
-  HMM 39000/53973 | elapsed 582s | eta 223s
-  HMM 39500/53973 | elapsed 590s | eta 216s
-  HMM 40000/53973 | elapsed 598s | eta 209s
-  HMM 40500/53973 | elapsed 605s | eta 201s
-  HMM 41000/53973 | elapsed 614s | eta 194s
-  HMM 41500/53973 | elapsed 622s | eta 187s
-  HMM 42000/53973 | elapsed 630s | eta 179s
-  HMM 42500/53973 | elapsed 634s | eta 171s
-  HMM 43000/53973 | elapsed 642s | eta 164s
-  HMM 43500/53973 | elapsed 655s | eta 158s
-  HMM 44000/53973 | elapsed 662s | eta 150s
-  HMM 44500/53973 | elapsed 672s | eta 143s
-  HMM 45000/53973 | elapsed 680s | eta 136s
-  HMM 45500/53973 | elapsed 686s | eta 128s
-  HMM 46000/53973 | elapsed 693s | eta 120s
-  HMM 46500/53973 | elapsed 698s | eta 112s
-  HMM 47000/53973 | elapsed 704s | eta 104s
-  HMM 47500/53973 | elapsed 715s | eta 97s
-  HMM 48000/53973 | elapsed 724s | eta 90s
-  HMM 48500/53973 | elapsed 734s | eta 83s
-  HMM 49000/53973 | elapsed 744s | eta 76s
-  HMM 49500/53973 | elapsed 755s | eta 68s
-  HMM 50000/53973 | elapsed 766s | eta 61s
-  HMM 50500/53973 | elapsed 777s | eta 53s
-  HMM 51000/53973 | elapsed 785s | eta 46s
-  HMM 51500/53973 | elapsed 789s | eta 38s
-  HMM 52000/53973 | elapsed 797s | eta 30s
-  HMM 52500/53973 | elapsed 807s | eta 23s
-  HMM 53000/53973 | elapsed 817s | eta 15s
-  HMM 53500/53973 | elapsed 825s | eta 7s
-  HMM 53973/53973 | elapsed 831s | eta 0s
-Saved segments (18,461,037 rows) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/03/../../../data/results/03_hmm_threshold_tuned/segments.parquet
-Calling gene CNVs...
-Computing gene CNV calls for 53973 samples…
-/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/01_gene_cnv_caller.py:183: RuntimeWarning: invalid value encountered in divide
-  crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
-  Done MDR1 | elapsed 17s
-  Done CRT | elapsed 29s
-  Done GCH1 | elapsed 44s
-  Done PM2_PM3 | elapsed 60s
-Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/03/../../../data/results/03_hmm_threshold_tuned/gene_calls.tsv
-Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/03/../../../data/results/03_hmm_threshold_tuned/evaluation.txt
-2026-04-12 13:22:59  Experiment 03 complete.
-2026-04-12 13:22:59  Invoking Claude to propose next experiment...
-2026-04-12 13:56:44  Checking for reply...
-2026-04-12 13:59:36  No reply yet.
-2026-04-12 14:04:36  Checking for reply...
-2026-04-12 14:07:22  No reply yet.
-2026-04-12 14:12:22  Checking for reply...
-2026-04-12 14:15:57  No reply yet.
-2026-04-12 14:20:57  Checking for reply...
-2026-04-12 14:24:04  No reply yet.
-2026-04-12 14:29:05  Checking for reply...
-2026-04-12 14:31:57  No reply yet.
-2026-04-12 14:36:57  Checking for reply...
-2026-04-12 14:41:12  AUTHORISE received. Running experiment.
-Sent. Message-ID: <177600127279.30184.6891184009884115852@deep-gw-cnv>
-Device: mps
-Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/01_pf9_conv_vae/checkpoint.pth
-Saved latents         (53973, 10) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/latents.npy
-Saved reconstructions (53973, 20814)  → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/reconstructions.npy
-Saved sample_ids      (53973,) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/sample_ids.npy
-Fitting HMM segments...
-Fitting HMM for 53973 samples (n_jobs=-1)...
-  HMM 500/53973 | elapsed 9s | eta 998s
-  HMM 1000/53973 | elapsed 17s | eta 914s
-  HMM 1500/53973 | elapsed 25s | eta 859s
-  HMM 2000/53973 | elapsed 32s | eta 837s
-  HMM 2500/53973 | elapsed 40s | eta 826s
-  HMM 3000/53973 | elapsed 47s | eta 801s
-  HMM 3500/53973 | elapsed 56s | eta 813s
-  HMM 4000/53973 | elapsed 63s | eta 792s
-  HMM 4500/53973 | elapsed 71s | eta 783s
-  HMM 5000/53973 | elapsed 80s | eta 787s
-  HMM 5500/53973 | elapsed 88s | eta 778s
-  HMM 6000/53973 | elapsed 97s | eta 773s
-  HMM 6500/53973 | elapsed 103s | eta 755s
-  HMM 7000/53973 | elapsed 112s | eta 753s
-  HMM 7500/53973 | elapsed 119s | eta 740s
-  HMM 8000/53973 | elapsed 129s | eta 742s
-  HMM 8500/53973 | elapsed 137s | eta 730s
-  HMM 9000/53973 | elapsed 143s | eta 716s
-  HMM 9500/53973 | elapsed 152s | eta 711s
-  HMM 10000/53973 | elapsed 162s | eta 711s
-  HMM 10500/53973 | elapsed 170s | eta 705s
-  HMM 11000/53973 | elapsed 180s | eta 704s
-  HMM 11500/53973 | elapsed 190s | eta 701s
-  HMM 12000/53973 | elapsed 199s | eta 697s
-  HMM 12500/53973 | elapsed 207s | eta 687s
-  HMM 13000/53973 | elapsed 218s | eta 686s
-  HMM 13500/53973 | elapsed 230s | eta 689s
-  HMM 14000/53973 | elapsed 240s | eta 686s
-  HMM 14500/53973 | elapsed 250s | eta 680s
-  HMM 15000/53973 | elapsed 267s | eta 693s
-  HMM 15500/53973 | elapsed 285s | eta 706s
-  HMM 16000/53973 | elapsed 299s | eta 709s
-  HMM 16500/53973 | elapsed 308s | eta 701s
-  HMM 17000/53973 | elapsed 324s | eta 705s
-  HMM 17500/53973 | elapsed 334s | eta 696s
-  HMM 18000/53973 | elapsed 342s | eta 684s
-  HMM 18500/53973 | elapsed 352s | eta 675s
-  HMM 19000/53973 | elapsed 363s | eta 668s
-  HMM 19500/53973 | elapsed 370s | eta 654s
-  HMM 20000/53973 | elapsed 380s | eta 645s
-  HMM 20500/53973 | elapsed 392s | eta 640s
-  HMM 21000/53973 | elapsed 403s | eta 633s
-  HMM 21500/53973 | elapsed 419s | eta 633s
-  HMM 22000/53973 | elapsed 433s | eta 629s
-  HMM 22500/53973 | elapsed 445s | eta 622s
-  HMM 23000/53973 | elapsed 456s | eta 614s
-  HMM 23500/53973 | elapsed 464s | eta 601s
-  HMM 24000/53973 | elapsed 473s | eta 591s
-  HMM 24500/53973 | elapsed 484s | eta 582s
-  HMM 25000/53973 | elapsed 494s | eta 572s
-  HMM 25500/53973 | elapsed 503s | eta 561s
-  HMM 26000/53973 | elapsed 511s | eta 550s
-  HMM 26500/53973 | elapsed 521s | eta 540s
-  HMM 27000/53973 | elapsed 530s | eta 529s
-  HMM 27500/53973 | elapsed 537s | eta 517s
-  HMM 28000/53973 | elapsed 555s | eta 515s
-  HMM 28500/53973 | elapsed 566s | eta 506s
-  HMM 29000/53973 | elapsed 577s | eta 497s
-  HMM 29500/53973 | elapsed 593s | eta 492s
-  HMM 30000/53973 | elapsed 605s | eta 484s
-  HMM 30500/53973 | elapsed 622s | eta 478s
-  HMM 31000/53973 | elapsed 638s | eta 473s
-  HMM 31500/53973 | elapsed 651s | eta 465s
-  HMM 32000/53973 | elapsed 665s | eta 456s
-  HMM 32500/53973 | elapsed 686s | eta 453s
-  HMM 33000/53973 | elapsed 696s | eta 443s
-  HMM 33500/53973 | elapsed 707s | eta 432s
-  HMM 34000/53973 | elapsed 721s | eta 423s
-  HMM 34500/53973 | elapsed 739s | eta 417s
-  HMM 35000/53973 | elapsed 757s | eta 411s
-  HMM 35500/53973 | elapsed 770s | eta 401s
-  HMM 36000/53973 | elapsed 786s | eta 392s
-  HMM 36500/53973 | elapsed 803s | eta 384s
-  HMM 37000/53973 | elapsed 820s | eta 376s
-  HMM 37500/53973 | elapsed 838s | eta 368s
-  HMM 38000/53973 | elapsed 851s | eta 358s
-  HMM 38500/53973 | elapsed 870s | eta 350s
-  HMM 39000/53973 | elapsed 890s | eta 342s
-  HMM 39500/53973 | elapsed 909s | eta 333s
-  HMM 40000/53973 | elapsed 930s | eta 325s
-  HMM 40500/53973 | elapsed 947s | eta 315s
-  HMM 41000/53973 | elapsed 967s | eta 306s
-  HMM 41500/53973 | elapsed 987s | eta 297s
-  HMM 42000/53973 | elapsed 1004s | eta 286s
-  HMM 42500/53973 | elapsed 1014s | eta 274s
-  HMM 43000/53973 | elapsed 1033s | eta 264s
-  HMM 43500/53973 | elapsed 1062s | eta 256s
-  HMM 44000/53973 | elapsed 1079s | eta 245s
-  HMM 44500/53973 | elapsed 1102s | eta 235s
-  HMM 45000/53973 | elapsed 1122s | eta 224s
-  HMM 45500/53973 | elapsed 1134s | eta 211s
-  HMM 46000/53973 | elapsed 1152s | eta 200s
-  HMM 46500/53973 | elapsed 1163s | eta 187s
-  HMM 47000/53973 | elapsed 1177s | eta 175s
-  HMM 47500/53973 | elapsed 1205s | eta 164s
-  HMM 48000/53973 | elapsed 1227s | eta 153s
-  HMM 48500/53973 | elapsed 1251s | eta 141s
-  HMM 49000/53973 | elapsed 1278s | eta 130s
-  HMM 49500/53973 | elapsed 1303s | eta 118s
-  HMM 50000/53973 | elapsed 1328s | eta 106s
-  HMM 50500/53973 | elapsed 1352s | eta 93s
-  HMM 51000/53973 | elapsed 1372s | eta 80s
-  HMM 51500/53973 | elapsed 1383s | eta 66s
-  HMM 52000/53973 | elapsed 1401s | eta 53s
-  HMM 52500/53973 | elapsed 1424s | eta 40s
-  HMM 53000/53973 | elapsed 1448s | eta 27s
-  HMM 53500/53973 | elapsed 1466s | eta 13s
-  HMM 53973/53973 | elapsed 1478s | eta 0s
-Saved segments (21,601,549 rows) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/segments.parquet
-Calling gene CNVs...
-Computing gene CNV calls for 53973 samples…
-/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/02_gene_cnv_caller.py:195: RuntimeWarning: invalid value encountered in divide
-  crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
-  Done MDR1 | elapsed 17s
-  Done CRT | elapsed 30s
-  Done GCH1 | elapsed 44s
-  Done PM2_PM3 | elapsed 61s
-Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/gene_calls.tsv
-Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/04/../../../data/results/04_boundary_fix/evaluation.txt
-2026-04-12 15:13:19  Experiment 04 complete.
-2026-04-12 15:13:19  Invoking Claude to propose next experiment...
-I need permission to write new files. Once you approve, I'll create:
-
-1. **`models/cnv/03_gene_cnv_caller.py`** — adds a `min_crr_confirm=1.40` confirmation floor for CRT only (all other genes disabled at 0.0). After any cn=2 call, CRT requires CRR ≥ 1.40 or the call is downgraded to cn=1. This exploits the clear gap between FP p50=1.38 and TP p10=1.64.
-
-2. **`models/experiments/05/`** — copy of exp 04 with `cnv: "03_gene_cnv_caller"` and `out_dir: 05_crt_confirm_floor`.
-
-3. **Email** proposing the experiment and the reasoning.
-
-Could you approve the write permissions so I can proceed?
-2026-04-12 15:20:15  Next experiment proposed and email sent.
-2026-04-12 16:01:36  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600609691.33143.4202306325487021819@deep-gw-cnv>
-2026-04-12 16:06:54  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600641410.33230.13839057413531969463@deep-gw-cnv>
-2026-04-12 16:15:49  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600694910.33387.9971253098496602923@deep-gw-cnv>
-2026-04-12 16:21:03  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600726317.33491.14454915000334350391@deep-gw-cnv>
-2026-04-12 16:26:11  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600757133.33529.730783609420341680@deep-gw-cnv>
-2026-04-12 16:31:21  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600788194.33610.13188394708508976107@deep-gw-cnv>
-2026-04-12 16:36:42  Feedback received (content not logged — open Claude Code to review).
-2026-04-12 16:42:01  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600852135.33733.543768896814629460@deep-gw-cnv>
-2026-04-12 16:47:09  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600882938.33912.5794986338150225958@deep-gw-cnv>
-2026-04-12 16:52:18  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177600913848.34359.16718960614930113782@deep-gw-cnv>
-2026-04-12 16:57:27  AUTHORISE received. Running experiment.
-Sent. Message-ID: <177600944782.34460.191509613978788604@deep-gw-cnv>
-Device: mps
-Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/01_pf9_conv_vae/checkpoint.pth
-Saved latents         (53973, 10) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/05/../../../data/results/05_bincount_fallback/latents.npy
-Saved reconstructions (53973, 20814)  → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/05/../../../data/results/05_bincount_fallback/reconstructions.npy
-Saved sample_ids      (53973,) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/05/../../../data/results/05_bincount_fallback/sample_ids.npy
-Fitting HMM segments...
-Fitting HMM for 53973 samples (n_jobs=-1)...
-Python(34977) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34978) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34979) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34980) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34981) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34982) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34983) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34984) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34985) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34986) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34987) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34988) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34989) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-Python(34990) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
-  HMM 500/53973 | elapsed 9s | eta 1010s
-  HMM 1000/53973 | elapsed 17s | eta 921s
-  HMM 1500/53973 | elapsed 25s | eta 860s
-  HMM 2000/53973 | elapsed 32s | eta 835s
-  HMM 2500/53973 | elapsed 39s | eta 805s
-  HMM 3000/53973 | elapsed 46s | eta 782s
-  HMM 3500/53973 | elapsed 55s | eta 787s
-  HMM 4000/53973 | elapsed 62s | eta 769s
-  HMM 4500/53973 | elapsed 69s | eta 758s
-  HMM 5000/53973 | elapsed 78s | eta 761s
-  HMM 5500/53973 | elapsed 85s | eta 752s
-  HMM 6000/53973 | elapsed 93s | eta 747s
-  HMM 6500/53973 | elapsed 100s | eta 731s
-  HMM 7000/53973 | elapsed 109s | eta 730s
-  HMM 7500/53973 | elapsed 116s | eta 719s
-  HMM 8000/53973 | elapsed 126s | eta 723s
-  HMM 8500/53973 | elapsed 133s | eta 712s
-  HMM 9000/53973 | elapsed 140s | eta 699s
-  HMM 9500/53973 | elapsed 148s | eta 695s
-  HMM 10000/53973 | elapsed 158s | eta 695s
-  HMM 10500/53973 | elapsed 166s | eta 689s
-  HMM 11000/53973 | elapsed 176s | eta 689s
-  HMM 11500/53973 | elapsed 186s | eta 687s
-  HMM 12000/53973 | elapsed 195s | eta 683s
-  HMM 12500/53973 | elapsed 203s | eta 674s
-  HMM 13000/53973 | elapsed 213s | eta 670s
-  HMM 13500/53973 | elapsed 224s | eta 673s
-  HMM 14000/53973 | elapsed 235s | eta 670s
-  HMM 14500/53973 | elapsed 244s | eta 664s
-  HMM 15000/53973 | elapsed 260s | eta 677s
-  HMM 15500/53973 | elapsed 278s | eta 689s
-  HMM 16000/53973 | elapsed 292s | eta 692s
-  HMM 16500/53973 | elapsed 301s | eta 684s
-  HMM 17000/53973 | elapsed 316s | eta 688s
-  HMM 17500/53973 | elapsed 326s | eta 678s
-  HMM 18000/53973 | elapsed 334s | eta 668s
-  HMM 18500/53973 | elapsed 344s | eta 659s
-  HMM 19000/53973 | elapsed 354s | eta 652s
-  HMM 19500/53973 | elapsed 361s | eta 639s
-  HMM 20000/53973 | elapsed 371s | eta 629s
-  HMM 20500/53973 | elapsed 383s | eta 626s
-  HMM 21000/53973 | elapsed 394s | eta 619s
-  HMM 21500/53973 | elapsed 410s | eta 620s
-  HMM 22000/53973 | elapsed 424s | eta 616s
-  HMM 22500/53973 | elapsed 436s | eta 610s
-  HMM 23000/53973 | elapsed 447s | eta 602s
-  HMM 23500/53973 | elapsed 455s | eta 590s
-  HMM 24000/53973 | elapsed 464s | eta 579s
-  HMM 24500/53973 | elapsed 474s | eta 571s
-  HMM 25000/53973 | elapsed 484s | eta 561s
-  HMM 25500/53973 | elapsed 493s | eta 551s
-  HMM 26000/53973 | elapsed 502s | eta 540s
-  HMM 26500/53973 | elapsed 512s | eta 531s
-  HMM 27000/53973 | elapsed 520s | eta 519s
-  HMM 27500/53973 | elapsed 528s | eta 508s
-  HMM 28000/53973 | elapsed 545s | eta 505s
-  HMM 28500/53973 | elapsed 558s | eta 499s
   HMM 29000/53973 | elapsed 569s | eta 490s
   HMM 29500/53973 | elapsed 584s | eta 485s
   HMM 30000/53973 | elapsed 596s | eta 476s
@@ -808,3 +248,403 @@ samples=53973 | latent_dim=10
   epoch 1 | batch 0/422 | loss 1293198.7500
   epoch 1 | batch 1/422 | loss 1229978.6250
   epoch 1 | batch 2/422 | loss 1273401.8750
+  epoch 1 | batch 3/422 | loss 1198034.8750
+  epoch 1 | batch 4/422 | loss 1233287.5000
+  epoch 1 | batch 5/422 | loss 1189256.8750
+  epoch 1 | batch 6/422 | loss 1205314.2500
+  epoch 1 | batch 7/422 | loss 1230190.7500
+  epoch 1 | batch 8/422 | loss 1145180.3750
+  epoch 1 | batch 9/422 | loss 1229851.0000
+  epoch 1 | batch 10/422 | loss 1111315.8750
+  epoch 1 | batch 11/422 | loss 1190379.2500
+  epoch 1 | batch 12/422 | loss 1107713.6250
+  epoch 1 | batch 13/422 | loss 1198122.8750
+  epoch 1 | batch 14/422 | loss 1195659.6250
+  epoch 1 | batch 15/422 | loss 1226930.0000
+  epoch 1 | batch 16/422 | loss 1170980.6250
+  epoch 1 | batch 17/422 | loss 1247739.2500
+  epoch 1 | batch 18/422 | loss 1254966.5000
+  epoch 1 | batch 19/422 | loss 1178827.3750
+  epoch 1 | batch 20/422 | loss 1219211.7500
+  epoch 1 | batch 21/422 | loss 1241828.2500
+  epoch 1 | batch 22/422 | loss 1140490.1250
+  epoch 1 | batch 23/422 | loss 1197926.5000
+  epoch 1 | batch 24/422 | loss 1204115.5000
+  epoch 1 | batch 25/422 | loss 1188495.5000
+  epoch 1 | batch 26/422 | loss 1201939.6250
+  epoch 1 | batch 27/422 | loss 1069427.2500
+  epoch 1 | batch 28/422 | loss 1185599.5000
+  epoch 1 | batch 29/422 | loss 1165398.7500
+  epoch 1 | batch 30/422 | loss 1090457.7500
+  epoch 1 | batch 31/422 | loss 1179008.7500
+  epoch 1 | batch 32/422 | loss 1164270.0000
+  epoch 1 | batch 33/422 | loss 1150433.0000
+  epoch 1 | batch 34/422 | loss 1096329.3750
+  epoch 1 | batch 35/422 | loss 1197288.5000
+  epoch 1 | batch 36/422 | loss 1158571.1250
+  epoch 1 | batch 37/422 | loss 1144609.1250
+  epoch 1 | batch 38/422 | loss 1206133.8750
+  epoch 1 | batch 39/422 | loss 1184706.1250
+  epoch 1 | batch 40/422 | loss 996094.0000
+  epoch 1 | batch 41/422 | loss 1068781.1250
+  epoch 1 | batch 42/422 | loss 1149646.1250
+  epoch 1 | batch 43/422 | loss 1133810.6250
+  epoch 1 | batch 44/422 | loss 1125470.2500
+  epoch 1 | batch 45/422 | loss 1157946.3750
+  epoch 1 | batch 46/422 | loss 1179064.2500
+  epoch 1 | batch 47/422 | loss 1111366.3750
+  epoch 1 | batch 48/422 | loss 1224084.0000
+  epoch 1 | batch 49/422 | loss 1255732.0000
+  epoch 1 | batch 50/422 | loss 1116220.1250
+  epoch 1 | batch 51/422 | loss 1238323.8750
+  epoch 1 | batch 52/422 | loss 1160497.2500
+  epoch 1 | batch 53/422 | loss 1231940.1250
+  epoch 1 | batch 54/422 | loss 1124606.2500
+  epoch 1 | batch 55/422 | loss 1215343.5000
+  epoch 1 | batch 56/422 | loss 1175346.5000
+  epoch 1 | batch 57/422 | loss 1165066.2500
+  epoch 1 | batch 58/422 | loss 1076923.5000
+  epoch 1 | batch 59/422 | loss 1195980.7500
+  epoch 1 | batch 60/422 | loss 1148434.5000
+  epoch 1 | batch 61/422 | loss 1169004.2500
+  epoch 1 | batch 62/422 | loss 1148159.2500
+  epoch 1 | batch 63/422 | loss 1261858.0000
+  epoch 1 | batch 64/422 | loss 1310521.2500
+  epoch 1 | batch 65/422 | loss 1168788.5000
+  epoch 1 | batch 66/422 | loss 1136907.1250
+  epoch 1 | batch 67/422 | loss 1213286.0000
+  epoch 1 | batch 68/422 | loss 1181977.7500
+  epoch 1 | batch 69/422 | loss 1203503.3750
+  epoch 1 | batch 70/422 | loss 1180219.6250
+  epoch 1 | batch 71/422 | loss 1090160.1250
+  epoch 1 | batch 72/422 | loss 1187168.0000
+  epoch 1 | batch 73/422 | loss 1218009.1250
+  epoch 1 | batch 74/422 | loss 1185209.5000
+  epoch 1 | batch 75/422 | loss 1167026.0000
+  epoch 1 | batch 76/422 | loss 1226878.2500
+  epoch 1 | batch 77/422 | loss 1128584.6250
+  epoch 1 | batch 78/422 | loss 1048930.7500
+  epoch 1 | batch 79/422 | loss 1227180.6250
+  epoch 1 | batch 80/422 | loss 1144188.0000
+  epoch 1 | batch 81/422 | loss 1167916.5000
+  epoch 1 | batch 82/422 | loss 1002367.0625
+  epoch 1 | batch 83/422 | loss 1232017.2500
+  epoch 1 | batch 84/422 | loss 1125719.7500
+  epoch 1 | batch 85/422 | loss 1164540.7500
+  epoch 1 | batch 86/422 | loss 1314041.0000
+  epoch 1 | batch 87/422 | loss 1161884.6250
+  epoch 1 | batch 88/422 | loss 1266071.5000
+  epoch 1 | batch 89/422 | loss 1201662.7500
+  epoch 1 | batch 90/422 | loss 1216305.1250
+  epoch 1 | batch 91/422 | loss 1207468.7500
+  epoch 1 | batch 92/422 | loss 1117448.7500
+  epoch 1 | batch 93/422 | loss 1240698.7500
+  epoch 1 | batch 94/422 | loss 1238194.0000
+  epoch 1 | batch 95/422 | loss 1135951.3750
+  epoch 1 | batch 96/422 | loss 1193250.1250
+  epoch 1 | batch 97/422 | loss 1162422.5000
+  epoch 1 | batch 98/422 | loss 1140925.6250
+  epoch 1 | batch 99/422 | loss 1194083.5000
+  epoch 1 | batch 100/422 | loss 1188417.1250
+  epoch 1 | batch 101/422 | loss 1276461.7500
+  epoch 1 | batch 102/422 | loss 1247273.5000
+  epoch 1 | batch 103/422 | loss 1212376.7500
+  epoch 1 | batch 104/422 | loss 1199335.3750
+  epoch 1 | batch 105/422 | loss 1132186.2500
+  epoch 1 | batch 106/422 | loss 1202483.1250
+  epoch 1 | batch 107/422 | loss 1085917.7500
+  epoch 1 | batch 108/422 | loss 1125319.1250
+  epoch 1 | batch 109/422 | loss 1121022.1250
+  epoch 1 | batch 110/422 | loss 1238543.6250
+  epoch 1 | batch 111/422 | loss 1171447.5000
+  epoch 1 | batch 112/422 | loss 1255744.6250
+  epoch 1 | batch 113/422 | loss 1138916.3750
+  epoch 1 | batch 114/422 | loss 1034546.8750
+  epoch 1 | batch 115/422 | loss 1135130.0000
+  epoch 1 | batch 116/422 | loss 1169852.2500
+  epoch 1 | batch 117/422 | loss 1180328.5000
+  epoch 1 | batch 118/422 | loss 1113589.6250
+  epoch 1 | batch 119/422 | loss 1201028.3750
+  epoch 1 | batch 120/422 | loss 1227023.5000
+  epoch 1 | batch 121/422 | loss 1159282.7500
+  epoch 1 | batch 122/422 | loss 1159894.0000
+  epoch 1 | batch 123/422 | loss 1150939.6250
+  epoch 1 | batch 124/422 | loss 1139137.1250
+  epoch 1 | batch 125/422 | loss 1190809.7500
+  epoch 1 | batch 126/422 | loss 1110028.2500
+  epoch 1 | batch 127/422 | loss 1200857.5000
+  epoch 1 | batch 128/422 | loss 1172244.2500
+  epoch 1 | batch 129/422 | loss 1173217.5000
+  epoch 1 | batch 130/422 | loss 1128472.2500
+  epoch 1 | batch 131/422 | loss 1180909.2500
+  epoch 1 | batch 132/422 | loss 1199935.0000
+  epoch 1 | batch 133/422 | loss 1089011.5000
+  epoch 1 | batch 134/422 | loss 1172610.6250
+  epoch 1 | batch 135/422 | loss 1214487.7500
+  epoch 1 | batch 136/422 | loss 1119242.0000
+  epoch 1 | batch 137/422 | loss 1140113.6250
+  epoch 1 | batch 138/422 | loss 1097168.7500
+  epoch 1 | batch 139/422 | loss 1089857.0000
+  epoch 1 | batch 140/422 | loss 1174379.0000
+  epoch 1 | batch 141/422 | loss 1179857.3750
+  epoch 1 | batch 142/422 | loss 1234558.6250
+  epoch 1 | batch 143/422 | loss 1088258.6250
+  epoch 1 | batch 144/422 | loss 1291409.0000
+  epoch 1 | batch 145/422 | loss 1165099.5000
+  epoch 1 | batch 146/422 | loss 1090664.5000
+  epoch 1 | batch 147/422 | loss 1152284.3750
+  epoch 1 | batch 148/422 | loss 1072062.2500
+  epoch 1 | batch 149/422 | loss 1200694.7500
+  epoch 1 | batch 150/422 | loss 1066784.2500
+  epoch 1 | batch 151/422 | loss 1111806.2500
+  epoch 1 | batch 152/422 | loss 1072304.0000
+  epoch 1 | batch 153/422 | loss 1124112.7500
+  epoch 1 | batch 154/422 | loss 1153442.3750
+  epoch 1 | batch 155/422 | loss 1156362.5000
+  epoch 1 | batch 156/422 | loss 1145290.5000
+  epoch 1 | batch 157/422 | loss 1018267.3125
+  epoch 1 | batch 158/422 | loss 1140209.8750
+  epoch 1 | batch 159/422 | loss 1096563.5000
+  epoch 1 | batch 160/422 | loss 1113983.1250
+  epoch 1 | batch 161/422 | loss 1137259.2500
+  epoch 1 | batch 162/422 | loss 1124800.0000
+  epoch 1 | batch 163/422 | loss 1213653.3750
+  epoch 1 | batch 164/422 | loss 1111423.7500
+  epoch 1 | batch 165/422 | loss 1210896.7500
+  epoch 1 | batch 166/422 | loss 1052195.6250
+  epoch 1 | batch 167/422 | loss 1214996.0000
+  epoch 1 | batch 168/422 | loss 1089492.7500
+  epoch 1 | batch 169/422 | loss 1161822.3750
+  epoch 1 | batch 170/422 | loss 1110465.2500
+  epoch 1 | batch 171/422 | loss 1210748.2500
+  epoch 1 | batch 172/422 | loss 1072293.0000
+  epoch 1 | batch 173/422 | loss 1217098.5000
+  epoch 1 | batch 174/422 | loss 1111927.5000
+  epoch 1 | batch 175/422 | loss 1155957.8750
+  epoch 1 | batch 176/422 | loss 1154013.0000
+  epoch 1 | batch 177/422 | loss 1143340.7500
+  epoch 1 | batch 178/422 | loss 1114492.5000
+  epoch 1 | batch 179/422 | loss 1057452.2500
+  epoch 1 | batch 180/422 | loss 1232539.2500
+  epoch 1 | batch 181/422 | loss 1250577.3750
+  epoch 1 | batch 182/422 | loss 1117434.5000
+  epoch 1 | batch 183/422 | loss 1174743.2500
+  epoch 1 | batch 184/422 | loss 1103915.6250
+  epoch 1 | batch 185/422 | loss 1121916.7500
+  epoch 1 | batch 186/422 | loss 1208778.7500
+  epoch 1 | batch 187/422 | loss 1193692.7500
+  epoch 1 | batch 188/422 | loss 1056750.7500
+  epoch 1 | batch 189/422 | loss 1092087.7500
+  epoch 1 | batch 190/422 | loss 1171516.7500
+  epoch 1 | batch 191/422 | loss 1050318.7500
+  epoch 1 | batch 192/422 | loss 1042033.2500
+  epoch 1 | batch 193/422 | loss 1113156.5000
+  epoch 1 | batch 194/422 | loss 1131324.7500
+  epoch 1 | batch 195/422 | loss 1090468.0000
+  epoch 1 | batch 196/422 | loss 1057412.0000
+  epoch 1 | batch 197/422 | loss 1266710.5000
+  epoch 1 | batch 198/422 | loss 1226007.0000
+  epoch 1 | batch 199/422 | loss 1213258.6250
+  epoch 1 | batch 200/422 | loss 1040251.0625
+  epoch 1 | batch 201/422 | loss 1160497.0000
+  epoch 1 | batch 202/422 | loss 1135216.5000
+  epoch 1 | batch 203/422 | loss 1140301.6250
+  epoch 1 | batch 204/422 | loss 1157489.3750
+  epoch 1 | batch 205/422 | loss 1125242.6250
+  epoch 1 | batch 206/422 | loss 1038974.0625
+  epoch 1 | batch 207/422 | loss 1186352.5000
+  epoch 1 | batch 208/422 | loss 1096216.2500
+  epoch 1 | batch 209/422 | loss 1081467.0000
+  epoch 1 | batch 210/422 | loss 1109598.7500
+  epoch 1 | batch 211/422 | loss 1187799.8750
+  epoch 1 | batch 212/422 | loss 1139089.2500
+  epoch 1 | batch 213/422 | loss 1157984.0000
+  epoch 1 | batch 214/422 | loss 1145374.2500
+  epoch 1 | batch 215/422 | loss 1162391.2500
+  epoch 1 | batch 216/422 | loss 1073947.2500
+  epoch 1 | batch 217/422 | loss 1085513.6250
+  epoch 1 | batch 218/422 | loss 1163508.2500
+  epoch 1 | batch 219/422 | loss 1130907.5000
+  epoch 1 | batch 220/422 | loss 1152500.3750
+  epoch 1 | batch 221/422 | loss 1159680.2500
+  epoch 1 | batch 222/422 | loss 1026882.8125
+  epoch 1 | batch 223/422 | loss 1092104.3750
+  epoch 1 | batch 224/422 | loss 1099860.2500
+  epoch 1 | batch 225/422 | loss 1140089.6250
+  epoch 1 | batch 226/422 | loss 1174625.1250
+  epoch 1 | batch 227/422 | loss 1156862.8750
+  epoch 1 | batch 228/422 | loss 1170294.2500
+  epoch 1 | batch 229/422 | loss 1123746.6250
+  epoch 1 | batch 230/422 | loss 1093237.0000
+  epoch 1 | batch 231/422 | loss 1134261.5000
+  epoch 1 | batch 232/422 | loss 1188347.2500
+  epoch 1 | batch 233/422 | loss 1094966.6250
+  epoch 1 | batch 234/422 | loss 1039726.3750
+  epoch 1 | batch 235/422 | loss 1163858.7500
+  epoch 1 | batch 236/422 | loss 1060855.1250
+  epoch 1 | batch 237/422 | loss 1113638.8750
+  epoch 1 | batch 238/422 | loss 1095121.5000
+  epoch 1 | batch 239/422 | loss 1099540.5000
+  epoch 1 | batch 240/422 | loss 1218904.5000
+  epoch 1 | batch 241/422 | loss 1102973.7500
+  epoch 1 | batch 242/422 | loss 1153713.7500
+  epoch 1 | batch 243/422 | loss 1167589.0000
+  epoch 1 | batch 244/422 | loss 1047369.9375
+  epoch 1 | batch 245/422 | loss 1122474.5000
+  epoch 1 | batch 246/422 | loss 1112377.0000
+  epoch 1 | batch 247/422 | loss 1077037.8750
+  epoch 1 | batch 248/422 | loss 1111385.6250
+  epoch 1 | batch 249/422 | loss 1153699.7500
+  epoch 1 | batch 250/422 | loss 1155438.7500
+  epoch 1 | batch 251/422 | loss 1091752.0000
+  epoch 1 | batch 252/422 | loss 1167111.2500
+2026-04-13 09:48:53  Feedback received (content not logged — invoking Claude to revise proposal).
+Sent. Message-ID: <177607013366.53651.2279306321234959469@deep-gw-cnv>
+2026-04-13 09:49:00  Invoking Claude to revise proposal based on feedback...
+Done. Here's what was done in response to your feedback:
+
+**Feedback incorporated:**
+1. **HMM change approved** — `hmm_self_transition: 0.75 → 0.80` unchanged from original proposal.
+2. **Ground truth caveat** — evaluation guidance text updated to note that apparent FPs may be real signal the GATK pipeline missed.
+3. **New evaluation metrics** — created `models/evaluation/02_pf9_evaluation.py` with per-(Year × Population) stratified tables. Each gene gets a BY YEAR × POPULATION section showing MCC / FNR / PPV / n_eval, suppressed for groups with fewer than 10 evaluable samples to keep the report readable.
+
+**Files changed:**
+- `models/evaluation/02_pf9_evaluation.py` — new evaluation module
+- `models/experiments/07/config.yaml` — `evaluation: "02_pf9_evaluation"`, added `eval_min_group_n: 10`
+- `models/experiments/07/README.md` — added **Proposal history** section
+- Revised proposal sent in the existing email thread
+
+Daemon is already armed and polling for your AUTHORISE reply.
+2026-04-13 09:53:55  Revised proposal sent successfully.
+2026-04-13 09:57:56  AUTHORISE received. Running experiment.
+Sent. Message-ID: <177607067628.53921.389807620775514246@deep-gw-cnv>
+Device: mps
+Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/06_weighted_sampling/checkpoint.pth
+Saved latents         (53973, 10) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/latents.npy
+Saved reconstructions (53973, 20814)  → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/reconstructions.npy
+Saved sample_ids      (53973,) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/sample_ids.npy
+Fitting HMM segments...
+Fitting HMM for 53973 samples (n_jobs=-1)...
+  HMM 500/53973 | elapsed 10s | eta 1108s
+  HMM 1000/53973 | elapsed 19s | eta 1031s
+  HMM 1500/53973 | elapsed 28s | eta 996s
+  HMM 2000/53973 | elapsed 37s | eta 973s
+  HMM 2500/53973 | elapsed 46s | eta 937s
+  HMM 3000/53973 | elapsed 53s | eta 905s
+  HMM 3500/53973 | elapsed 63s | eta 912s
+  HMM 4000/53973 | elapsed 71s | eta 892s
+  HMM 4500/53973 | elapsed 80s | eta 878s
+  HMM 5000/53973 | elapsed 90s | eta 886s
+  HMM 5500/53973 | elapsed 99s | eta 876s
+  HMM 6000/53973 | elapsed 109s | eta 869s
+  HMM 6500/53973 | elapsed 116s | eta 849s
+  HMM 7000/53973 | elapsed 127s | eta 852s
+  HMM 7500/53973 | elapsed 136s | eta 841s
+  HMM 8000/53973 | elapsed 146s | eta 838s
+  HMM 8500/53973 | elapsed 154s | eta 824s
+  HMM 9000/53973 | elapsed 160s | eta 801s
+  HMM 9500/53973 | elapsed 169s | eta 789s
+  HMM 10000/53973 | elapsed 177s | eta 780s
+  HMM 10500/53973 | elapsed 188s | eta 779s
+  HMM 11000/53973 | elapsed 198s | eta 775s
+  HMM 11500/53973 | elapsed 208s | eta 767s
+  HMM 12000/53973 | elapsed 218s | eta 762s
+  HMM 12500/53973 | elapsed 226s | eta 749s
+  HMM 13000/53973 | elapsed 236s | eta 744s
+  HMM 13500/53973 | elapsed 248s | eta 744s
+  HMM 14000/53973 | elapsed 259s | eta 738s
+  HMM 14500/53973 | elapsed 269s | eta 732s
+  HMM 15000/53973 | elapsed 285s | eta 739s
+  HMM 15500/53973 | elapsed 301s | eta 748s
+  HMM 16000/53973 | elapsed 316s | eta 749s
+  HMM 16500/53973 | elapsed 325s | eta 739s
+  HMM 17000/53973 | elapsed 340s | eta 739s
+  HMM 17500/53973 | elapsed 349s | eta 728s
+  HMM 18000/53973 | elapsed 358s | eta 716s
+  HMM 18500/53973 | elapsed 368s | eta 706s
+  HMM 19000/53973 | elapsed 380s | eta 699s
+  HMM 19500/53973 | elapsed 388s | eta 686s
+  HMM 20000/53973 | elapsed 398s | eta 676s
+  HMM 20500/53973 | elapsed 410s | eta 669s
+  HMM 21000/53973 | elapsed 422s | eta 662s
+  HMM 21500/53973 | elapsed 436s | eta 659s
+  HMM 22000/53973 | elapsed 450s | eta 653s
+  HMM 22500/53973 | elapsed 461s | eta 645s
+  HMM 23000/53973 | elapsed 474s | eta 639s
+  HMM 23500/53973 | elapsed 482s | eta 625s
+  HMM 24000/53973 | elapsed 492s | eta 615s
+  HMM 24500/53973 | elapsed 503s | eta 605s
+  HMM 25000/53973 | elapsed 512s | eta 594s
+  HMM 25500/53973 | elapsed 522s | eta 582s
+  HMM 26000/53973 | elapsed 530s | eta 570s
+  HMM 26500/53973 | elapsed 540s | eta 560s
+  HMM 27000/53973 | elapsed 550s | eta 550s
+  HMM 27500/53973 | elapsed 559s | eta 539s
+  HMM 28000/53973 | elapsed 576s | eta 534s
+  HMM 28500/53973 | elapsed 588s | eta 526s
+  HMM 29000/53973 | elapsed 600s | eta 516s
+  HMM 29500/53973 | elapsed 614s | eta 510s
+  HMM 30000/53973 | elapsed 626s | eta 500s
+  HMM 30500/53973 | elapsed 641s | eta 494s
+  HMM 31000/53973 | elapsed 658s | eta 487s
+  HMM 31500/53973 | elapsed 671s | eta 479s
+  HMM 32000/53973 | elapsed 684s | eta 470s
+  HMM 32500/53973 | elapsed 702s | eta 464s
+  HMM 33000/53973 | elapsed 712s | eta 452s
+  HMM 33500/53973 | elapsed 721s | eta 441s
+  HMM 34000/53973 | elapsed 735s | eta 432s
+  HMM 34500/53973 | elapsed 752s | eta 425s
+  HMM 35000/53973 | elapsed 769s | eta 417s
+  HMM 35500/53973 | elapsed 780s | eta 406s
+  HMM 36000/53973 | elapsed 793s | eta 396s
+  HMM 36500/53973 | elapsed 808s | eta 387s
+  HMM 37000/53973 | elapsed 822s | eta 377s
+  HMM 37500/53973 | elapsed 836s | eta 367s
+  HMM 38000/53973 | elapsed 846s | eta 356s
+  HMM 38500/53973 | elapsed 859s | eta 345s
+  HMM 39000/53973 | elapsed 872s | eta 335s
+  HMM 39500/53973 | elapsed 885s | eta 324s
+  HMM 40000/53973 | elapsed 899s | eta 314s
+  HMM 40500/53973 | elapsed 912s | eta 303s
+  HMM 41000/53973 | elapsed 927s | eta 293s
+  HMM 41500/53973 | elapsed 942s | eta 283s
+  HMM 42000/53973 | elapsed 955s | eta 272s
+  HMM 42500/53973 | elapsed 965s | eta 260s
+  HMM 43000/53973 | elapsed 980s | eta 250s
+  HMM 43500/53973 | elapsed 1003s | eta 242s
+  HMM 44000/53973 | elapsed 1019s | eta 231s
+  HMM 44500/53973 | elapsed 1039s | eta 221s
+  HMM 45000/53973 | elapsed 1056s | eta 211s
+  HMM 45500/53973 | elapsed 1069s | eta 199s
+  HMM 46000/53973 | elapsed 1086s | eta 188s
+  HMM 46500/53973 | elapsed 1095s | eta 176s
+  HMM 47000/53973 | elapsed 1111s | eta 165s
+  HMM 47500/53973 | elapsed 1140s | eta 155s
+  HMM 48000/53973 | elapsed 1182s | eta 147s
+  HMM 48500/53973 | elapsed 1211s | eta 137s
+  HMM 49000/53973 | elapsed 1237s | eta 126s
+  HMM 49500/53973 | elapsed 1262s | eta 114s
+  HMM 50000/53973 | elapsed 1290s | eta 103s
+  HMM 50500/53973 | elapsed 1318s | eta 91s
+  HMM 51000/53973 | elapsed 1336s | eta 78s
+  HMM 51500/53973 | elapsed 1347s | eta 65s
+  HMM 52000/53973 | elapsed 1366s | eta 52s
+  HMM 52500/53973 | elapsed 1389s | eta 39s
+  HMM 53000/53973 | elapsed 1414s | eta 26s
+  HMM 53500/53973 | elapsed 1431s | eta 13s
+  HMM 53973/53973 | elapsed 1445s | eta 0s
+Saved segments (24,170,421 rows) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/segments.parquet
+Calling gene CNVs...
+Computing gene CNV calls for 53973 samples…
+/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/03_gene_cnv_caller.py:196: RuntimeWarning: invalid value encountered in divide
+  crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
+  Done MDR1 | elapsed 18s
+  Done CRT | elapsed 30s
+  Done GCH1 | elapsed 45s
+  Done PM2_PM3 | elapsed 61s
+Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/gene_calls.tsv
+Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/evaluation.txt
+
+Storage — output dir: 4.46 GB  |  disk free: 68.6 / 460.4 GB  (85.1% used)
+2026-04-13 10:28:07  Experiment 07 complete.
+2026-04-13 10:28:07  Invoking Claude to propose next experiment...

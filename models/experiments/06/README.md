@@ -1,6 +1,6 @@
 # Experiment 06 — CNV-sample downsampling (ablation-clean)
 
-**Status:** Proposed 2026-04-12 (revised x3)
+**Status:** Complete 2026-04-13
 
 **Full retrain required.** cnv_downsample_ratio is a training-time change; the exp 01/05
 checkpoint was trained without it and cannot be reused.
@@ -46,6 +46,26 @@ unchanged from exp 05.
 - **CRT, MDR1**: should remain stable; changes are upstream of the calling logic.
 - Risk: WeightedRandomSampler means CNV-positive samples appear less often per epoch. Monitor
   PPV alongside FNR — if reconstruction quality degrades on CNV-positive profiles, PPV could drop.
+
+## Actual outcome
+
+| Gene    | FNR  | PPV  | MCC  | FN p50 CRR | FP count | Notes                                          |
+|---------|------|------|------|------------|----------|------------------------------------------------|
+| CRT     | 0.00 | 0.27 | 0.52 | N/A (0 FN) | 142      | Perfect recall but PPV catastrophic            |
+| GCH1    | 0.17 | 0.83 | 0.81 | 1.22       | 333      | FNR improved; PPV dropped from 0.95            |
+| MDR1    | 0.01 | 0.89 | 0.94 | 1.38       | 60       | Near-perfect recall; PPV slightly down         |
+| PM2_PM3 | 0.20 | 0.31 | 0.49 | 1.30       | 137      | Massive FNR improvement; FPs are the problem   |
+
+**Prediction vs reality:**
+- Recall improvements were larger than expected across all genes — the distribution fix worked.
+  PM2_PM3 FNR dropped from 0.98 to 0.20; MDR1 from 0.11 to 0.01; CRT hit 0.00.
+- PPV drop was flagged as a risk but the magnitude was badly underestimated. CRT went from
+  PPV=1.00 to 0.27 (142 FPs). All FPs share the same pattern: CRR p50 ~1.21 — borderline
+  samples the old VAE treated as normal but the new VAE now emits an amplification signal for.
+- Root cause: `hmm_self_transition=0.75` was calibrated for the weak exp 05 VAE. With a
+  stronger VAE, the HMM is now too loose — it crosses into amplified state on borderline CRR.
+
+→ See experiment 07 (raise `hmm_self_transition` 0.75 → 0.80 to filter borderline FPs)
 
 ## What we could do instead
 

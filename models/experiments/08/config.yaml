@@ -1,0 +1,56 @@
+# Versioned components
+architecture: "01_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "03_gene_cnv_caller"   # bin-count-gated CRR fallback
+evaluation:   "02_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/08_higher_confidence"
+normalise:  true
+
+# Model — reuses experiment 06 checkpoint; no retraining required.
+# HMM segmentation also reused from experiment 07 — cnv_min_confidence is a
+# post-segmentation gate applied during CNV calling, so only the CNV caller
+# and evaluation need to re-run.
+latent_dim:    10
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 50
+patience:      10
+cnv_downsample_ratio: 0.25  # unchanged from exp 06
+
+# HMM segmentation — unchanged from exp 07; reusing exp 07 segments directly.
+hmm_n_states:          6
+hmm_self_transition:   0.80   # unchanged from exp 07
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling
+cnv_min_cn1_proportion:    0.55
+# cnv_min_confidence raised 0.50 → 0.65: exp 07 left 118 CRT FPs and 118
+# PM2_PM3 FPs, all clustering at CRR p50 ~1.20–1.21. Further tightening
+# self_transition is risky — PM2_PM3 FNR already rose from 0.20 to 0.26 at
+# 0.80, and FN p50 CRR=1.33 is too close to the FP range (p90=1.38) to
+# tolerate a stricter transition without losing genuine TPs.
+# cnv_min_confidence filters uncertain HMM calls directly: if the model enters
+# the amplified state with low probability mass, the call is suppressed.
+# TPs at CRR 1.64–1.88 should be called with high confidence; borderline FPs
+# at CRR ~1.20 should be called with lower confidence. This lever is
+# independent of self_transition and does not affect HMM segmentation.
+cnv_min_confidence:        0.65   # was 0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30   # unchanged — not tuned to labelled data
+
+# CRR fallback only for genes < 3 bins (GCH1 ~2 bins); HMM handles the rest.
+cnv_crr_min_bins_fallback: 3
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
+# Minimum evaluable samples for a (Year, Population) group to appear in the
+# report. Suppresses tiny groups that produce noisy estimates.
+eval_min_group_n: 10

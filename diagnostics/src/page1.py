@@ -28,9 +28,42 @@ def page1():
     inputs  = load_inputs(cfg["store_path"])
     meta, gff = load_meta()
 
-    st.dataframe(meta)
+    # --- Sample filter ---------------------------------------------------------
+    filter_key = f"meta_filter_{EXPERIMENT}"
 
-    sample_options = list(results["latents"].index)
+    with st.expander("Filter samples", expanded=False):
+        filter_text = st.text_area(
+            "One pandas query condition per line (lines are AND-ed together)",
+            value=st.session_state.get(filter_key, ""),
+            height=120,
+            placeholder="Sample_type == 'aAMP'\nCountry == 'Ghana'",
+            key=f"filter_text_{EXPERIMENT}",
+        )
+        col_apply, col_clear = st.columns([1, 1])
+        if col_apply.button("Apply filter", key=f"apply_{EXPERIMENT}"):
+            st.session_state[filter_key] = filter_text
+        if col_clear.button("Clear filter", key=f"clear_{EXPERIMENT}"):
+            st.session_state[filter_key] = ""
+            st.rerun()
+
+    active_filter = st.session_state.get(filter_key, "")
+    filtered_meta = meta
+    if active_filter.strip():
+        conditions = [ln.strip() for ln in active_filter.splitlines() if ln.strip()]
+        combined   = " & ".join(f"({c})" for c in conditions)
+        try:
+            filtered_meta = meta.query(combined)
+        except Exception as e:
+            st.error(f"Filter error: {e}")
+
+    st.dataframe(filtered_meta)
+
+    # Restrict sample options to those present in the filtered meta
+    filtered_ids   = set(filtered_meta.index)
+    sample_options = [s for s in results["latents"].index if s in filtered_ids]
+    if not sample_options:
+        st.warning("No samples match the current filter — showing all samples.")
+        sample_options = list(results["latents"].index)
 
     def on_lucky_click():
         st.session_state["sample_select"] = random.choice(sample_options)
@@ -81,9 +114,11 @@ def page1():
 
     gene_calls = call_all_genes_versioned(
         cfg["cnv"], data, sample_segs,
-        min_cn1_proportion = cfg["cnv_min_cn1_proportion"],
-        min_confidence     = cfg["cnv_min_confidence"],
-        flank_padding      = cfg["cnv_flank_padding"],
+        min_cn1_proportion    = cfg["cnv_min_cn1_proportion"],
+        min_confidence        = cfg["cnv_min_confidence"],
+        flank_padding         = cfg["cnv_flank_padding"],
+        crr_amp_threshold     = cfg["cnv_crr_amp_threshold"],
+        crr_min_bins_fallback = cfg["cnv_crr_min_bins_fallback"],
     )
     st.dataframe(pd.DataFrame(gene_calls), hide_index=True, width="stretch")
 
