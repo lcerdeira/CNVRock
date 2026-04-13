@@ -35,10 +35,14 @@ def load_results(results_dir):
     segs_path = os.path.join(results_dir, "segments.parquet")
     segments  = pd.read_parquet(segs_path) if os.path.exists(segs_path) else None
 
+    gene_calls_path = os.path.join(results_dir, "gene_calls.tsv")
+    gene_calls = pd.read_csv(gene_calls_path, sep="\t", index_col=0) if os.path.exists(gene_calls_path) else None
+
     return {
         "latents": latents_df,
         "reconstructions": reconstructions_df,
         "segments": segments,
+        "gene_calls": gene_calls,
     }
 
 @st.cache_data

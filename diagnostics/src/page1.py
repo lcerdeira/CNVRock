@@ -112,14 +112,18 @@ def page1():
         cn_layout = plot_copy_number(data, sample_segs)
         components.html(file_html(cn_layout, CDN), height=520)
 
-    gene_calls = call_all_genes_versioned(
-        cfg["cnv"], data, sample_segs,
-        min_cn1_proportion    = cfg["cnv_min_cn1_proportion"],
-        min_confidence        = cfg["cnv_min_confidence"],
-        flank_padding         = cfg["cnv_flank_padding"],
-        crr_amp_threshold     = cfg["cnv_crr_amp_threshold"],
-        crr_min_bins_fallback = cfg["cnv_crr_min_bins_fallback"],
-    )
+    precomputed_calls = results["gene_calls"]
+    if precomputed_calls is not None and SAMPLE_ID in precomputed_calls.index:
+        gene_calls = precomputed_calls.loc[[SAMPLE_ID]].to_dict(orient="records")
+    else:
+        gene_calls = call_all_genes_versioned(
+            cfg["cnv"], data, sample_segs,
+            min_cn1_proportion    = cfg["cnv_min_cn1_proportion"],
+            min_confidence        = cfg["cnv_min_confidence"],
+            flank_padding         = cfg["cnv_flank_padding"],
+            crr_amp_threshold     = cfg["cnv_crr_amp_threshold"],
+            crr_min_bins_fallback = cfg["cnv_crr_min_bins_fallback"],
+        )
     st.dataframe(pd.DataFrame(gene_calls), hide_index=True, width="stretch")
 
     @st.dialog("Gene annotations", width="large")
