@@ -1,0 +1,55 @@
+# Versioned components
+architecture: "05_conv_vae"   # residual skip connections in encoder
+hmm:          "02_gaussian_hmm"
+cnv:          "04_gene_cnv_caller"   # CRR gate for long genes
+evaluation:   "03_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/18_skip_st0.80_sin_finetune"
+normalise:  true
+
+# Model — fine-tune from exp 14 checkpoint with sin loss regularisation.
+# Exp 14 is the last checkpoint that was trained from scratch; exp 15-17 all
+# reuse it. Fine-tuning from exp 14 keeps continuity while allowing the sin
+# loss to reshape the reconstruction surface.
+pretrained_checkpoint: "../../../data/results/14_skip_connections/checkpoint.pth"
+latent_dim:    10
+batch_size:    128
+epochs:        100          # fine-tune budget; early stopping at patience=20
+lr:            1.0e-4       # reduced LR for fine-tuning
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 0            # KL already warmed up in exp 14; apply full beta from epoch 0
+patience:      20
+cnv_downsample_ratio: 0.25   # unchanged — DO NOT increase
+
+# Sin loss — integer regularisation on the reconstruction.
+# sin²(π·x) = 0 when x is an integer in log2(count+1) space; peaks at 0.5 between integers.
+# Encourages the decoder to produce crisper reconstructions at discrete amplitude levels,
+# sharpening the per-bin CRR signal that the HMM uses to call CN≥2.
+# Weight ramps from 0 → sin_loss_max_weight over sin_loss_warmup_epochs so the model
+# first stabilises reconstruction quality before the integer constraint is enforced.
+sin_loss_max_weight:    1.0   # at convergence: ~10K / 6.9M recon ≈ 0.14% of loss
+sin_loss_warmup_epochs: 30    # ramp from epoch 0 to 30
+
+# HMM segmentation — same params as exp 15-17; segments re-fitted from new reconstructions.
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling — same gate as exp 17 (1.40). PM2_PM3 FNR diagnosis continues:
+# if sin loss boosts CRR on true amplifications, gate at 1.40 should be less
+# damaging than in exp 17.
+cnv_min_cn1_proportion:    0.55
+cnv_min_confidence:        0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30   # GCH1 fallback; unchanged
+cnv_crr_gate_threshold:    1.40   # same as exp 17 — tests whether signal boost alone helps
+cnv_crr_min_bins_fallback: 3
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
+eval_min_group_n: 10

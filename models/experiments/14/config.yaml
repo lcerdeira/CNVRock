@@ -1,0 +1,46 @@
+# Versioned components
+architecture: "05_conv_vae"   # residual skip connections in encoder (p=0.30 dropout retained)
+                               # stride-2 shortcut (k=1) added to each encoder block to preserve
+                               # fine spatial resolution; hypothesis: PM2_PM3 and GCH1 FNs stem
+                               # from signal smearing across the 5× stride-2 downsampling chain.
+hmm:          "02_gaussian_hmm"
+cnv:          "03_gene_cnv_caller"
+evaluation:   "03_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/14_skip_connections"
+normalise:  true
+
+# Model — full retraining required (new architecture; exp 13 checkpoint cannot be reused)
+latent_dim:    10
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 50
+patience:      10
+cnv_downsample_ratio: 0.25   # unchanged — DO NOT increase
+
+# HMM segmentation — self_transition kept at 0.65 to isolate the architecture effect.
+# Exp 13 established that 0.65 improves PM2_PM3 FNR vs 0.80 for the p=0.30 distribution.
+# Emissions are always re-fitted on the new checkpoint, so the distribution shift from the
+# architecture change is absorbed automatically. self_transition is the only sticky parameter
+# that carries over — keeping it constant lets us directly compare architectures.
+hmm_n_states:          6
+hmm_self_transition:   0.65   # retained from exp 13 — isolate architecture effect
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling — unchanged from exp 13
+cnv_min_cn1_proportion:    0.55
+cnv_min_confidence:        0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30
+cnv_crr_min_bins_fallback: 3
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
+eval_min_group_n: 10

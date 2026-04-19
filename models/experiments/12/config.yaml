@@ -1,0 +1,54 @@
+# Versioned components
+architecture: "04_conv_vae"   # encoder dropout increased p=0.20 → p=0.30 (see architectures/04_conv_vae.py)
+                               # more aggressive regularisation forces encoder to learn a tighter
+                               # normal-coverage representation; at inference the reconstruction is a
+                               # "cleaner" normal-mode estimate, so CNV samples produce stronger
+                               # anomaly signal. This is the opposite direction from exp 11 (p=0.10).
+hmm:          "02_gaussian_hmm"
+cnv:          "03_gene_cnv_caller"
+evaluation:   "03_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/12_higher_dropout"
+normalise:  true
+
+# Model — full retraining with 04_conv_vae architecture
+# Architecture changes require a new checkpoint; exp 09 checkpoint cannot be reused.
+# cnv_downsample_ratio kept at 0.25 — DO NOT increase this to sharpen CNV signal.
+# Exposing the model to more CNV-positive samples shifts the normal reconstruction
+# baseline, causing the VAE to reconstruct amplifications accurately at test time
+# (weaker anomaly signal).
+latent_dim:    10
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 50
+patience:      10
+cnv_downsample_ratio: 0.25   # unchanged — see note above
+
+# HMM segmentation — reset to exp 09 baseline to isolate dropout effect
+# Changing dropout changes the reconstruction error distribution and therefore
+# the scale on which HMM Gaussian emission parameters are calibrated.
+# self_transition=0.80 is the established baseline for p=0.20; it cannot be
+# directly compared across different dropout values. We reset to 0.80 here
+# to isolate the effect of p=0.30. If p=0.30 shows promise, self_transition
+# can be re-tuned for the new distribution in a follow-up experiment.
+hmm_n_states:          6
+hmm_self_transition:   0.80   # exp 09 baseline — isolate dropout effect
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling — unchanged from exp 09
+cnv_min_cn1_proportion:    0.55
+cnv_min_confidence:        0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30
+cnv_crr_min_bins_fallback: 3
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
+eval_min_group_n: 10

@@ -1,0 +1,54 @@
+# Versioned components
+architecture: "05_conv_vae"   # residual skip connections in encoder
+hmm:          "02_gaussian_hmm"
+cnv:          "05_gene_cnv_caller"   # fractional gene coverage for long genes
+evaluation:   "03_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/19_skip_st0.80_sin_partialspan"
+normalise:  true
+
+# Model — reuse exp 18 fine-tuned checkpoint (no retraining).
+# Inference and HMM outputs are symlinked from exp 18 in run.sh.
+pretrained_checkpoint: "../../../data/results/18_skip_st0.80_sin_finetune/checkpoint.pth"
+latent_dim:    10
+batch_size:    128
+epochs:        100
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 0
+patience:      20
+cnv_downsample_ratio: 0.25   # unchanged — DO NOT increase
+
+# Sin loss — unchanged from exp 18 (checkpoint already trained with these).
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+# HMM segmentation — same params as exp 18; segments reused via symlink.
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling — two targeted changes from exp 18:
+# 1. cnv_crr_gate_threshold: 1.35 (from 1.40) — recovers gate-vetoed FNs where the HMM
+#    called CN>=2 but CRR sat just below 1.40.
+# 2. cnv_min_gene_coverage_fraction: 0.50 — new fractional coverage condition. Replaces the
+#    strict spanning check (x0<=g_start AND x1>=g_end) from v04: a long gene is now called
+#    CN>=2 if >=50% of its bins are covered by high-confidence CN>=2 segments. Fixes FNs
+#    where the sin-loss VAE produced shorter, crisper segments that together cover most of
+#    PM2_PM3 but no single segment fully spans it.
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.30   # GCH1 fallback; unchanged
+cnv_crr_gate_threshold:         1.35   # lowered from 1.40 to recover gate-vetoed FNs
+cnv_crr_min_bins_fallback:      3
+cnv_min_gene_coverage_fraction: 0.50   # new: fraction of gene bins required for CN>=2 call
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
+eval_min_group_n: 10

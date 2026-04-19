@@ -1,0 +1,44 @@
+# Versioned components
+architecture: "05_conv_vae"   # residual skip connections in encoder; checkpoint reused from exp 14
+hmm:          "02_gaussian_hmm"
+cnv:          "03_gene_cnv_caller"
+evaluation:   "03_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/15_skip_connections_st0.80"
+normalise:  true
+
+# Model — reuse exp 14 checkpoint (05_conv_vae architecture unchanged)
+# self_transition is the only change; no retraining required.
+latent_dim:    10
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 50
+patience:      10
+cnv_downsample_ratio: 0.25   # unchanged — DO NOT increase
+
+# HMM segmentation — self_transition raised from 0.65 to 0.80 to control over-segmentation.
+# Exp 14: transitions p50=195 (too high; PPV collapsed). Skip connections roughly doubled
+# the anomaly signal amplitude relative to 04_conv_vae, so a substantially higher
+# self_transition is needed to match the exp 13 transition level (~101).
+# 0.80 is the exp 12 reference value and a natural anchor to compare against.
+hmm_n_states:          6
+hmm_self_transition:   0.80   # raised from 0.65 to dampen over-segmentation from skip connections
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling — unchanged from exp 14
+cnv_min_cn1_proportion:    0.55
+cnv_min_confidence:        0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30
+cnv_crr_min_bins_fallback: 3
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
+eval_min_group_n: 10

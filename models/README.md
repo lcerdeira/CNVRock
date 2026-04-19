@@ -1,5 +1,29 @@
 # models/
 
+## Big picture — how the VAE signal works
+
+The VAE produces a reconstruction of what "normal" read-count coverage should look like
+for each sample, based on the overall coverage profile. At inference, CRR = input /
+reconstruction: CNVs stick out because the reconstruction doesn't model them.
+
+Two failure modes to always keep in mind:
+- **Over-training**: the VAE memorises CNV profiles as normal → CNVs stop sticking out
+  → HMM misses amplifications (high FNR).
+- **Under-training**: reconstructions are too different from input everywhere → CRR is
+  noisy → HMM produces many borderline calls (high FP).
+
+CRR is a rough signal (gene/flank ratio over a 100 kb window). Do not over-optimise
+HMM parameters to CRR percentiles — that is optimising a noisy proxy. When FP and FN
+CRR distributions overlap, the problem is upstream (VAE reconstruction quality), not
+a calling-layer problem. Address reconstruction quality first; tune the calling layer
+after the signal is clean.
+
+Architecture improvement directions (in rough priority order):
+1. **Dropout** in encoder — prevents per-sample CNV memorisation (simplest, tried in exp 09)
+2. **Masked training** — exclude CNV gene loci from reconstruction loss during training
+3. **U-Net skip connections** in decoder — finer reconstruction in non-CNV regions
+4. **Self-attention block** — captures long-range genomic dependencies
+
 ## Entry point
 
 ```bash

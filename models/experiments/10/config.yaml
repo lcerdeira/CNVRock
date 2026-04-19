@@ -1,0 +1,46 @@
+# Versioned components — unchanged from exp 09
+architecture: "02_conv_vae"   # encoder dropout p=0.20 (trained in exp 09)
+hmm:          "02_gaussian_hmm"
+cnv:          "03_gene_cnv_caller"
+evaluation:   "03_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/10_lower_self_transition"
+normalise:  true
+
+# Model — reuses experiment 09 checkpoint; no retraining required.
+latent_dim:    10
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 50
+patience:      10
+cnv_downsample_ratio: 0.25   # unchanged from exp 06/07/09
+
+# HMM segmentation
+# self_transition lowered 0.80 → 0.75: exp 09 shows PM2_PM3 FNR=0.94 with FN CRR p50=1.45
+# >> 1.0, meaning the dropout VAE produces clear signal that the HMM is discarding.
+# The 0.80 setting was calibrated for the exp 06 VAE, which had many FPs at CRR~1.21
+# that needed filtering. The dropout VAE has cleaner reconstructions (exp 09 transitions
+# p50=53 vs 123 in exp 08), so we can afford a lower self_transition without
+# re-introducing oscillation. Returning to 0.75 lets the HMM transition more readily,
+# targeting the PM2_PM3 FNs at CRR~1.45 without retraining.
+hmm_n_states:          6
+hmm_self_transition:   0.75   # was 0.80 — see rationale above
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling — unchanged from exp 09
+cnv_min_cn1_proportion:    0.55
+cnv_min_confidence:        0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30
+cnv_crr_min_bins_fallback: 3
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
+eval_min_group_n: 10

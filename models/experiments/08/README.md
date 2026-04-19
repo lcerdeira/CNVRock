@@ -1,51 +1,97 @@
-# Experiment 08 — Raise CNV confidence threshold (0.50 → 0.65)
+# Experiment 08 — Baseline evaluation with segment diagnostics (03_pf9_evaluation)
 
-**Status:** Proposed 2026-04-13
+**Status:** Complete 2026-04-13
 
-**No retraining. No HMM re-segmentation.** `cnv_min_confidence` is applied during
-CNV calling (post-segmentation), so only the CNV caller and evaluation re-run.
-Reuses exp 06 VAE checkpoint and exp 07 HMM segments.
+**Evaluation-only — no training, HMM, or CNV calling required (~5 min).**
+Reuses exp 07's `gene_calls.tsv` and `segments.parquet`.
 
 ## Hypothesis
 
-Exp 07 raised `hmm_self_transition` 0.75 → 0.80, reducing FP counts modestly but
-leaving 118 CRT FPs and 118 PM2_PM3 FPs, all clustering at CRR p50 ~1.20–1.21.
-PM2_PM3 FNR rose from 0.20 to 0.26 in the process. The self_transition lever is
-nearly exhausted: FP CRR p50=1.20 and FN CRR p50=1.33 are only 0.13 apart, so
-any further tightening would cut TPs alongside FPs.
-
-The orthogonal approach is `cnv_min_confidence`: this gates on the HMM's probability
-mass in the amplified state at call time. Even if the HMM enters the amplified state
-at CRR ~1.20, it likely does so with lower confidence than at CRR ~1.64–1.88. Raising
-the threshold from 0.50 to 0.65 should suppress these uncertain borderline calls without
-altering the HMM transition dynamics that affect FN boundaries.
+Before modifying the VAE architecture in future experiments, we need a baseline
+that includes the new `03_pf9_evaluation` metrics (callability, mean_transitions).
+Without this baseline, we cannot tell whether any change in those diagnostics
+is due to the new architecture or is just an artefact of changing the evaluation
+at the same time as changing the model. This experiment fixes that.
 
 ## Changes from experiment 07
 
-| Parameter             | Exp 07 | Exp 08 | Rationale                                            |
-|-----------------------|--------|--------|------------------------------------------------------|
-| `cnv_min_confidence`  | 0.50   | 0.65   | Filter borderline calls by HMM confidence, not penalty |
+| Component    | Exp 07               | Exp 08               | Rationale                                            |
+|--------------|----------------------|----------------------|------------------------------------------------------|
+| `evaluation` | `02_pf9_evaluation`  | `03_pf9_evaluation`  | Adds callability (CN1 baseline) + transition percentiles (p10–p90) |
+| Everything else | unchanged         | —                    | Same gene_calls.tsv and segments.parquet from exp 07 |
 
-Everything else (VAE checkpoint, HMM segments, self_transition, downsampling) is unchanged.
+No model changes. Gene call metrics (FNR, PPV, MCC) are identical to exp 07 by construction.
 
 ## Expected outcome
 
-- **CRT**: 118 FPs should reduce; FNR should remain 0.00 since TPs have CRR p50=1.88
-  — they should be called with high confidence. CRT FPs at p50=1.21, p90=1.38 — much
-  lower CRR, likely lower confidence.
-- **PM2_PM3**: 118 FPs should reduce; FNR may edge up slightly from 0.26. TPs are at
-  CRR p50=1.64, FNs at 1.33. If FNs are being called with confidence just above 0.50,
-  they may fall below the new 0.65 gate — main risk.
-- **MDR1**: 46 FPs at CRR p50=1.20 should reduce further; FNR should stay near 0.01.
-- **GCH1**: uses CRR fallback (2-bin gene), not HMM confidence — unaffected.
-- Population-specific note: CRT in AF-E (PPV=0.03) and PM2_PM3 in AF-W (PPV=0.04)
-  are likely genuine amplifications the GATK ground truth doesn't capture; apparent
-  PPV improvement from filtering those calls may be spurious.
+- **FNR / PPV / MCC**: identical to exp 07 (same gene_calls.tsv).
+- **callability**: establishes the baseline fraction of samples where the HMM
+  ever leaves CN1 (haploid baseline), using the exp 06/07 VAE checkpoint.
+  Future experiments with VAE changes can be compared against this number
+  directly.
+- **transitions (p10–p90)**: percentile distribution of within-chromosome CN
+  state changes per sample. Near-zero p50 indicates the HMM is too sticky;
+  high p90 means too jumpy. Useful as a sanity check on future HMM parameter
+  changes.
+
+## Actual outcome
+
+| Gene    | FNR  | PPV  | MCC  | Notes                                               |
+|---------|------|------|------|-----------------------------------------------------|
+| CRT     | 0.00 | 0.31 | 0.55 | Identical to exp 07 by construction                 |
+| GCH1    | 0.17 | 0.83 | 0.81 | Identical to exp 07 by construction                 |
+| MDR1    | 0.01 | 0.92 | 0.95 | Identical to exp 07 by construction                 |
+| PM2_PM3 | 0.26 | 0.36 | 0.51 | Identical to exp 07 by construction                 |
+
+**Segment diagnostics (exp 08 baseline):**
+- Callability (samples with any non-CN1 segment): **0.995**
+- Within-chrom CN transitions per sample: p10=11, p25=23, p50=123, p75=600, p90=1221
+- n_samples analysed: 50,455
+
+**Prediction vs reality:**
+- FNR/PPV/MCC are exactly identical to exp 07, as expected — same gene_calls.tsv, different evaluation only.
+- Callability at 0.995 confirms the HMM is not too conservative overall; almost every sample has at least one non-CN1 segment.
+- The transition distribution (p50=123, p90=1221) indicates the HMM is quite active/jumpy. This high transition count is consistent with the HMM oscillating between CN states rather than maintaining sustained segments, which is characteristic of weak VAE reconstruction signal at the boundaries of amplified vs. normal coverage.
+- These numbers now serve as the baseline for comparing future architecture changes.
+
+→ See experiment 09 (VAE encoder dropout training with 02_conv_vae)
 
 ## What we could do instead
 
-1. **Combine both levers** — leave self_transition at 0.80 and raise confidence to 0.70
-   for a more aggressive filter; riskier for PM2_PM3 FNR.
-2. **Revert self_transition to 0.77** and rely on confidence filtering instead — if
-   PM2_PM3 FNR at 0.26 is already too high, a softer transition with tighter confidence
-   may recover recall while still suppressing FPs.
+Skip the baseline and proceed directly to VAE architecture changes. Risk: if the
+new evaluation metrics in future experiments look surprising, we won't know
+whether that's a model effect or an evaluation artefact.
+
+## Proposal history
+
+**Original proposal (2026-04-13):** Raise `cnv_min_confidence` 0.50 → 0.65 to filter
+borderline HMM calls at CRR ~1.20. No retraining required.
+
+**Feedback received (2026-04-13):** Asked whether flash attention or dropout could
+boost signal further.
+
+**First revision (2026-04-13):** Proposal unchanged — flash attention not applicable
+(Conv1d architecture); dropout would require retraining and root cause is not
+representation quality at that margin. Confidence gate stood.
+
+**Feedback received (2026-04-13):** Root problem is VAE reconstruction quality.
+Suggested VAE architecture improvements and lightweight HMM segment diagnostics.
+
+**Second revision (2026-04-13):** Pivoted to VAE encoder dropout (p=0.20) with new
+`02_conv_vae` and added `03_pf9_evaluation` with segment diagnostics.
+
+**Feedback received (2026-04-13):** Do not modify the VAE yet — establish a baseline
+evaluation first so we have a point of comparison before architecture changes.
+
+**Third revision (2026-04-13, current):** Evaluation-only. Runs `03_pf9_evaluation`
+on exp 07's existing outputs. VAE dropout deferred to exp 09 once baseline is in hand.
+
+**Feedback received (2026-04-13):** Two corrections: (1) the organism is haploid
+(*P. falciparum*), so CN1 is the baseline — calling it CN2 is wrong throughout.
+(2) Rather than reporting mean transitions, report percentiles (p10–p90) to
+capture the distribution shape.
+
+**Fourth revision (2026-04-13, current):** Fixed `03_pf9_evaluation.py`:
+- `_segment_diagnostics` now checks `cn != 1` (not `cn != 2`) for callability.
+- Replaced `mean_transitions` with `transitions_percentiles` (p10–p90).
+- Updated all guidance text and report output to match.

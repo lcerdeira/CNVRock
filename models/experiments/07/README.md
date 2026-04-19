@@ -69,7 +69,7 @@ Everything else (VAE checkpoint, downsampling ratio, CNV caller) is unchanged.
 and FN CRR p50=1.33 are too close (0.13 gap) for a stricter transition to discriminate them
 cleanly. The next mechanism is confidence-based post-processing: `cnv_min_confidence`.
 
-→ See experiment 08 (raise `cnv_min_confidence` 0.50 → 0.65)
+→ See experiment 08 (baseline evaluation with 03_pf9_evaluation segment diagnostics)
 
 ## What we could do instead
 

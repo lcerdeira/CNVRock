@@ -1,0 +1,48 @@
+# Versioned components
+architecture: "03_conv_vae"   # encoder dropout reduced p=0.20 → p=0.10 (see architectures/03_conv_vae.py)
+hmm:          "02_gaussian_hmm"
+cnv:          "03_gene_cnv_caller"
+evaluation:   "03_pf9_evaluation"
+
+# Data
+store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
+out_dir:    "../../../data/results/11_lower_dropout"
+normalise:  true
+
+# Model — full retraining with 03_conv_vae architecture
+# exp 09/10 showed PM2_PM3 FNR=0.93–0.94 with FN CRR p50=1.43 >> 1.0.
+# HMM self_transition tuning (0.80→0.75) had negligible effect (transitions
+# p50 only 53→59), indicating the bottleneck is signal consistency not the
+# HMM threshold.  Lower dropout (p=0.20 → p=0.10) reduces inter-bin noise
+# so PM2_PM3 amplification runs appear more sustained in the reconstruction.
+latent_dim:    10
+batch_size:    128
+epochs:        300
+lr:            1.0e-3
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 50
+patience:      10
+cnv_downsample_ratio: 0.25   # unchanged from exp 06/07/09
+
+# HMM segmentation — reset to exp 09 baseline (0.80)
+# self_transition reverted from 0.70 back to 0.80: the previous exp 11
+# proposal (self_transition 0.75→0.70) is superseded.  We are changing the
+# architecture instead; keeping self_transition at 0.80 isolates the effect
+# of the dropout reduction.
+hmm_n_states:          6
+hmm_self_transition:   0.80   # exp 09 baseline — isolate dropout effect
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling — unchanged from exp 09
+cnv_min_cn1_proportion:    0.55
+cnv_min_confidence:        0.50
+cnv_flank_padding:         100000
+cnv_crr_amp_threshold:     1.30
+cnv_crr_min_bins_fallback: 3
+
+# Evaluation
+pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
+pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
+eval_min_group_n: 10

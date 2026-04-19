@@ -62,7 +62,15 @@ case "$RESULT" in
             --in-reply-to "$PROPOSAL_MSGID"
 
         cd "$REPO_ROOT/models"
-        bash "experiments/$EXPERIMENT/run.sh" >> "$LOG" 2>&1
+        # Send a failure email if run.sh crashes so the loop doesn't die silently.
+        if ! bash "experiments/$EXPERIMENT/run.sh" >> "$LOG" 2>&1; then
+            log "Experiment $EXPERIMENT FAILED. Sending failure notification."
+            "$PYTHON" "$TOOLS/send_email.py" \
+                --subject "Re: CNV Experiment $EXPERIMENT Proposal" \
+                --body "Experiment $EXPERIMENT failed on the Mac mini. Check tools/daemon.log for the error. The loop is paused — open Claude Code and run /propose-experiment once you've diagnosed the issue." \
+                --in-reply-to "$PROPOSAL_MSGID" || true
+            exit 1
+        fi
         log "Experiment $EXPERIMENT complete."
 
         # Automatically propose the next experiment using Claude CLI
@@ -97,6 +105,9 @@ case "$RESULT" in
         log "Feedback received (content not logged — invoking Claude to revise proposal)."
         # Write flag so /propose-experiment knows to fetch pending feedback.
         touch "$FEEDBACK_FILE"
+        # Guarantee cleanup even if set -e fires before we reach the explicit rm below
+        # (e.g. if the ack send_email.py call fails with a transient SMTP error).
+        trap 'rm -f "$FEEDBACK_FILE"' EXIT
 
         PROPOSAL_MSGID=$(cat "$MSGID_FILE" 2>/dev/null || true)
         EXPERIMENT=$(printf "%02d" "$(cat "$TOOLS/.last_proposal_experiment" 2>/dev/null || echo "0")")
@@ -116,10 +127,18 @@ case "$RESULT" in
         if [ -n "$CLAUDE_BIN" ]; then
             log "Invoking Claude to revise proposal based on feedback..."
             cd "$REPO_ROOT"
+            # Timeout after 30 min so a hung Claude process doesn't block the daemon
+            # indefinitely (pending_feedback.txt would persist until the process exits).
+            # macOS lacks GNU `timeout`, so emulate it with a background watchdog.
             "$CLAUDE_BIN" --print \
                 --permission-mode bypassPermissions \
                 "$(cat .claude/commands/propose-experiment.md)" \
-                >> "$LOG" 2>&1 || true
+                >> "$LOG" 2>&1 &
+            CLAUDE_PID=$!
+            ( sleep 1800; kill -0 "$CLAUDE_PID" 2>/dev/null && kill "$CLAUDE_PID" ) &
+            WATCHDOG_PID=$!
+            wait "$CLAUDE_PID" 2>/dev/null || true
+            kill "$WATCHDOG_PID" 2>/dev/null || true
 
             # Always remove the flag here — never rely on Claude to clean it up.
             # If Claude succeeded, the flag is redundant. If it failed, leaving it

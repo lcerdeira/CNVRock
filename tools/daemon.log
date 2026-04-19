@@ -1,650 +1,515 @@
-  HMM 29000/53973 | elapsed 569s | eta 490s
-  HMM 29500/53973 | elapsed 584s | eta 485s
-  HMM 30000/53973 | elapsed 596s | eta 476s
-  HMM 30500/53973 | elapsed 612s | eta 471s
-  HMM 31000/53973 | elapsed 629s | eta 466s
-  HMM 31500/53973 | elapsed 641s | eta 457s
-  HMM 32000/53973 | elapsed 654s | eta 449s
-  HMM 32500/53973 | elapsed 675s | eta 446s
-  HMM 33000/53973 | elapsed 685s | eta 435s
-  HMM 33500/53973 | elapsed 695s | eta 425s
-  HMM 34000/53973 | elapsed 709s | eta 416s
-  HMM 34500/53973 | elapsed 726s | eta 410s
-  HMM 35000/53973 | elapsed 744s | eta 403s
-  HMM 35500/53973 | elapsed 756s | eta 393s
-  HMM 36000/53973 | elapsed 771s | eta 385s
-  HMM 36500/53973 | elapsed 787s | eta 377s
-  HMM 37000/53973 | elapsed 803s | eta 368s
-  HMM 37500/53973 | elapsed 819s | eta 360s
-  HMM 38000/53973 | elapsed 831s | eta 349s
-  HMM 38500/53973 | elapsed 849s | eta 341s
-  HMM 39000/53973 | elapsed 867s | eta 333s
-  HMM 39500/53973 | elapsed 884s | eta 324s
-  HMM 40000/53973 | elapsed 903s | eta 316s
-  HMM 40500/53973 | elapsed 919s | eta 306s
-  HMM 41000/53973 | elapsed 939s | eta 297s
-  HMM 41500/53973 | elapsed 959s | eta 288s
-  HMM 42000/53973 | elapsed 976s | eta 278s
-  HMM 42500/53973 | elapsed 986s | eta 266s
-  HMM 43000/53973 | elapsed 1005s | eta 256s
-  HMM 43500/53973 | elapsed 1034s | eta 249s
-  HMM 44000/53973 | elapsed 1052s | eta 238s
-  HMM 44500/53973 | elapsed 1074s | eta 229s
-  HMM 45000/53973 | elapsed 1094s | eta 218s
-  HMM 45500/53973 | elapsed 1107s | eta 206s
-  HMM 46000/53973 | elapsed 1125s | eta 195s
-  HMM 46500/53973 | elapsed 1136s | eta 183s
-  HMM 47000/53973 | elapsed 1150s | eta 171s
-  HMM 47500/53973 | elapsed 1177s | eta 160s
-  HMM 48000/53973 | elapsed 1200s | eta 149s
-  HMM 48500/53973 | elapsed 1223s | eta 138s
-  HMM 49000/53973 | elapsed 1250s | eta 127s
-  HMM 49500/53973 | elapsed 1275s | eta 115s
-  HMM 50000/53973 | elapsed 1301s | eta 103s
-  HMM 50500/53973 | elapsed 1325s | eta 91s
-  HMM 51000/53973 | elapsed 1344s | eta 78s
-  HMM 51500/53973 | elapsed 1356s | eta 65s
-  HMM 52000/53973 | elapsed 1375s | eta 52s
-  HMM 52500/53973 | elapsed 1397s | eta 39s
-  HMM 53000/53973 | elapsed 1420s | eta 26s
-  HMM 53500/53973 | elapsed 1438s | eta 13s
-  HMM 53973/53973 | elapsed 1451s | eta 0s
-Saved segments (21,601,549 rows) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/05/../../../data/results/05_bincount_fallback/segments.parquet
-Calling gene CNVs...
-Computing gene CNV calls for 53973 samples…
-/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/03_gene_cnv_caller.py:196: RuntimeWarning: invalid value encountered in divide
-  crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
-  Done MDR1 | elapsed 18s
-  Done CRT | elapsed 30s
-  Done GCH1 | elapsed 45s
-  Done PM2_PM3 | elapsed 61s
-Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/05/../../../data/results/05_bincount_fallback/gene_calls.tsv
-Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/05/../../../data/results/05_bincount_fallback/evaluation.txt
-
-Storage — output dir: 4.43 GB  |  disk free: 76.7 / 460.4 GB  (83.3% used)
-2026-04-12 17:29:17  Experiment 05 complete.
-2026-04-12 17:29:17  Invoking Claude to propose next experiment...
-All tool operations are being blocked for approval in this session context. Let me provide the complete analysis and file contents so you can either grant permissions or create files manually.
-
----
-
-## Exp 05 Results Analysis
-
-| Gene    | FNR  | PPV  | MCC  | FN p50 CRR | Diagnosis            |
-|---------|------|------|------|------------|----------------------|
-| CRT     | 0.04 | 1.00 | 0.98 | 1.50       | Near-perfect         |
-| GCH1    | 0.29 | 0.95 | 0.80 | 1.18       | Weak signal + HMM    |
-| MDR1    | 0.11 | 1.00 | 0.94 | 1.43       | HMM discarding signal|
-| PM2_PM3 | 0.98 | 1.00 | 0.14 | 1.47       | HMM discarding signal — critical |
-
-**Root cause:** PM2_PM3 is catastrophic (367 FN, 7 TP). FN p50 CRR=1.47 >> 1.0 confirms signal is present; `hmm_self_transition=0.75` makes it too costly for Viterbi to enter amplified states on 7-bin genes where signal is consistently elevated but not extreme. MDR1 AF-W (FNR=1.00) shows the same pattern.
-
-**Fix:** Lower `hmm_self_transition` 0.75 → 0.65.
-
----
-
-## Files to create: `models/experiments/06/`
-
-**`config.yaml`:**
-```yaml
-# Versioned components
-architecture: "01_conv_vae"
-hmm:          "02_gaussian_hmm"
-cnv:          "03_gene_cnv_caller"   # bin-count-gated CRR fallback
-evaluation:   "01_pf9_evaluation"
-
-# Data
-store_path: "../../../data/inputs/Pf9-53973-samples-1000bp-core-npy"
-out_dir:    "../../../data/results/06_lower_self_transition"
-normalise:  true
-
-# Model — reuses experiment 01 checkpoint; no retraining required
-latent_dim: 10
-batch_size:    128
-epochs:        300
-lr:            1.0e-3
-weight_decay:  1.0e-5
-max_beta:      1.0
-warmup_epochs: 50
-patience:      10
-
-# HMM segmentation
-# self_transition lowered from 0.75 -> 0.65: exp 05 showed PM2_PM3 FNR=0.98
-# with FN p50 CRR=1.47, confirming the HMM is discarding real signal rather than
-# seeing weak signal. A lower self_transition makes state transitions cheaper,
-# allowing Viterbi to enter amplified states when coverage is consistently elevated.
-hmm_n_states:          6
-hmm_self_transition:   0.65   # was 0.75
-hmm_low_cov_threshold: 10
-hmm_n_jobs:            -1
-
-# CNV calling - unchanged from exp 05
-cnv_min_cn1_proportion:    0.55
-cnv_min_confidence:        0.50
-cnv_flank_padding:         100000
-cnv_crr_amp_threshold:     1.30   # unchanged - not tuned to labelled data
-cnv_crr_min_bins_fallback: 3      # CRR fallback only for genes < 3 bins
-
-# Evaluation
-pf9_gt_path:   "../../../assets/20260313_full_cnv_data_pf9.tsv"
-pf9_meta_path: "../../../assets/Pf_9_samples_20260227.txt"
-```
-
-**`run.sh`:**
-```bash
-#!/bin/bash
-# Re-run HMM segmentation + CNV calling + evaluation on the experiment 01 checkpoint.
-# No retraining. HMM parameters changed (self_transition 0.75 -> 0.65), so
-# segmentation must be re-run; CNV calling and evaluation follow automatically.
-set -euo pipefail
-
-REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-cd "$REPO_ROOT/models"
-
-CHECKPOINT="$REPO_ROOT/data/results/01_pf9_conv_vae/checkpoint.pth"
-
-"$REPO_ROOT/.venv/bin/python" -m training.wrap_up experiments/06/config.yaml "$CHECKPOINT"
-```
-
-**`README.md`** — key sections:
-- Hypothesis: self_transition=0.75 too high for 7-bin genes with moderate CRR elevation; FN p50 CRR=1.47 >> 1.0 confirms HMM is the bottleneck
-- Change: `hmm_self_transition` 0.75 → 0.65
-- Expected: PM2_PM3 FNR drops sharply; MDR1 improves; CRT stays near-perfect; GCH1 marginal improvement (weak signal component won't be fixed by HMM tuning)
-- Risk: lower self_transition may create short spurious calls in noisy regions — watch CRT/MDR1 PPV
-
-Also update **`models/experiments/05/README.md`**: change `Status: Proposed` → `Status: Complete 2026-04-12` and add the actual outcome table above.
-
----
-
-## To fix autonomous operation
-
-The daemon's `claude --print` invocation can't write files because write permissions aren't pre-granted. Add to `~/.claude/settings.json`:
-
-```json
-{
-  "permissions": {
-    "allow": [
-      "Write(/Users/jiayichiyun/Code/deep-gw-cnv/**)",
-      "Bash(/Users/jiayichiyun/Code/deep-gw-cnv/.venv/bin/python *)"
-    ]
-  }
-}
-```
-
-Then re-run `/propose-experiment` and it will complete all steps automatically including sending the email.
-
----
-
-## Email body (to send manually or after fixing permissions)
-
-**Subject:** `CNV Experiment 06 Proposal`
-
-```
-Hi Chiyun,
-
-Experiment 05 results summary:
-- PM2_PM3: FNR=0.98 (367 FN, 7 TP) — nearly all true amplifications missed
-- MDR1: FNR=0.11 (63 FN), PPV=1.00 — improvement on CRT but still room to grow
-- CRT: FNR=0.04, PPV=1.00, MCC=0.98 — near-perfect; the bin-count gate worked
-- GCH1: FNR=0.29, PPV=0.95, MCC=0.80 — persistent weak-signal issue
-
-My diagnosis:
-The bin-count gate eliminated all CRT and MDR1 false positives exactly as expected.
-However, PM2_PM3 is a near-total failure: FNR=0.98 with FN p50 CRR=1.47 >> 1.0.
-This CRR value is well above 1.0 — the signal is clearly in the data, the HMM is
-actively discarding it, not failing to see it. MDR1 shows the same pattern (FN p50
-CRR=1.43). The culprit is hmm_self_transition=0.75: for a 7-bin gene with moderately
-elevated latent signal, the cumulative cost of entering and exiting the amplified state
-outweighs the emission gain, so Viterbi selects the all-normal path.
-
-Proposed experiment 06: Lower HMM self-transition (0.75 → 0.65)
-Changes from 05:
-- hmm_self_transition: 0.75 → 0.65
-  Reduces per-bin transition cost so Viterbi can select amplified states on multi-bin
-  genes with consistent but moderate elevation. All other parameters unchanged.
-  HMM re-segmentation required; no VAE retraining.
-
-What I expect:
-PM2_PM3 FNR should fall sharply — the 367 FN cases have CRR p50=1.47, comfortably
-in the amplified range, so once transitions are affordable Viterbi should select the
-amplified path across most of them. MDR1 should also improve (FN p50 CRR=1.43).
-GCH1 may see marginal improvement; part of its FNR reflects genuinely weak signal
-(FN p50 CRR=1.18) that HMM tuning alone cannot rescue. Risk: lower self_transition
-increases sensitivity to short noisy runs — watch CRT and MDR1 PPV.
-
-What we could do instead:
-1. Lower self_transition more aggressively (e.g. 0.55) — higher recall gain, higher
-   FP risk; better to step down gradually.
-2. Increase hmm_n_states from 6 to 8 — more copy-number resolution may better separate
-   marginal-CRR amplifications from normal, but much slower to fit (~2× HMM time).
-
-Run time estimate: No VAE retraining. HMM re-segmentation ~25 min on Mac mini.
-CNV calling + evaluation ~2 min.
-
-Reply AUTHORISE to run this on the Mac mini, or reply with feedback and I'll revise.
-
-Claude
-```
-2026-04-12 17:40:43  Claude proposal step did not complete (no msgid file). Sending fallback email.
-Sent. Message-ID: <177601204399.35546.7129192402784602006@deep-gw-cnv>
-2026-04-12 20:08:10  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177602089071.37656.6560130495448846934@deep-gw-cnv>
-2026-04-12 20:13:19  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177602119910.37707.10536366918929323849@deep-gw-cnv>
-2026-04-12 20:18:23  Feedback received (content not logged — open Claude Code to review).
-Sent. Message-ID: <177602150372.37959.5504513928676922431@deep-gw-cnv>
-2026-04-12 20:53:18  Feedback received (content not logged — invoking Claude to revise proposal).
-Sent. Message-ID: <177602359827.38825.8402549054943237086@deep-gw-cnv>
-2026-04-12 20:54:39  Invoking Claude to revise proposal based on feedback...
-2026-04-12 21:34:10  Feedback received (content not logged — invoking Claude to revise proposal).
-Sent. Message-ID: <177602605006.39613.18429737465327893767@deep-gw-cnv>
-2026-04-12 21:35:31  Invoking Claude to revise proposal based on feedback...
-2026-04-12 21:49:16  AUTHORISE received. Running experiment.
-Sent. Message-ID: <177602695662.39973.1719473266329172842@deep-gw-cnv>
-bash: experiments/6/run.sh: No such file or directory
-Device: mps
-CNV downsampling: 6944 CNV-positive samples (ratio=0.25), 47029 normal samples
-samples=53973 | latent_dim=10
-  epoch 1 | batch 0/422 | loss 1293198.7500
-  epoch 1 | batch 1/422 | loss 1229978.6250
-  epoch 1 | batch 2/422 | loss 1273401.8750
-  epoch 1 | batch 3/422 | loss 1198034.8750
-  epoch 1 | batch 4/422 | loss 1233287.5000
-  epoch 1 | batch 5/422 | loss 1189256.8750
-  epoch 1 | batch 6/422 | loss 1205314.2500
-  epoch 1 | batch 7/422 | loss 1230190.7500
-  epoch 1 | batch 8/422 | loss 1145180.3750
-  epoch 1 | batch 9/422 | loss 1229851.0000
-  epoch 1 | batch 10/422 | loss 1111315.8750
-  epoch 1 | batch 11/422 | loss 1190379.2500
-  epoch 1 | batch 12/422 | loss 1107713.6250
-  epoch 1 | batch 13/422 | loss 1198122.8750
-  epoch 1 | batch 14/422 | loss 1195659.6250
-  epoch 1 | batch 15/422 | loss 1226930.0000
-  epoch 1 | batch 16/422 | loss 1170980.6250
-  epoch 1 | batch 17/422 | loss 1247739.2500
-  epoch 1 | batch 18/422 | loss 1254966.5000
-  epoch 1 | batch 19/422 | loss 1178827.3750
-  epoch 1 | batch 20/422 | loss 1219211.7500
-  epoch 1 | batch 21/422 | loss 1241828.2500
-  epoch 1 | batch 22/422 | loss 1140490.1250
-  epoch 1 | batch 23/422 | loss 1197926.5000
-  epoch 1 | batch 24/422 | loss 1204115.5000
-  epoch 1 | batch 25/422 | loss 1188495.5000
-  epoch 1 | batch 26/422 | loss 1201939.6250
-  epoch 1 | batch 27/422 | loss 1069427.2500
-  epoch 1 | batch 28/422 | loss 1185599.5000
-  epoch 1 | batch 29/422 | loss 1165398.7500
-  epoch 1 | batch 30/422 | loss 1090457.7500
-  epoch 1 | batch 31/422 | loss 1179008.7500
-  epoch 1 | batch 32/422 | loss 1164270.0000
-  epoch 1 | batch 33/422 | loss 1150433.0000
-  epoch 1 | batch 34/422 | loss 1096329.3750
-  epoch 1 | batch 35/422 | loss 1197288.5000
-  epoch 1 | batch 36/422 | loss 1158571.1250
-  epoch 1 | batch 37/422 | loss 1144609.1250
-  epoch 1 | batch 38/422 | loss 1206133.8750
-  epoch 1 | batch 39/422 | loss 1184706.1250
-  epoch 1 | batch 40/422 | loss 996094.0000
-  epoch 1 | batch 41/422 | loss 1068781.1250
-  epoch 1 | batch 42/422 | loss 1149646.1250
-  epoch 1 | batch 43/422 | loss 1133810.6250
-  epoch 1 | batch 44/422 | loss 1125470.2500
-  epoch 1 | batch 45/422 | loss 1157946.3750
-  epoch 1 | batch 46/422 | loss 1179064.2500
-  epoch 1 | batch 47/422 | loss 1111366.3750
-  epoch 1 | batch 48/422 | loss 1224084.0000
-  epoch 1 | batch 49/422 | loss 1255732.0000
-  epoch 1 | batch 50/422 | loss 1116220.1250
-  epoch 1 | batch 51/422 | loss 1238323.8750
-  epoch 1 | batch 52/422 | loss 1160497.2500
-  epoch 1 | batch 53/422 | loss 1231940.1250
-  epoch 1 | batch 54/422 | loss 1124606.2500
-  epoch 1 | batch 55/422 | loss 1215343.5000
-  epoch 1 | batch 56/422 | loss 1175346.5000
-  epoch 1 | batch 57/422 | loss 1165066.2500
-  epoch 1 | batch 58/422 | loss 1076923.5000
-  epoch 1 | batch 59/422 | loss 1195980.7500
-  epoch 1 | batch 60/422 | loss 1148434.5000
-  epoch 1 | batch 61/422 | loss 1169004.2500
-  epoch 1 | batch 62/422 | loss 1148159.2500
-  epoch 1 | batch 63/422 | loss 1261858.0000
-  epoch 1 | batch 64/422 | loss 1310521.2500
-  epoch 1 | batch 65/422 | loss 1168788.5000
-  epoch 1 | batch 66/422 | loss 1136907.1250
-  epoch 1 | batch 67/422 | loss 1213286.0000
-  epoch 1 | batch 68/422 | loss 1181977.7500
-  epoch 1 | batch 69/422 | loss 1203503.3750
-  epoch 1 | batch 70/422 | loss 1180219.6250
-  epoch 1 | batch 71/422 | loss 1090160.1250
-  epoch 1 | batch 72/422 | loss 1187168.0000
-  epoch 1 | batch 73/422 | loss 1218009.1250
-  epoch 1 | batch 74/422 | loss 1185209.5000
-  epoch 1 | batch 75/422 | loss 1167026.0000
-  epoch 1 | batch 76/422 | loss 1226878.2500
-  epoch 1 | batch 77/422 | loss 1128584.6250
-  epoch 1 | batch 78/422 | loss 1048930.7500
-  epoch 1 | batch 79/422 | loss 1227180.6250
-  epoch 1 | batch 80/422 | loss 1144188.0000
-  epoch 1 | batch 81/422 | loss 1167916.5000
-  epoch 1 | batch 82/422 | loss 1002367.0625
-  epoch 1 | batch 83/422 | loss 1232017.2500
-  epoch 1 | batch 84/422 | loss 1125719.7500
-  epoch 1 | batch 85/422 | loss 1164540.7500
-  epoch 1 | batch 86/422 | loss 1314041.0000
-  epoch 1 | batch 87/422 | loss 1161884.6250
-  epoch 1 | batch 88/422 | loss 1266071.5000
-  epoch 1 | batch 89/422 | loss 1201662.7500
-  epoch 1 | batch 90/422 | loss 1216305.1250
-  epoch 1 | batch 91/422 | loss 1207468.7500
-  epoch 1 | batch 92/422 | loss 1117448.7500
-  epoch 1 | batch 93/422 | loss 1240698.7500
-  epoch 1 | batch 94/422 | loss 1238194.0000
-  epoch 1 | batch 95/422 | loss 1135951.3750
-  epoch 1 | batch 96/422 | loss 1193250.1250
-  epoch 1 | batch 97/422 | loss 1162422.5000
-  epoch 1 | batch 98/422 | loss 1140925.6250
-  epoch 1 | batch 99/422 | loss 1194083.5000
-  epoch 1 | batch 100/422 | loss 1188417.1250
-  epoch 1 | batch 101/422 | loss 1276461.7500
-  epoch 1 | batch 102/422 | loss 1247273.5000
-  epoch 1 | batch 103/422 | loss 1212376.7500
-  epoch 1 | batch 104/422 | loss 1199335.3750
-  epoch 1 | batch 105/422 | loss 1132186.2500
-  epoch 1 | batch 106/422 | loss 1202483.1250
-  epoch 1 | batch 107/422 | loss 1085917.7500
-  epoch 1 | batch 108/422 | loss 1125319.1250
-  epoch 1 | batch 109/422 | loss 1121022.1250
-  epoch 1 | batch 110/422 | loss 1238543.6250
-  epoch 1 | batch 111/422 | loss 1171447.5000
-  epoch 1 | batch 112/422 | loss 1255744.6250
-  epoch 1 | batch 113/422 | loss 1138916.3750
-  epoch 1 | batch 114/422 | loss 1034546.8750
-  epoch 1 | batch 115/422 | loss 1135130.0000
-  epoch 1 | batch 116/422 | loss 1169852.2500
-  epoch 1 | batch 117/422 | loss 1180328.5000
-  epoch 1 | batch 118/422 | loss 1113589.6250
-  epoch 1 | batch 119/422 | loss 1201028.3750
-  epoch 1 | batch 120/422 | loss 1227023.5000
-  epoch 1 | batch 121/422 | loss 1159282.7500
-  epoch 1 | batch 122/422 | loss 1159894.0000
-  epoch 1 | batch 123/422 | loss 1150939.6250
-  epoch 1 | batch 124/422 | loss 1139137.1250
-  epoch 1 | batch 125/422 | loss 1190809.7500
-  epoch 1 | batch 126/422 | loss 1110028.2500
-  epoch 1 | batch 127/422 | loss 1200857.5000
-  epoch 1 | batch 128/422 | loss 1172244.2500
-  epoch 1 | batch 129/422 | loss 1173217.5000
-  epoch 1 | batch 130/422 | loss 1128472.2500
-  epoch 1 | batch 131/422 | loss 1180909.2500
-  epoch 1 | batch 132/422 | loss 1199935.0000
-  epoch 1 | batch 133/422 | loss 1089011.5000
-  epoch 1 | batch 134/422 | loss 1172610.6250
-  epoch 1 | batch 135/422 | loss 1214487.7500
-  epoch 1 | batch 136/422 | loss 1119242.0000
-  epoch 1 | batch 137/422 | loss 1140113.6250
-  epoch 1 | batch 138/422 | loss 1097168.7500
-  epoch 1 | batch 139/422 | loss 1089857.0000
-  epoch 1 | batch 140/422 | loss 1174379.0000
-  epoch 1 | batch 141/422 | loss 1179857.3750
-  epoch 1 | batch 142/422 | loss 1234558.6250
-  epoch 1 | batch 143/422 | loss 1088258.6250
-  epoch 1 | batch 144/422 | loss 1291409.0000
-  epoch 1 | batch 145/422 | loss 1165099.5000
-  epoch 1 | batch 146/422 | loss 1090664.5000
-  epoch 1 | batch 147/422 | loss 1152284.3750
-  epoch 1 | batch 148/422 | loss 1072062.2500
-  epoch 1 | batch 149/422 | loss 1200694.7500
-  epoch 1 | batch 150/422 | loss 1066784.2500
-  epoch 1 | batch 151/422 | loss 1111806.2500
-  epoch 1 | batch 152/422 | loss 1072304.0000
-  epoch 1 | batch 153/422 | loss 1124112.7500
-  epoch 1 | batch 154/422 | loss 1153442.3750
-  epoch 1 | batch 155/422 | loss 1156362.5000
-  epoch 1 | batch 156/422 | loss 1145290.5000
-  epoch 1 | batch 157/422 | loss 1018267.3125
-  epoch 1 | batch 158/422 | loss 1140209.8750
-  epoch 1 | batch 159/422 | loss 1096563.5000
-  epoch 1 | batch 160/422 | loss 1113983.1250
-  epoch 1 | batch 161/422 | loss 1137259.2500
-  epoch 1 | batch 162/422 | loss 1124800.0000
-  epoch 1 | batch 163/422 | loss 1213653.3750
-  epoch 1 | batch 164/422 | loss 1111423.7500
-  epoch 1 | batch 165/422 | loss 1210896.7500
-  epoch 1 | batch 166/422 | loss 1052195.6250
-  epoch 1 | batch 167/422 | loss 1214996.0000
-  epoch 1 | batch 168/422 | loss 1089492.7500
-  epoch 1 | batch 169/422 | loss 1161822.3750
-  epoch 1 | batch 170/422 | loss 1110465.2500
-  epoch 1 | batch 171/422 | loss 1210748.2500
-  epoch 1 | batch 172/422 | loss 1072293.0000
-  epoch 1 | batch 173/422 | loss 1217098.5000
-  epoch 1 | batch 174/422 | loss 1111927.5000
-  epoch 1 | batch 175/422 | loss 1155957.8750
-  epoch 1 | batch 176/422 | loss 1154013.0000
-  epoch 1 | batch 177/422 | loss 1143340.7500
-  epoch 1 | batch 178/422 | loss 1114492.5000
-  epoch 1 | batch 179/422 | loss 1057452.2500
-  epoch 1 | batch 180/422 | loss 1232539.2500
-  epoch 1 | batch 181/422 | loss 1250577.3750
-  epoch 1 | batch 182/422 | loss 1117434.5000
-  epoch 1 | batch 183/422 | loss 1174743.2500
-  epoch 1 | batch 184/422 | loss 1103915.6250
-  epoch 1 | batch 185/422 | loss 1121916.7500
-  epoch 1 | batch 186/422 | loss 1208778.7500
-  epoch 1 | batch 187/422 | loss 1193692.7500
-  epoch 1 | batch 188/422 | loss 1056750.7500
-  epoch 1 | batch 189/422 | loss 1092087.7500
-  epoch 1 | batch 190/422 | loss 1171516.7500
-  epoch 1 | batch 191/422 | loss 1050318.7500
-  epoch 1 | batch 192/422 | loss 1042033.2500
-  epoch 1 | batch 193/422 | loss 1113156.5000
-  epoch 1 | batch 194/422 | loss 1131324.7500
-  epoch 1 | batch 195/422 | loss 1090468.0000
-  epoch 1 | batch 196/422 | loss 1057412.0000
-  epoch 1 | batch 197/422 | loss 1266710.5000
-  epoch 1 | batch 198/422 | loss 1226007.0000
-  epoch 1 | batch 199/422 | loss 1213258.6250
-  epoch 1 | batch 200/422 | loss 1040251.0625
-  epoch 1 | batch 201/422 | loss 1160497.0000
-  epoch 1 | batch 202/422 | loss 1135216.5000
-  epoch 1 | batch 203/422 | loss 1140301.6250
-  epoch 1 | batch 204/422 | loss 1157489.3750
-  epoch 1 | batch 205/422 | loss 1125242.6250
-  epoch 1 | batch 206/422 | loss 1038974.0625
-  epoch 1 | batch 207/422 | loss 1186352.5000
-  epoch 1 | batch 208/422 | loss 1096216.2500
-  epoch 1 | batch 209/422 | loss 1081467.0000
-  epoch 1 | batch 210/422 | loss 1109598.7500
-  epoch 1 | batch 211/422 | loss 1187799.8750
-  epoch 1 | batch 212/422 | loss 1139089.2500
-  epoch 1 | batch 213/422 | loss 1157984.0000
-  epoch 1 | batch 214/422 | loss 1145374.2500
-  epoch 1 | batch 215/422 | loss 1162391.2500
-  epoch 1 | batch 216/422 | loss 1073947.2500
-  epoch 1 | batch 217/422 | loss 1085513.6250
-  epoch 1 | batch 218/422 | loss 1163508.2500
-  epoch 1 | batch 219/422 | loss 1130907.5000
-  epoch 1 | batch 220/422 | loss 1152500.3750
-  epoch 1 | batch 221/422 | loss 1159680.2500
-  epoch 1 | batch 222/422 | loss 1026882.8125
-  epoch 1 | batch 223/422 | loss 1092104.3750
-  epoch 1 | batch 224/422 | loss 1099860.2500
-  epoch 1 | batch 225/422 | loss 1140089.6250
-  epoch 1 | batch 226/422 | loss 1174625.1250
-  epoch 1 | batch 227/422 | loss 1156862.8750
-  epoch 1 | batch 228/422 | loss 1170294.2500
-  epoch 1 | batch 229/422 | loss 1123746.6250
-  epoch 1 | batch 230/422 | loss 1093237.0000
-  epoch 1 | batch 231/422 | loss 1134261.5000
-  epoch 1 | batch 232/422 | loss 1188347.2500
-  epoch 1 | batch 233/422 | loss 1094966.6250
-  epoch 1 | batch 234/422 | loss 1039726.3750
-  epoch 1 | batch 235/422 | loss 1163858.7500
-  epoch 1 | batch 236/422 | loss 1060855.1250
-  epoch 1 | batch 237/422 | loss 1113638.8750
-  epoch 1 | batch 238/422 | loss 1095121.5000
-  epoch 1 | batch 239/422 | loss 1099540.5000
-  epoch 1 | batch 240/422 | loss 1218904.5000
-  epoch 1 | batch 241/422 | loss 1102973.7500
-  epoch 1 | batch 242/422 | loss 1153713.7500
-  epoch 1 | batch 243/422 | loss 1167589.0000
-  epoch 1 | batch 244/422 | loss 1047369.9375
-  epoch 1 | batch 245/422 | loss 1122474.5000
-  epoch 1 | batch 246/422 | loss 1112377.0000
-  epoch 1 | batch 247/422 | loss 1077037.8750
-  epoch 1 | batch 248/422 | loss 1111385.6250
-  epoch 1 | batch 249/422 | loss 1153699.7500
-  epoch 1 | batch 250/422 | loss 1155438.7500
-  epoch 1 | batch 251/422 | loss 1091752.0000
-  epoch 1 | batch 252/422 | loss 1167111.2500
-2026-04-13 09:48:53  Feedback received (content not logged — invoking Claude to revise proposal).
-Sent. Message-ID: <177607013366.53651.2279306321234959469@deep-gw-cnv>
-2026-04-13 09:49:00  Invoking Claude to revise proposal based on feedback...
-Done. Here's what was done in response to your feedback:
-
-**Feedback incorporated:**
-1. **HMM change approved** — `hmm_self_transition: 0.75 → 0.80` unchanged from original proposal.
-2. **Ground truth caveat** — evaluation guidance text updated to note that apparent FPs may be real signal the GATK pipeline missed.
-3. **New evaluation metrics** — created `models/evaluation/02_pf9_evaluation.py` with per-(Year × Population) stratified tables. Each gene gets a BY YEAR × POPULATION section showing MCC / FNR / PPV / n_eval, suppressed for groups with fewer than 10 evaluable samples to keep the report readable.
-
-**Files changed:**
-- `models/evaluation/02_pf9_evaluation.py` — new evaluation module
-- `models/experiments/07/config.yaml` — `evaluation: "02_pf9_evaluation"`, added `eval_min_group_n: 10`
-- `models/experiments/07/README.md` — added **Proposal history** section
-- Revised proposal sent in the existing email thread
-
-Daemon is already armed and polling for your AUTHORISE reply.
-2026-04-13 09:53:55  Revised proposal sent successfully.
-2026-04-13 09:57:56  AUTHORISE received. Running experiment.
-Sent. Message-ID: <177607067628.53921.389807620775514246@deep-gw-cnv>
-Device: mps
-Loaded checkpoint: /Users/jiayichiyun/Code/deep-gw-cnv/data/results/06_weighted_sampling/checkpoint.pth
-Saved latents         (53973, 10) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/latents.npy
-Saved reconstructions (53973, 20814)  → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/reconstructions.npy
-Saved sample_ids      (53973,) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/sample_ids.npy
+  epoch 2 | batch 250/422 | loss 18071.8750
+  epoch 2 | batch 300/422 | loss 12886.9756
+  epoch 2 | batch 350/422 | loss 19010.0859
+  epoch 2 | batch 400/422 | loss 13697.6416
+0002 | loss 6926737.91 | recon 6749936.96 | kl 32855.68 | sin 4318356.89 | beta 1.000 | sin_w 0.0333
+  epoch 3 | batch 0/422 | loss 11860.4375
+  epoch 3 | batch 50/422 | loss 17292.6133
+  epoch 3 | batch 100/422 | loss 18633.4316
+  epoch 3 | batch 150/422 | loss 18159.7461
+  epoch 3 | batch 200/422 | loss 18597.5332
+  epoch 3 | batch 250/422 | loss 13526.0303
+  epoch 3 | batch 300/422 | loss 17896.6211
+  epoch 3 | batch 350/422 | loss 15329.3193
+  epoch 3 | batch 400/422 | loss 20483.4180
+0003 | loss 7035734.07 | recon 6717338.00 | kl 30757.80 | sin 4314573.90 | beta 1.000 | sin_w 0.0667
+  epoch 4 | batch 0/422 | loss 13259.8457
+  epoch 4 | batch 50/422 | loss 14081.4023
+  epoch 4 | batch 100/422 | loss 14917.1855
+  epoch 4 | batch 150/422 | loss 15761.1445
+  epoch 4 | batch 200/422 | loss 14766.6270
+  epoch 4 | batch 250/422 | loss 19151.5449
+  epoch 4 | batch 300/422 | loss 13590.8682
+  epoch 4 | batch 350/422 | loss 16487.7969
+  epoch 4 | batch 400/422 | loss 15559.5322
+0004 | loss 7187989.22 | recon 6727727.40 | kl 29200.58 | sin 4310612.42 | beta 1.000 | sin_w 0.1000
+  epoch 5 | batch 0/422 | loss 15200.2861
+  epoch 5 | batch 50/422 | loss 17571.8594
+  epoch 5 | batch 100/422 | loss 13091.3105
+  epoch 5 | batch 150/422 | loss 21223.5156
+  epoch 5 | batch 200/422 | loss 14411.9775
+  epoch 5 | batch 250/422 | loss 20665.8262
+  epoch 5 | batch 300/422 | loss 21424.4590
+  epoch 5 | batch 350/422 | loss 17442.1641
+  epoch 5 | batch 400/422 | loss 17219.1250
+0005 | loss 7261031.90 | recon 6658669.68 | kl 28186.31 | sin 4306319.12 | beta 1.000 | sin_w 0.1333
+  epoch 6 | batch 0/422 | loss 16308.0967
+  epoch 6 | batch 50/422 | loss 16624.5234
+  epoch 6 | batch 100/422 | loss 23610.9590
+  epoch 6 | batch 150/422 | loss 13134.1191
+  epoch 6 | batch 200/422 | loss 15124.9121
+  epoch 6 | batch 250/422 | loss 17634.0703
+  epoch 6 | batch 300/422 | loss 18969.1582
+  epoch 6 | batch 350/422 | loss 18574.9297
+  epoch 6 | batch 400/422 | loss 17219.6855
+0006 | loss 7400200.90 | recon 6656213.94 | kl 27241.23 | sin 4300474.48 | beta 1.000 | sin_w 0.1667
+  epoch 7 | batch 0/422 | loss 16314.5654
+  epoch 7 | batch 50/422 | loss 17371.1758
+  epoch 7 | batch 100/422 | loss 19946.5840
+  epoch 7 | batch 150/422 | loss 17883.8633
+  epoch 7 | batch 200/422 | loss 21071.5547
+  epoch 7 | batch 250/422 | loss 15676.3115
+  epoch 7 | batch 300/422 | loss 15548.7168
+  epoch 7 | batch 350/422 | loss 20229.2715
+  epoch 7 | batch 400/422 | loss 19673.1094
+0007 | loss 7567966.58 | recon 6681048.96 | kl 26728.27 | sin 4300946.79 | beta 1.000 | sin_w 0.2000
+  epoch 8 | batch 0/422 | loss 20516.2070
+  epoch 8 | batch 50/422 | loss 13548.6221
+  epoch 8 | batch 100/422 | loss 26267.0664
+  epoch 8 | batch 150/422 | loss 17133.8828
+  epoch 8 | batch 200/422 | loss 16048.1680
+  epoch 8 | batch 250/422 | loss 19878.8965
+  epoch 8 | batch 300/422 | loss 19090.1211
+  epoch 8 | batch 350/422 | loss 19917.4707
+  epoch 8 | batch 400/422 | loss 23728.0000
+0008 | loss 7799026.33 | recon 6771068.05 | kl 26269.94 | sin 4292949.91 | beta 1.000 | sin_w 0.2333
+  epoch 9 | batch 0/422 | loss 21518.8477
+  epoch 9 | batch 50/422 | loss 17030.5684
+  epoch 9 | batch 100/422 | loss 21071.3750
+  epoch 9 | batch 150/422 | loss 21859.1973
+  epoch 9 | batch 200/422 | loss 16666.2773
+  epoch 9 | batch 250/422 | loss 22261.1094
+  epoch 9 | batch 300/422 | loss 17015.9062
+  epoch 9 | batch 350/422 | loss 19859.9062
+  epoch 9 | batch 400/422 | loss 18018.2109
+0009 | loss 7913910.93 | recon 6743743.60 | kl 25693.11 | sin 4291778.10 | beta 1.000 | sin_w 0.2667
+  epoch 10 | batch 0/422 | loss 19390.1406
+  epoch 10 | batch 50/422 | loss 18403.6230
+  epoch 10 | batch 100/422 | loss 19800.4785
+  epoch 10 | batch 150/422 | loss 22268.8027
+  epoch 10 | batch 200/422 | loss 15885.6533
+  epoch 10 | batch 250/422 | loss 19173.2188
+  epoch 10 | batch 300/422 | loss 20257.1172
+  epoch 10 | batch 350/422 | loss 17736.7930
+  epoch 10 | batch 400/422 | loss 17792.8789
+0010 | loss 7977843.87 | recon 6666693.89 | kl 25304.80 | sin 4286150.41 | beta 1.000 | sin_w 0.3000
+  epoch 11 | batch 0/422 | loss 23198.4922
+  epoch 11 | batch 50/422 | loss 18668.2012
+  epoch 11 | batch 100/422 | loss 20984.6016
+  epoch 11 | batch 150/422 | loss 19950.4863
+  epoch 11 | batch 200/422 | loss 22557.5430
+  epoch 11 | batch 250/422 | loss 21035.6211
+  epoch 11 | batch 300/422 | loss 16190.2295
+  epoch 11 | batch 350/422 | loss 15981.6133
+  epoch 11 | batch 400/422 | loss 17059.4492
+0011 | loss 8171829.54 | recon 6720720.26 | kl 25077.21 | sin 4278096.29 | beta 1.000 | sin_w 0.3333
+  epoch 12 | batch 0/422 | loss 21672.4258
+  epoch 12 | batch 50/422 | loss 17460.5723
+  epoch 12 | batch 100/422 | loss 20215.5078
+  epoch 12 | batch 150/422 | loss 18276.2832
+  epoch 12 | batch 200/422 | loss 17790.0605
+  epoch 12 | batch 250/422 | loss 18633.5430
+  epoch 12 | batch 300/422 | loss 20570.6387
+  epoch 12 | batch 350/422 | loss 19041.6953
+  epoch 12 | batch 400/422 | loss 17253.2012
+0012 | loss 8311086.93 | recon 6721358.49 | kl 24995.01 | sin 4267454.68 | beta 1.000 | sin_w 0.3667
+  epoch 13 | batch 0/422 | loss 22238.6406
+  epoch 13 | batch 50/422 | loss 20618.1016
+  epoch 13 | batch 100/422 | loss 20845.8887
+  epoch 13 | batch 150/422 | loss 24321.3242
+  epoch 13 | batch 200/422 | loss 20019.4883
+  epoch 13 | batch 250/422 | loss 17566.8457
+  epoch 13 | batch 300/422 | loss 15644.4072
+  epoch 13 | batch 350/422 | loss 21146.6660
+  epoch 13 | batch 400/422 | loss 17218.6465
+0013 | loss 8450537.17 | recon 6720394.14 | kl 24641.02 | sin 4263755.03 | beta 1.000 | sin_w 0.4000
+  epoch 14 | batch 0/422 | loss 21596.3555
+  epoch 14 | batch 50/422 | loss 17997.4648
+  epoch 14 | batch 100/422 | loss 18219.0977
+  epoch 14 | batch 150/422 | loss 22169.5039
+  epoch 14 | batch 200/422 | loss 18176.0820
+  epoch 14 | batch 250/422 | loss 23021.4727
+  epoch 14 | batch 300/422 | loss 19760.0137
+  epoch 14 | batch 350/422 | loss 20054.5977
+  epoch 14 | batch 400/422 | loss 19467.4727
+0014 | loss 8540116.42 | recon 6671789.29 | kl 24408.39 | sin 4255197.11 | beta 1.000 | sin_w 0.4333
+  epoch 15 | batch 0/422 | loss 21954.0195
+  epoch 15 | batch 50/422 | loss 21633.8164
+  epoch 15 | batch 100/422 | loss 25476.4453
+  epoch 15 | batch 150/422 | loss 24443.8438
+  epoch 15 | batch 200/422 | loss 21988.4590
+  epoch 15 | batch 250/422 | loss 19048.4082
+  epoch 15 | batch 300/422 | loss 22997.5312
+  epoch 15 | batch 350/422 | loss 16880.4121
+  epoch 15 | batch 400/422 | loss 20805.3516
+0015 | loss 8648760.34 | recon 6643482.29 | kl 24156.46 | sin 4245260.53 | beta 1.000 | sin_w 0.4667
+  epoch 16 | batch 0/422 | loss 22236.5332
+  epoch 16 | batch 50/422 | loss 22288.6250
+  epoch 16 | batch 100/422 | loss 20818.5254
+  epoch 16 | batch 150/422 | loss 17501.8945
+  epoch 16 | batch 200/422 | loss 26363.0977
+  epoch 16 | batch 250/422 | loss 20545.5332
+  epoch 16 | batch 300/422 | loss 19497.9609
+  epoch 16 | batch 350/422 | loss 22292.4492
+  epoch 16 | batch 400/422 | loss 22156.0469
+0016 | loss 8839845.15 | recon 6699479.10 | kl 24073.04 | sin 4232586.00 | beta 1.000 | sin_w 0.5000
+  epoch 17 | batch 0/422 | loss 18439.7305
+  epoch 17 | batch 50/422 | loss 19883.8594
+  epoch 17 | batch 100/422 | loss 22069.7559
+  epoch 17 | batch 150/422 | loss 18716.2793
+  epoch 17 | batch 200/422 | loss 19572.6699
+  epoch 17 | batch 250/422 | loss 20120.7910
+  epoch 17 | batch 300/422 | loss 19294.8750
+  epoch 17 | batch 350/422 | loss 20854.7480
+  epoch 17 | batch 400/422 | loss 21305.2168
+0017 | loss 8910995.55 | recon 6635854.69 | kl 24068.79 | sin 4220759.90 | beta 1.000 | sin_w 0.5333
+  epoch 18 | batch 0/422 | loss 18990.6562
+  epoch 18 | batch 50/422 | loss 19275.7852
+  epoch 18 | batch 100/422 | loss 22139.1094
+  epoch 18 | batch 150/422 | loss 25581.3398
+  epoch 18 | batch 200/422 | loss 20187.5625
+  epoch 18 | batch 250/422 | loss 20205.5586
+  epoch 18 | batch 300/422 | loss 20938.7422
+  epoch 18 | batch 350/422 | loss 20821.3730
+  epoch 18 | batch 400/422 | loss 23291.8008
+0018 | loss 9125141.71 | recon 6713508.20 | kl 23904.03 | sin 4213640.28 | beta 1.000 | sin_w 0.5667
+  epoch 19 | batch 0/422 | loss 23399.7461
+  epoch 19 | batch 50/422 | loss 18270.6055
+  epoch 19 | batch 100/422 | loss 21806.7305
+  epoch 19 | batch 150/422 | loss 21822.4922
+  epoch 19 | batch 200/422 | loss 20605.8125
+  epoch 19 | batch 250/422 | loss 23011.0410
+  epoch 19 | batch 300/422 | loss 21162.3633
+  epoch 19 | batch 350/422 | loss 22262.8359
+  epoch 19 | batch 400/422 | loss 23494.5273
+0019 | loss 9272910.24 | recon 6725510.67 | kl 23790.73 | sin 4206014.60 | beta 1.000 | sin_w 0.6000
+  epoch 20 | batch 0/422 | loss 23241.5996
+  epoch 20 | batch 50/422 | loss 21156.1406
+  epoch 20 | batch 100/422 | loss 20689.2676
+  epoch 20 | batch 150/422 | loss 23802.3984
+  epoch 20 | batch 200/422 | loss 21110.7832
+  epoch 20 | batch 250/422 | loss 26856.5273
+  epoch 20 | batch 300/422 | loss 22690.9238
+  epoch 20 | batch 350/422 | loss 21949.3516
+  epoch 20 | batch 400/422 | loss 25591.6641
+0020 | loss 9392472.11 | recon 6712285.94 | kl 23696.27 | sin 4194457.72 | beta 1.000 | sin_w 0.6333
+  epoch 21 | batch 0/422 | loss 23144.8203
+  epoch 21 | batch 50/422 | loss 22228.8984
+  epoch 21 | batch 100/422 | loss 23810.9512
+  epoch 21 | batch 150/422 | loss 23147.0938
+  epoch 21 | batch 200/422 | loss 20312.2500
+  epoch 21 | batch 250/422 | loss 24662.1602
+  epoch 21 | batch 300/422 | loss 20576.0449
+  epoch 21 | batch 350/422 | loss 21187.0156
+  epoch 21 | batch 400/422 | loss 21502.4297
+0021 | loss 9570818.21 | recon 6757506.84 | kl 23571.95 | sin 4184609.01 | beta 1.000 | sin_w 0.6667
+  epoch 22 | batch 0/422 | loss 22013.3320
+  epoch 22 | batch 50/422 | loss 23125.4492
+  epoch 22 | batch 100/422 | loss 36768.4883
+  epoch 22 | batch 150/422 | loss 22628.9590
+  epoch 22 | batch 200/422 | loss 21408.0859
+  epoch 22 | batch 250/422 | loss 24490.0059
+  epoch 22 | batch 300/422 | loss 21152.2227
+  epoch 22 | batch 350/422 | loss 27243.0117
+  epoch 22 | batch 400/422 | loss 23041.8379
+0022 | loss 9613372.87 | recon 6671670.10 | kl 23483.29 | sin 4168885.01 | beta 1.000 | sin_w 0.7000
+  epoch 23 | batch 0/422 | loss 20926.9922
+  epoch 23 | batch 50/422 | loss 18725.5156
+  epoch 23 | batch 100/422 | loss 22512.6641
+  epoch 23 | batch 150/422 | loss 30137.2852
+  epoch 23 | batch 200/422 | loss 21153.9863
+  epoch 23 | batch 250/422 | loss 23024.2930
+  epoch 23 | batch 300/422 | loss 19952.1836
+  epoch 23 | batch 350/422 | loss 22222.0566
+  epoch 23 | batch 400/422 | loss 24976.0352
+0023 | loss 9770607.08 | recon 6699483.63 | kl 23463.80 | sin 4155899.44 | beta 1.000 | sin_w 0.7333
+  epoch 24 | batch 0/422 | loss 21193.3711
+  epoch 24 | batch 50/422 | loss 25995.1328
+  epoch 24 | batch 100/422 | loss 20437.9199
+  epoch 24 | batch 150/422 | loss 21019.8164
+  epoch 24 | batch 200/422 | loss 27553.8086
+  epoch 24 | batch 250/422 | loss 21871.3105
+  epoch 24 | batch 300/422 | loss 23008.2793
+  epoch 24 | batch 350/422 | loss 20716.3242
+  epoch 24 | batch 400/422 | loss 22312.0918
+0024 | loss 9880052.53 | recon 6682082.98 | kl 23335.22 | sin 4140827.47 | beta 1.000 | sin_w 0.7667
+  epoch 25 | batch 0/422 | loss 22246.7461
+  epoch 25 | batch 50/422 | loss 28714.4414
+  epoch 25 | batch 100/422 | loss 26151.9004
+  epoch 25 | batch 150/422 | loss 23470.1523
+  epoch 25 | batch 200/422 | loss 22310.0293
+  epoch 25 | batch 250/422 | loss 23657.9648
+  epoch 25 | batch 300/422 | loss 21326.8281
+  epoch 25 | batch 350/422 | loss 22661.2676
+  epoch 25 | batch 400/422 | loss 24509.4082
+0025 | loss 10010501.42 | recon 6689804.35 | kl 23295.16 | sin 4121752.24 | beta 1.000 | sin_w 0.8000
+  epoch 26 | batch 0/422 | loss 22832.1875
+  epoch 26 | batch 50/422 | loss 22480.5215
+  epoch 26 | batch 100/422 | loss 25097.0508
+  epoch 26 | batch 150/422 | loss 23633.1973
+  epoch 26 | batch 200/422 | loss 23388.6250
+  epoch 26 | batch 250/422 | loss 23692.0156
+  epoch 26 | batch 300/422 | loss 26558.9336
+  epoch 26 | batch 350/422 | loss 21412.3320
+  epoch 26 | batch 400/422 | loss 20698.9961
+0026 | loss 10255457.04 | recon 6802859.42 | kl 23235.88 | sin 4115234.21 | beta 1.000 | sin_w 0.8333
+  epoch 27 | batch 0/422 | loss 23212.1992
+  epoch 27 | batch 50/422 | loss 26257.7988
+  epoch 27 | batch 100/422 | loss 24382.6758
+  epoch 27 | batch 150/422 | loss 23082.3750
+  epoch 27 | batch 200/422 | loss 21874.9609
+  epoch 27 | batch 250/422 | loss 23106.4375
+  epoch 27 | batch 300/422 | loss 24612.5781
+  epoch 27 | batch 350/422 | loss 25543.4609
+  epoch 27 | batch 400/422 | loss 25477.7305
+0027 | loss 10304821.42 | recon 6731538.96 | kl 23110.57 | sin 4096352.16 | beta 1.000 | sin_w 0.8667
+  epoch 28 | batch 0/422 | loss 23296.4727
+  epoch 28 | batch 50/422 | loss 18820.3555
+  epoch 28 | batch 100/422 | loss 25626.7402
+  epoch 28 | batch 150/422 | loss 21614.9609
+  epoch 28 | batch 200/422 | loss 23879.6172
+  epoch 28 | batch 250/422 | loss 24890.4863
+  epoch 28 | batch 300/422 | loss 28446.8359
+  epoch 28 | batch 350/422 | loss 26295.5410
+  epoch 28 | batch 400/422 | loss 26987.0078
+0028 | loss 10399294.83 | recon 6712639.46 | kl 23147.21 | sin 4070564.71 | beta 1.000 | sin_w 0.9000
+  epoch 29 | batch 0/422 | loss 23339.6719
+  epoch 29 | batch 50/422 | loss 26195.4492
+  epoch 29 | batch 100/422 | loss 25511.6816
+  epoch 29 | batch 150/422 | loss 27835.0508
+  epoch 29 | batch 200/422 | loss 24249.8867
+  epoch 29 | batch 250/422 | loss 27308.1367
+  epoch 29 | batch 300/422 | loss 22382.4941
+  epoch 29 | batch 350/422 | loss 28379.8789
+  epoch 29 | batch 400/422 | loss 25350.1211
+0029 | loss 10610216.82 | recon 6803741.44 | kl 23100.59 | sin 4053615.84 | beta 1.000 | sin_w 0.9333
+  epoch 30 | batch 0/422 | loss 24608.2441
+  epoch 30 | batch 50/422 | loss 29387.7695
+  epoch 30 | batch 100/422 | loss 27134.0059
+  epoch 30 | batch 150/422 | loss 26612.0859
+  epoch 30 | batch 200/422 | loss 23675.6270
+  epoch 30 | batch 250/422 | loss 24245.3301
+  epoch 30 | batch 300/422 | loss 25001.5117
+  epoch 30 | batch 350/422 | loss 25560.5859
+  epoch 30 | batch 400/422 | loss 30425.4258
+0030 | loss 10686213.33 | recon 6771174.62 | kl 22970.33 | sin 4026277.75 | beta 1.000 | sin_w 0.9667
+  epoch 31 | batch 0/422 | loss 26395.9883
+  epoch 31 | batch 50/422 | loss 27582.1055
+  epoch 31 | batch 100/422 | loss 27951.1914
+  epoch 31 | batch 150/422 | loss 30208.5918
+  epoch 31 | batch 200/422 | loss 24387.1406
+  epoch 31 | batch 250/422 | loss 28668.1680
+  epoch 31 | batch 300/422 | loss 27162.8438
+  epoch 31 | batch 350/422 | loss 23322.6738
+  epoch 31 | batch 400/422 | loss 28914.2031
+0031 | loss 10788383.86 | recon 6749715.76 | kl 22964.18 | sin 4015703.92 | beta 1.000 | sin_w 1.0000
+  epoch 32 | batch 0/422 | loss 25683.7988
+  epoch 32 | batch 50/422 | loss 23384.7031
+  epoch 32 | batch 100/422 | loss 30156.5469
+  epoch 32 | batch 150/422 | loss 32799.9023
+  epoch 32 | batch 200/422 | loss 22189.4297
+  epoch 32 | batch 250/422 | loss 24772.5039
+  epoch 32 | batch 300/422 | loss 32151.8281
+  epoch 32 | batch 350/422 | loss 26391.0195
+  epoch 32 | batch 400/422 | loss 24103.1797
+0032 | loss 10890118.99 | recon 6885375.09 | kl 22872.44 | sin 3981871.49 | beta 1.000 | sin_w 1.0000
+  epoch 33 | batch 0/422 | loss 27858.3008
+  epoch 33 | batch 50/422 | loss 29686.1016
+  epoch 33 | batch 100/422 | loss 24637.0547
+  epoch 33 | batch 150/422 | loss 24553.9375
+  epoch 33 | batch 200/422 | loss 24461.0547
+  epoch 33 | batch 250/422 | loss 26750.8223
+  epoch 33 | batch 300/422 | loss 25755.1094
+  epoch 33 | batch 350/422 | loss 24602.6797
+  epoch 33 | batch 400/422 | loss 27320.6211
+0033 | loss 10852656.38 | recon 6866104.04 | kl 22872.90 | sin 3963679.47 | beta 1.000 | sin_w 1.0000
+  epoch 34 | batch 0/422 | loss 25488.2246
+  epoch 34 | batch 50/422 | loss 25479.5547
+  epoch 34 | batch 100/422 | loss 23113.4238
+  epoch 34 | batch 150/422 | loss 28551.0684
+  epoch 34 | batch 200/422 | loss 26426.6289
+  epoch 34 | batch 250/422 | loss 28964.5508
+  epoch 34 | batch 300/422 | loss 29954.1055
+  epoch 34 | batch 350/422 | loss 28359.6914
+  epoch 34 | batch 400/422 | loss 26071.8652
+0034 | loss 10816965.95 | recon 6841101.71 | kl 22835.97 | sin 3953028.26 | beta 1.000 | sin_w 1.0000
+  epoch 35 | batch 0/422 | loss 26240.7070
+  epoch 35 | batch 50/422 | loss 27915.6895
+  epoch 35 | batch 100/422 | loss 27024.3906
+  epoch 35 | batch 150/422 | loss 29500.2773
+  epoch 35 | batch 200/422 | loss 25046.3008
+  epoch 35 | batch 250/422 | loss 28288.3164
+  epoch 35 | batch 300/422 | loss 23031.7129
+  epoch 35 | batch 350/422 | loss 26381.5098
+  epoch 35 | batch 400/422 | loss 21035.1250
+0035 | loss 10830525.11 | recon 6879282.43 | kl 22862.27 | sin 3928380.38 | beta 1.000 | sin_w 1.0000
+  epoch 36 | batch 0/422 | loss 24769.2012
+  epoch 36 | batch 50/422 | loss 27365.7520
+  epoch 36 | batch 100/422 | loss 22834.5234
+  epoch 36 | batch 150/422 | loss 27243.8672
+  epoch 36 | batch 200/422 | loss 23762.4395
+  epoch 36 | batch 250/422 | loss 28027.7090
+  epoch 36 | batch 300/422 | loss 28975.9570
+  epoch 36 | batch 350/422 | loss 25161.5859
+  epoch 36 | batch 400/422 | loss 26506.3828
+0036 | loss 10811213.59 | recon 6870985.05 | kl 22866.86 | sin 3917361.67 | beta 1.000 | sin_w 1.0000
+  epoch 37 | batch 0/422 | loss 26056.0117
+  epoch 37 | batch 50/422 | loss 24356.1055
+  epoch 37 | batch 100/422 | loss 25260.3047
+  epoch 37 | batch 150/422 | loss 23586.7266
+  epoch 37 | batch 200/422 | loss 29017.1289
+  epoch 37 | batch 250/422 | loss 26327.6055
+  epoch 37 | batch 300/422 | loss 20645.4961
+  epoch 37 | batch 350/422 | loss 27701.1914
+  epoch 37 | batch 400/422 | loss 20969.3496
+0037 | loss 10775833.92 | recon 6859896.58 | kl 22855.62 | sin 3893081.72 | beta 1.000 | sin_w 1.0000
+Early stopping at epoch 37.
+Loaded best checkpoint for inference.
+Saved latents         (53973, 10) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/18/../../../data/results/18_skip_st0.80_sin_finetune/latents.npy
+Saved reconstructions (53973, 20814)  → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/18/../../../data/results/18_skip_st0.80_sin_finetune/reconstructions.npy
+Saved sample_ids      (53973,) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/18/../../../data/results/18_skip_st0.80_sin_finetune/sample_ids.npy
 Fitting HMM segments...
 Fitting HMM for 53973 samples (n_jobs=-1)...
-  HMM 500/53973 | elapsed 10s | eta 1108s
-  HMM 1000/53973 | elapsed 19s | eta 1031s
-  HMM 1500/53973 | elapsed 28s | eta 996s
-  HMM 2000/53973 | elapsed 37s | eta 973s
-  HMM 2500/53973 | elapsed 46s | eta 937s
-  HMM 3000/53973 | elapsed 53s | eta 905s
-  HMM 3500/53973 | elapsed 63s | eta 912s
-  HMM 4000/53973 | elapsed 71s | eta 892s
-  HMM 4500/53973 | elapsed 80s | eta 878s
-  HMM 5000/53973 | elapsed 90s | eta 886s
-  HMM 5500/53973 | elapsed 99s | eta 876s
-  HMM 6000/53973 | elapsed 109s | eta 869s
-  HMM 6500/53973 | elapsed 116s | eta 849s
-  HMM 7000/53973 | elapsed 127s | eta 852s
-  HMM 7500/53973 | elapsed 136s | eta 841s
-  HMM 8000/53973 | elapsed 146s | eta 838s
-  HMM 8500/53973 | elapsed 154s | eta 824s
-  HMM 9000/53973 | elapsed 160s | eta 801s
-  HMM 9500/53973 | elapsed 169s | eta 789s
-  HMM 10000/53973 | elapsed 177s | eta 780s
-  HMM 10500/53973 | elapsed 188s | eta 779s
-  HMM 11000/53973 | elapsed 198s | eta 775s
-  HMM 11500/53973 | elapsed 208s | eta 767s
-  HMM 12000/53973 | elapsed 218s | eta 762s
-  HMM 12500/53973 | elapsed 226s | eta 749s
-  HMM 13000/53973 | elapsed 236s | eta 744s
-  HMM 13500/53973 | elapsed 248s | eta 744s
-  HMM 14000/53973 | elapsed 259s | eta 738s
-  HMM 14500/53973 | elapsed 269s | eta 732s
-  HMM 15000/53973 | elapsed 285s | eta 739s
-  HMM 15500/53973 | elapsed 301s | eta 748s
-  HMM 16000/53973 | elapsed 316s | eta 749s
-  HMM 16500/53973 | elapsed 325s | eta 739s
-  HMM 17000/53973 | elapsed 340s | eta 739s
-  HMM 17500/53973 | elapsed 349s | eta 728s
-  HMM 18000/53973 | elapsed 358s | eta 716s
-  HMM 18500/53973 | elapsed 368s | eta 706s
-  HMM 19000/53973 | elapsed 380s | eta 699s
-  HMM 19500/53973 | elapsed 388s | eta 686s
-  HMM 20000/53973 | elapsed 398s | eta 676s
-  HMM 20500/53973 | elapsed 410s | eta 669s
-  HMM 21000/53973 | elapsed 422s | eta 662s
-  HMM 21500/53973 | elapsed 436s | eta 659s
-  HMM 22000/53973 | elapsed 450s | eta 653s
-  HMM 22500/53973 | elapsed 461s | eta 645s
-  HMM 23000/53973 | elapsed 474s | eta 639s
-  HMM 23500/53973 | elapsed 482s | eta 625s
-  HMM 24000/53973 | elapsed 492s | eta 615s
-  HMM 24500/53973 | elapsed 503s | eta 605s
-  HMM 25000/53973 | elapsed 512s | eta 594s
-  HMM 25500/53973 | elapsed 522s | eta 582s
-  HMM 26000/53973 | elapsed 530s | eta 570s
-  HMM 26500/53973 | elapsed 540s | eta 560s
-  HMM 27000/53973 | elapsed 550s | eta 550s
-  HMM 27500/53973 | elapsed 559s | eta 539s
-  HMM 28000/53973 | elapsed 576s | eta 534s
-  HMM 28500/53973 | elapsed 588s | eta 526s
-  HMM 29000/53973 | elapsed 600s | eta 516s
-  HMM 29500/53973 | elapsed 614s | eta 510s
-  HMM 30000/53973 | elapsed 626s | eta 500s
-  HMM 30500/53973 | elapsed 641s | eta 494s
-  HMM 31000/53973 | elapsed 658s | eta 487s
-  HMM 31500/53973 | elapsed 671s | eta 479s
-  HMM 32000/53973 | elapsed 684s | eta 470s
-  HMM 32500/53973 | elapsed 702s | eta 464s
-  HMM 33000/53973 | elapsed 712s | eta 452s
-  HMM 33500/53973 | elapsed 721s | eta 441s
-  HMM 34000/53973 | elapsed 735s | eta 432s
-  HMM 34500/53973 | elapsed 752s | eta 425s
-  HMM 35000/53973 | elapsed 769s | eta 417s
-  HMM 35500/53973 | elapsed 780s | eta 406s
-  HMM 36000/53973 | elapsed 793s | eta 396s
-  HMM 36500/53973 | elapsed 808s | eta 387s
-  HMM 37000/53973 | elapsed 822s | eta 377s
-  HMM 37500/53973 | elapsed 836s | eta 367s
-  HMM 38000/53973 | elapsed 846s | eta 356s
-  HMM 38500/53973 | elapsed 859s | eta 345s
-  HMM 39000/53973 | elapsed 872s | eta 335s
-  HMM 39500/53973 | elapsed 885s | eta 324s
-  HMM 40000/53973 | elapsed 899s | eta 314s
-  HMM 40500/53973 | elapsed 912s | eta 303s
-  HMM 41000/53973 | elapsed 927s | eta 293s
-  HMM 41500/53973 | elapsed 942s | eta 283s
-  HMM 42000/53973 | elapsed 955s | eta 272s
-  HMM 42500/53973 | elapsed 965s | eta 260s
-  HMM 43000/53973 | elapsed 980s | eta 250s
-  HMM 43500/53973 | elapsed 1003s | eta 242s
-  HMM 44000/53973 | elapsed 1019s | eta 231s
-  HMM 44500/53973 | elapsed 1039s | eta 221s
-  HMM 45000/53973 | elapsed 1056s | eta 211s
-  HMM 45500/53973 | elapsed 1069s | eta 199s
-  HMM 46000/53973 | elapsed 1086s | eta 188s
-  HMM 46500/53973 | elapsed 1095s | eta 176s
-  HMM 47000/53973 | elapsed 1111s | eta 165s
-  HMM 47500/53973 | elapsed 1140s | eta 155s
-  HMM 48000/53973 | elapsed 1182s | eta 147s
-  HMM 48500/53973 | elapsed 1211s | eta 137s
-  HMM 49000/53973 | elapsed 1237s | eta 126s
-  HMM 49500/53973 | elapsed 1262s | eta 114s
-  HMM 50000/53973 | elapsed 1290s | eta 103s
-  HMM 50500/53973 | elapsed 1318s | eta 91s
-  HMM 51000/53973 | elapsed 1336s | eta 78s
-  HMM 51500/53973 | elapsed 1347s | eta 65s
-  HMM 52000/53973 | elapsed 1366s | eta 52s
-  HMM 52500/53973 | elapsed 1389s | eta 39s
-  HMM 53000/53973 | elapsed 1414s | eta 26s
-  HMM 53500/53973 | elapsed 1431s | eta 13s
-  HMM 53973/53973 | elapsed 1445s | eta 0s
-Saved segments (24,170,421 rows) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/segments.parquet
+  HMM 500/53973 | elapsed 16s | eta 1665s
+  HMM 1000/53973 | elapsed 29s | eta 1520s
+  HMM 1500/53973 | elapsed 43s | eta 1489s
+  HMM 2000/53973 | elapsed 56s | eta 1450s
+  HMM 2500/53973 | elapsed 68s | eta 1395s
+  HMM 3000/53973 | elapsed 79s | eta 1348s
+  HMM 3500/53973 | elapsed 95s | eta 1367s
+  HMM 4000/53973 | elapsed 107s | eta 1342s
+  HMM 4500/53973 | elapsed 119s | eta 1311s
+  HMM 5000/53973 | elapsed 134s | eta 1308s
+  HMM 5500/53973 | elapsed 146s | eta 1283s
+  HMM 6000/53973 | elapsed 158s | eta 1266s
+  HMM 6500/53973 | elapsed 169s | eta 1234s
+  HMM 7000/53973 | elapsed 182s | eta 1222s
+  HMM 7500/53973 | elapsed 193s | eta 1199s
+  HMM 8000/53973 | elapsed 207s | eta 1191s
+  HMM 8500/53973 | elapsed 218s | eta 1166s
+  HMM 9000/53973 | elapsed 227s | eta 1137s
+  HMM 9500/53973 | elapsed 240s | eta 1124s
+  HMM 10000/53973 | elapsed 253s | eta 1112s
+  HMM 10500/53973 | elapsed 267s | eta 1106s
+  HMM 11000/53973 | elapsed 282s | eta 1102s
+  HMM 11500/53973 | elapsed 295s | eta 1090s
+  HMM 12000/53973 | elapsed 309s | eta 1081s
+  HMM 12500/53973 | elapsed 321s | eta 1064s
+  HMM 13000/53973 | elapsed 335s | eta 1056s
+  HMM 13500/53973 | elapsed 353s | eta 1057s
+  HMM 14000/53973 | elapsed 368s | eta 1050s
+  HMM 14500/53973 | elapsed 383s | eta 1043s
+  HMM 15000/53973 | elapsed 407s | eta 1057s
+  HMM 15500/53973 | elapsed 432s | eta 1072s
+  HMM 16000/53973 | elapsed 453s | eta 1074s
+  HMM 16500/53973 | elapsed 468s | eta 1063s
+  HMM 17000/53973 | elapsed 490s | eta 1066s
+  HMM 17500/53973 | elapsed 505s | eta 1053s
+  HMM 18000/53973 | elapsed 520s | eta 1038s
+  HMM 18500/53973 | elapsed 535s | eta 1026s
+  HMM 19000/53973 | elapsed 552s | eta 1017s
+  HMM 19500/53973 | elapsed 565s | eta 998s
+  HMM 20000/53973 | elapsed 579s | eta 984s
+  HMM 20500/53973 | elapsed 600s | eta 980s
+  HMM 21000/53973 | elapsed 618s | eta 970s
+  HMM 21500/53973 | elapsed 643s | eta 970s
+  HMM 22000/53973 | elapsed 664s | eta 965s
+  HMM 22500/53973 | elapsed 683s | eta 955s
+  HMM 23000/53973 | elapsed 705s | eta 949s
+  HMM 23500/53973 | elapsed 717s | eta 930s
+  HMM 24000/53973 | elapsed 733s | eta 916s
+  HMM 24500/53973 | elapsed 751s | eta 903s
+  HMM 25000/53973 | elapsed 767s | eta 889s
+  HMM 25500/53973 | elapsed 782s | eta 873s
+  HMM 26000/53973 | elapsed 796s | eta 857s
+  HMM 26500/53973 | elapsed 813s | eta 843s
+  HMM 27000/53973 | elapsed 827s | eta 826s
+  HMM 27500/53973 | elapsed 841s | eta 810s
+  HMM 28000/53973 | elapsed 868s | eta 805s
+  HMM 28500/53973 | elapsed 888s | eta 794s
+  HMM 29000/53973 | elapsed 907s | eta 781s
+  HMM 29500/53973 | elapsed 931s | eta 772s
+  HMM 30000/53973 | elapsed 950s | eta 759s
+  HMM 30500/53973 | elapsed 975s | eta 750s
+  HMM 31000/53973 | elapsed 1001s | eta 742s
+  HMM 31500/53973 | elapsed 1022s | eta 729s
+  HMM 32000/53973 | elapsed 1042s | eta 716s
+  HMM 32500/53973 | elapsed 1072s | eta 708s
+  HMM 33000/53973 | elapsed 1088s | eta 691s
+  HMM 33500/53973 | elapsed 1103s | eta 674s
+  HMM 34000/53973 | elapsed 1124s | eta 660s
+  HMM 34500/53973 | elapsed 1150s | eta 649s
+  HMM 35000/53973 | elapsed 1176s | eta 637s
+  HMM 35500/53973 | elapsed 1193s | eta 621s
+  HMM 36000/53973 | elapsed 1213s | eta 605s
+  HMM 36500/53973 | elapsed 1236s | eta 592s
+  HMM 37000/53973 | elapsed 1257s | eta 576s
+  HMM 37500/53973 | elapsed 1278s | eta 561s
+  HMM 38000/53973 | elapsed 1293s | eta 544s
+  HMM 38500/53973 | elapsed 1313s | eta 528s
+  HMM 39000/53973 | elapsed 1332s | eta 511s
+  HMM 39500/53973 | elapsed 1350s | eta 495s
+  HMM 40000/53973 | elapsed 1370s | eta 478s
+  HMM 40500/53973 | elapsed 1386s | eta 461s
+  HMM 41000/53973 | elapsed 1407s | eta 445s
+  HMM 41500/53973 | elapsed 1427s | eta 429s
+  HMM 42000/53973 | elapsed 1445s | eta 412s
+  HMM 42500/53973 | elapsed 1457s | eta 393s
+  HMM 43000/53973 | elapsed 1476s | eta 377s
+  HMM 43500/53973 | elapsed 1504s | eta 362s
+  HMM 44000/53973 | elapsed 1523s | eta 345s
+  HMM 44500/53973 | elapsed 1546s | eta 329s
+  HMM 45000/53973 | elapsed 1566s | eta 312s
+  HMM 45500/53973 | elapsed 1579s | eta 294s
+  HMM 46000/53973 | elapsed 1596s | eta 277s
+  HMM 46500/53973 | elapsed 1607s | eta 258s
+  HMM 47000/53973 | elapsed 1621s | eta 240s
+  HMM 47500/53973 | elapsed 1648s | eta 225s
+  HMM 48000/53973 | elapsed 1669s | eta 208s
+  HMM 48500/53973 | elapsed 1693s | eta 191s
+  HMM 49000/53973 | elapsed 1719s | eta 174s
+  HMM 49500/53973 | elapsed 1744s | eta 158s
+  HMM 50000/53973 | elapsed 1771s | eta 141s
+  HMM 50500/53973 | elapsed 1797s | eta 124s
+  HMM 51000/53973 | elapsed 1815s | eta 106s
+  HMM 51500/53973 | elapsed 1826s | eta 88s
+  HMM 52000/53973 | elapsed 1846s | eta 70s
+  HMM 52500/53973 | elapsed 1867s | eta 52s
+  HMM 53000/53973 | elapsed 1891s | eta 35s
+  HMM 53500/53973 | elapsed 1908s | eta 17s
+  HMM 53973/53973 | elapsed 1921s | eta 0s
+Saved segments (22,531,899 rows) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/18/../../../data/results/18_skip_st0.80_sin_finetune/segments.parquet
 Calling gene CNVs...
 Computing gene CNV calls for 53973 samples…
-/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/03_gene_cnv_caller.py:196: RuntimeWarning: invalid value encountered in divide
+/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/04_gene_cnv_caller.py:98: RuntimeWarning: invalid value encountered in divide
   crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
-  Done MDR1 | elapsed 18s
+  Done MDR1 | elapsed 17s
   Done CRT | elapsed 30s
-  Done GCH1 | elapsed 45s
+  Done GCH1 | elapsed 44s
   Done PM2_PM3 | elapsed 61s
-Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/gene_calls.tsv
-Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/07/../../../data/results/07_higher_self_transition/evaluation.txt
+Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/18/../../../data/results/18_skip_st0.80_sin_finetune/gene_calls.tsv
+Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/18/../../../data/results/18_skip_st0.80_sin_finetune/evaluation.txt
+2026-04-19 04:04:45  Experiment 18 complete.
+2026-04-19 04:04:45  Invoking Claude to propose next experiment...
+Everything is in place. Here's a summary:
 
-Storage — output dir: 4.46 GB  |  disk free: 68.6 / 460.4 GB  (85.1% used)
-2026-04-13 10:28:07  Experiment 07 complete.
-2026-04-13 10:28:07  Invoking Claude to propose next experiment...
+**Exp 18 diagnosis:**
+- GCH1: FNR improved dramatically (0.18→0.07) — sin loss worked as intended
+- PM2_PM3: FNR worsened catastrophically (0.41→0.74) — two failure modes identified:
+  1. **Gate veto** — HMM called CN≥2 but CRR < 1.40 was downgraded (FNs with CRR < 1.40)
+  2. **Non-spanning segments** — sin loss sharpened HMM segmentation, producing crisper shorter segments. No single segment satisfies the strict `x0 ≤ g_start AND x1 ≥ g_end` spanning condition in `04_gene_cnv_caller`, so `cn` stays at −1. FNs with CRR up to 1.57 confirm real signal — the caller logic is the bottleneck
+
+**Exp 19 design:**
+- New `05_gene_cnv_caller.py`: replaces strict spanning with fractional coverage (≥50% of gene bins covered by CN≥2 segments)
+- Gate lowered to 1.35 (from 1.40) to also recover gate-vetoed FNs
+- Reuses exp 18 checkpoint + HMM segments via symlinks — no retraining
+- Predicted PM2_PM3 FNR: **0.10–0.25** (from 0.74)
+- Run time: ~30 minutes
+
+Email sent and daemon is armed.
+2026-04-19 04:14:32  Next experiment proposed and email sent.
+2026-04-19 10:12:26  AUTHORISE received. Running experiment.
+Sent. Message-ID: <177658994697.81332.17519607509422231407@deep-gw-cnv>
+Calling gene CNVs...
+Computing gene CNV calls for 53973 samples…
+/Users/jiayichiyun/Code/deep-gw-cnv/models/cnv/05_gene_cnv_caller.py:104: RuntimeWarning: invalid value encountered in divide
+  crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
+  Done MDR1 | elapsed 16s
+  Done CRT | elapsed 28s
+  Done GCH1 | elapsed 41s
+  Done PM2_PM3 | elapsed 57s
+Saved gene calls (53,973 samples) → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/19/../../../data/results/19_skip_st0.80_sin_partialspan/gene_calls.tsv
+Saved evaluation → /Users/jiayichiyun/Code/deep-gw-cnv/models/experiments/19/../../../data/results/19_skip_st0.80_sin_partialspan/evaluation.txt
+Done.
+2026-04-19 10:14:14  Experiment 19 complete.
+2026-04-19 10:14:14  Invoking Claude to propose next experiment...

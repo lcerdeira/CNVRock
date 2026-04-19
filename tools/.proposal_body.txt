@@ -1,43 +1,45 @@
 Hi Chiyun,
 
-Experiment 07 results summary:
-- CRT: FNR=0.00, PPV=0.31, 118 FPs (was 142) — FPs reduced but still low PPV
-- PM2_PM3: FNR=0.26 (was 0.20), PPV=0.36, 118 FPs (was 137) — FNR rose as predicted
-- MDR1: FNR=0.01, PPV=0.92, 46 FPs (was 60) — clean improvement
-- GCH1: FNR=0.17, PPV=0.83, 318 FPs — unchanged (CRR fallback, no HMM involvement)
+Exp 19 results summary:
+- PM2_PM3: FNR=0.01, PPV=0.93 — far exceeded predictions (predicted 0.10–0.25). Only 2 FNs remain.
+- GCH1: FNR=0.07, PPV=0.91 — unchanged from exp 18. All 139 FNs have CRR just below the fallback gate (p50=1.24, p90=1.29).
+- CRT and MDR1: near-perfect and stable (FNR≤0.03, PPV≥0.95).
 
 My diagnosis:
-Raising self_transition 0.75→0.80 worked directionally but modestly. Borderline FPs
-(CRR p50 ~1.20–1.21) survived because they sit just below the TP floor — CRT TPs
-start at CRR p10=1.50, PM2_PM3 TPs at p10=1.31 — and the transition penalty alone
-can't cleanly separate that 0.13 gap between FP p50 and FN p50. PM2_PM3 FNR already
-rose from 0.20 to 0.26 at 0.80, so the self_transition lever is effectively exhausted.
-Population breakdowns show CRT FPs concentrated in AF-E (PPV=0.03) and PM2_PM3 FPs
-in AF-W (PPV=0.04) — both consistent with genuine signal the GATK ground truth misses.
+Both PM2_PM3 failure modes from exp 18 are resolved. The fractional coverage check
+fixed non-spanning segments, and the gate at 1.35 recovered gate-vetoed FNs. The
+remaining bottleneck is GCH1. Because GCH1 spans only ~2 bins at 1000bp resolution,
+it uses a simple CRR threshold (cnv_crr_amp_threshold=1.30) rather than the spanning/
+fractional logic. All 139 FNs have CRR p50=1.24 and p90=1.29 — real signal that sits
+just below 1.30. AF-E is the main driver (population FNR=0.32), especially pre-2010
+samples. The signal is present; the threshold is the bottleneck.
 
-Proposed experiment 08: Raise cnv_min_confidence (0.50 → 0.65)
-Changes from 07:
-- cnv_min_confidence: 0.50 → 0.65
-  The HMM's probability mass in the amplified state at the time of calling is low for
-  borderline samples (CRR ~1.20) and high for clear TPs (CRR ~1.64–1.88). This gate
-  suppresses uncertain calls without touching the HMM transition dynamics that now
-  bound PM2_PM3 FNR. Independent of self_transition; no re-segmentation needed.
+Proposed experiment 20: Lower GCH1 fallback threshold to 1.25
+Changes from exp 19:
+- cnv_crr_amp_threshold: 1.30 → 1.25 (GCH1 fallback gate only).
+  Recovers FNs with CRR in [1.25, 1.30] — roughly the top half of the FN distribution
+  (p50=1.24 to p90=1.29).
+- All other parameters unchanged (cnv_crr_gate_threshold=1.35 unaffected — it governs
+  the long-gene fractional path, not GCH1).
+- Reuses exp 19 checkpoint, reconstructions, and HMM segments via symlinks. No retraining.
+- out_dir: 20_skip_st0.80_sin_partialspan_gate1.25.
 
 What I expect:
-CRT and PM2_PM3 FP counts should fall further. TPs at CRR 1.64–1.88 should be called
-with high confidence and pass the gate. Main risk is PM2_PM3: FNs at CRR p50=1.33
-may be called with low confidence — if they cluster just above 0.50, raising the gate
-to 0.65 would push FNR up from 0.26. GCH1 uses the CRR fallback and is unaffected.
+GCH1 FNR should drop from 0.07 to ~0.03–0.04 as FNs with CRR ≥ 1.25 get promoted
+from CN=1 to CN=2. pred_normal GCH1 p90=1.14, so there is a 0.11-unit gap before
+the new threshold — very few true-normal samples should be affected. PPV predicted
+to stay ≥ 0.89. PM2_PM3, CRT, and MDR1 are on a different calling path and will
+not change.
 
 What we could do instead:
-1. Raise confidence to 0.70 and combine with self_transition 0.80 — more aggressive,
-   riskier for PM2_PM3 FNR.
-2. Revert self_transition to 0.77 and rely on confidence filtering instead — if PM2_PM3
-   FNR at 0.26 is already too high, a softer transition with tighter confidence may
-   recover recall while still cutting FPs.
+1. Population-specific thresholds — AF-E (FNR=0.32) drives most of the GCH1 loss.
+   A gene×population gate would concentrate the recovery without loosening globally.
+2. self_transition=0.75 — longer HMM segments may aggregate weak GCH1 signal better.
+   Still untested; try if exp 20 shows only partial recovery.
 
-Run time estimate: No VAE retraining, no HMM re-segmentation. CNV calling + eval ~2 min.
+Run time estimate: ~30 minutes (CNV calling + evaluation only, no training or HMM).
 
-Reply AUTHORISE to run this on the Mac mini, or reply with feedback and I'll revise.
+Reply AUTHORISE to run this on the Mac mini, or reply with feedback
+and I'll revise the proposal.
 
 Claude

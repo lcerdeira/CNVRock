@@ -110,6 +110,14 @@ def main():
         dl = DataLoader(ds, batch_size=cfg["batch_size"], shuffle=True, num_workers=num_workers)
 
     model     = ConvVAE(latent_dim=cfg["latent_dim"]).to(device)
+
+    # Optionally load a pre-trained checkpoint before fine-tuning
+    pretrained = cfg.get("pretrained_checkpoint")
+    if pretrained:
+        pretrained = pretrained if os.path.isabs(pretrained) else os.path.join(config_dir, pretrained)
+        model.load_state_dict(torch.load(pretrained, map_location=device, weights_only=True))
+        print(f"Loaded pretrained checkpoint: {pretrained}", flush=True)
+
     optimiser = torch.optim.Adam(
         model.parameters(),
         lr=cfg["lr"],
@@ -124,13 +132,15 @@ def main():
 
     train_vae(
         model, dl, optimiser,
-        epochs          = cfg["epochs"],
-        max_beta        = cfg["max_beta"],
-        warmup_epochs   = cfg["warmup_epochs"],
-        patience        = cfg["patience"],
-        device          = device,
-        model_save_path = checkpoint_path,
-        log_path        = log_path,
+        epochs                 = cfg["epochs"],
+        max_beta               = cfg["max_beta"],
+        warmup_epochs          = cfg["warmup_epochs"],
+        patience               = cfg["patience"],
+        device                 = device,
+        model_save_path        = checkpoint_path,
+        log_path               = log_path,
+        sin_loss_max_weight    = cfg.get("sin_loss_max_weight", 0.0),
+        sin_loss_warmup_epochs = cfg.get("sin_loss_warmup_epochs", 0),
     )
 
     if os.path.exists(checkpoint_path):
