@@ -1,6 +1,8 @@
-# deep-gw-cnv
+# AI autoresearch for copy number variation (CNV) discovery in malaria field samples using variational autoencoders
 
-Convolutional VAE for genome-wide CNV detection from read-count data.
+In March, Karpathy (legendary AI researcher) released [autoresearch](https://github.com/karpathy/autoresearch), where an AI agent continuously proposes and performs 5-minute ML experiments to improve a mini LLM. The idea was that you can go to sleep and by the time you wake up, your ML model has already explored 100 different architectures/hyperparameters/datasets without you having to constantly decide for yourself. Does this "autoresearch" strategy translate to complex biological problems? 
+
+Malaria kills 600,000 people a year. Amplifications of certain genes in malaria have already made some drugs be dropped from the first-line treatment regimen in multiple countries. I'll talk through how I'm debating with AIs over email and getting my Mac mini to work for me as close to 24/7 as possible, to discover novel CNVs by "autoresearching" a variational autoencoder-based pipeline on WGS data. 
 
 ![screenshot](assets/screenshots/Screenshot%202026-04-08%20at%2017.59.23.png)
 ![screenshot](assets/screenshots/Screenshot%202026-04-08%20at%2018.01.55.png)
