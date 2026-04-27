@@ -20,6 +20,7 @@ Imported by train.py:
 """
 
 import argparse
+import inspect
 import os
 import shutil
 import sys
@@ -119,12 +120,16 @@ def main():
     print(f"Device: {device}", flush=True)
 
     # ── load model ──────────────────────────────────────────────────────────
-    model = ConvVAE(latent_dim=cfg["latent_dim"]).to(device)
+    ds = ReadCountDataset(store_path, normalise=cfg["normalise"])
+    n_bins_raw = ds.counts.shape[1]
+    if "n_bins_raw" in inspect.signature(ConvVAE.__init__).parameters:
+        model = ConvVAE(latent_dim=cfg["latent_dim"], n_bins_raw=n_bins_raw).to(device)
+    else:
+        model = ConvVAE(latent_dim=cfg["latent_dim"]).to(device)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
     print(f"Loaded checkpoint: {checkpoint_path}", flush=True)
 
     # ── inference ───────────────────────────────────────────────────────────
-    ds = ReadCountDataset(store_path, normalise=cfg["normalise"])
     run_inference(model, ds, device, out_dir, batch_size=cfg["batch_size"])
 
     # ── HMM segmentation ────────────────────────────────────────────────────
@@ -135,15 +140,19 @@ def main():
     print("Calling gene CNVs...", flush=True)
     run_cnv_calls(store_path, out_dir, cfg)
 
-    # ── Evaluation (optional — requires pf9_gt_path in config) ──────────────
+    # ── Evaluation (optional) ────────────────────────────────────────────────
     if cfg.get("pf9_gt_path"):
         cfg_resolved = dict(cfg)
         cfg_resolved["pf9_gt_path"] = resolve(cfg["pf9_gt_path"])
         if cfg.get("pf9_meta_path"):
             cfg_resolved["pf9_meta_path"] = resolve(cfg["pf9_meta_path"])
         run_evaluation(out_dir, cfg_resolved)
+    elif cfg.get("kpsc_gt_path"):
+        cfg_resolved = dict(cfg)
+        cfg_resolved["kpsc_gt_path"] = resolve(cfg["kpsc_gt_path"])
+        run_evaluation(out_dir, cfg_resolved)
     else:
-        print("Skipping evaluation (pf9_gt_path not set in config).", flush=True)
+        print("Skipping evaluation (no gt_path set in config).", flush=True)
 
     # ── Storage report ───────────────────────────────────────────────────────
     out_bytes = sum(

@@ -9,6 +9,7 @@ so experiments stay self-contained regardless of where you invoke this script.
 """
 
 import argparse
+import inspect
 import os
 import sys
 
@@ -109,7 +110,12 @@ def main():
     else:
         dl = DataLoader(ds, batch_size=cfg["batch_size"], shuffle=True, num_workers=num_workers)
 
-    model     = ConvVAE(latent_dim=cfg["latent_dim"]).to(device)
+    # Pass n_bins_raw if the architecture supports it (06+); older archs ignore it
+    n_bins_raw = ds.counts.shape[1]
+    if "n_bins_raw" in inspect.signature(ConvVAE.__init__).parameters:
+        model = ConvVAE(latent_dim=cfg["latent_dim"], n_bins_raw=n_bins_raw).to(device)
+    else:
+        model = ConvVAE(latent_dim=cfg["latent_dim"]).to(device)
 
     # Optionally load a pre-trained checkpoint before fine-tuning
     pretrained = cfg.get("pretrained_checkpoint")
@@ -161,8 +167,12 @@ def main():
         if cfg.get("pf9_meta_path"):
             cfg_resolved["pf9_meta_path"] = resolve(cfg["pf9_meta_path"])
         run_evaluation(out_dir, cfg_resolved)
+    elif cfg.get("kpsc_gt_path"):
+        cfg_resolved = dict(cfg)
+        cfg_resolved["kpsc_gt_path"] = resolve(cfg["kpsc_gt_path"])
+        run_evaluation(out_dir, cfg_resolved)
     else:
-        print("Skipping evaluation (pf9_gt_path not set in config).", flush=True)
+        print("Skipping evaluation (no gt_path set in config).", flush=True)
 
 
 if __name__ == "__main__":
