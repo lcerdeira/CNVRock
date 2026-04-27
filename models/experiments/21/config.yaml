@@ -1,0 +1,61 @@
+# Experiment 21 — KpSC chromosomal CNV (first microbial experiment)
+#
+# Versioned components
+architecture: "06_conv_vae"       # genome-agnostic; n_bins_raw derived from data
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"   # KpSC genes: blaSHV, ompK35, ompK36, ramR
+evaluation:   "04_kpsc_evaluation"   # AMRFinder+-based ground truth
+
+# Data
+# TODO: Generate these paths by running the data setup steps in this experiment:
+#   1. Select KpSC samples (data/setup/atb_sample_selection.py)
+#   2. Download raw reads from NCBI SRA (fasterq-dump)
+#   3. Map reads to HS11286 reference (bwa mem)
+#   4. Run GATK CollectReadCounts (main.nf)
+#   5. Convert to NPY (readcounts_to_npy.py)
+store_path: "../../../data/inputs/KpSC-HS11286-1000bp-core-npy"
+out_dir:    "../../../data/results/21_kpsc_chromosomal_v1"
+normalise:  true
+
+# Ground truth (AMRFinder+ run on AllTheBacteria KpSC assemblies)
+# TODO: Generate with:
+#   amrfinder --plus -O Klebsiella_pneumoniae -n assembly.fasta --output amrfinder_out.tsv
+# Then run data/setup/atb_sample_selection.py --summarise-amrfinder to aggregate.
+kpsc_gt_path:   "../../../assets/kpsc_amrfinder_ground_truth.tsv"
+kpsc_meta_path: "../../../assets/kpsc_sample_metadata.tsv"   # Species, ST columns
+
+# Model — full training from scratch (no pretrained checkpoint)
+# n_bins_raw is derived automatically from the NPY data shape at runtime.
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+# cnv_downsample_ratio: not set — no Pf9 ground truth; add when KpSC GT available
+
+# Sin loss — same as Pf exp 18+ (encourages integer-valued log2 reconstructions)
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+# HMM segmentation — same defaults as Pf exp 20 (re-tune based on KpSC results)
+# For bacteria (single chromosome, no organellar contigs), HMM runs over one contig.
+hmm_n_states:          6
+hmm_self_transition:   0.80   # start conservative; tune if transitions too low
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling — same defaults as Pf exp 20 (start point; re-tune based on results)
+# All KpSC genes are short (~1 kb), so all are fallback-eligible (CRR-only path).
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.25   # for blaSHV amplification calling
+cnv_crr_gate_threshold:         1.35   # for long-gene fractional path (unused initially)
+cnv_crr_min_bins_fallback:      3      # all KpSC genes < 3 bins → all use fallback path
+cnv_min_gene_coverage_fraction: 0.50   # unused if all genes are fallback-eligible
+
+# Evaluation
+eval_min_group_n: 10
