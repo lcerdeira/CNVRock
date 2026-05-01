@@ -57,7 +57,7 @@ fi
 
 COORDS="$REPO_DIR/assets/plasmid_refs/plasmid_gene_coords.tsv"
 INTERVAL_LIST="$REPO_DIR/assets/kpsc-plasmid-genes.interval_list"
-FLANK=10000   # 10 kb each side of the gene
+FLANK=500     # 500 bp each side — avoids IS elements/transposon flanks that cause cross-mapping
 
 echo "Building plasmid interval list …"
 
