@@ -1,0 +1,75 @@
+# Experiment 22 — KpSC chromosomal CNV: HMM stickiness + threshold tuning
+#
+# Changes from experiment 21:
+#   hmm_self_transition  0.80 → 0.999  : fix over-segmentation (p50=13 transitions)
+#   cnv_crr_amp_threshold 1.25 → 1.75  : reduce blaSHV FP (PPV was 0.03 in exp 21)
+#   cnv_crr_gate_threshold 1.35 → 1.75 : consistent with amp threshold
+#   cnv_min_cn1_proportion 0.55 → 0.80 : bacteria are haploid; stricter sanity check
+#
+# Versioned components (same as exp 21)
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+evaluation:   "04_kpsc_evaluation"
+
+# Data (same NPY store as exp 21)
+store_path: "../../../data/inputs/KpSC-HS11286-1000bp-core-npy"
+out_dir:    "../../../data/results/22_kpsc_chromosomal_v2"
+normalise:  true
+
+# Ground truth — add Kleborate GT path once get_kleborate_gt.py has been run:
+#   python data/setup/get_kleborate_gt.py \
+#       --kleborate-tsv assets/kleborate_out.tsv \
+#       --amrfinder-gt  assets/kpsc_amrfinder_ground_truth.tsv \
+#       --out           assets/kpsc_kleborate_ground_truth.tsv
+#
+# kpsc_gt_path: AMRFinder GT (blaSHV, blaKPC, blaCTX-M, blaNDM; unreliable for porins/ramR)
+# kpsc_kleborate_gt_path: Kleborate GT (ompK35, ompK36, ramR); overrides AMRFinder for those genes
+kpsc_gt_path:            "../../../assets/kpsc_amrfinder_ground_truth.tsv"
+kpsc_kleborate_gt_path:  "../../../assets/kpsc_kleborate_ground_truth.tsv"   # set to null to skip
+kpsc_meta_path:          "../../../assets/kpsc_sample_metadata.tsv"
+
+# Plasmid PCN calling (blaKPC-2; blaCTX-M-15 and blaNDM-1 pending Phase B BAMs)
+plasmid_cnv:               "07_plasmid_cnv_caller"
+plasmid_store_path:        "../../../data/inputs/KpSC-plasmid-1000bp-npy"
+plasmid_gene_coords_path:  "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
+pcn_absent_threshold:      0.20
+pcn_amp_threshold:         1.50
+
+# Model (same as exp 21 — no architecture changes)
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+# HMM — key change: self_transition 0.80 → 0.999
+# At 0.80, the HMM switched states ~20% of bins → p50=13 transitions per sample.
+# At 0.999, expected state run length = 1000 bins ≈ 1 Mb — appropriate for
+# chromosomal CNV events in bacteria (most events span >100 kb).
+hmm_n_states:          6
+hmm_self_transition:   0.999
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling
+# cnv_crr_amp_threshold raised 1.25 → 1.75: blaSHV CRR noise was pushing many
+#   samples above 1.25 → PPV=0.03 in exp 21. At 1.75, the threshold requires
+#   a genuine 75% excess depth to call amplification.
+# cnv_min_cn1_proportion raised 0.55 → 0.80: K. pneumoniae is haploid, so ≥80%
+#   of chromosome bins should be confidently CN=1 before we call any gene.
+cnv_min_cn1_proportion:         0.80
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      3
+cnv_min_gene_coverage_fraction: 0.50
+
+eval_min_group_n: 10

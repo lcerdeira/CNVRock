@@ -1,8 +1,19 @@
 """
-Evaluation — version 04: KpSC gene calls vs AMRFinder+ ground truth.
+Evaluation — version 04: KpSC gene calls vs AMRFinder+ / Kleborate ground truth.
 
-Ground truth source: NCBI AMRFinder+ (amrfinder --plus) run on AllTheBacteria
-KpSC assemblies. The expected TSV has columns:
+Ground truth sources:
+  AMRFinder+ (amrfinder --plus) — blaSHV, blaKPC, blaCTX-M, blaNDM.
+  Kleborate  (get_kleborate_gt.py) — ompK35, ompK36, ramR.
+
+Why two sources: AMRFinder 2023 DB marks ompK35/ompK36/ramR as "absent" when
+the assembly is divergent from its reference, even when the gene is physically
+present.  Kleborate uses curated KpSC-specific sequences and distinguishes
+full-length vs truncated genes — the clinically meaningful distinction.
+
+When kpsc_kleborate_gt_path is set in config, its ompK35/ompK36/ramR columns
+override the AMRFinder values for those three genes only.
+
+AMRFinder+ TSV columns (kpsc_gt_path):
 
     sample_id   — matches sample_ids in gene_calls.tsv / plasmid_gene_calls.tsv
     blaSHV      — integer copy count (0 = absent, 1 = single copy, 2+ = amplified)
@@ -32,10 +43,12 @@ Gene modes
     "presence" — plasmid;    positive = cn ≥ 1   (any copy = clinically resistant)
 
 Reads from cfg:
-    kpsc_gt_path         — path to AMRFinder+ ground truth TSV (required)
-    kpsc_meta_path       — path to sample metadata TSV with ST and Species columns
-                           (optional; stratified tables omitted if absent)
-    eval_min_group_n     — minimum evaluable samples per group to print (default 10)
+    kpsc_gt_path             — path to AMRFinder+ ground truth TSV (required)
+    kpsc_kleborate_gt_path   — path to Kleborate GT TSV (optional); overrides
+                               ompK35/ompK36/ramR columns from AMRFinder
+    kpsc_meta_path           — path to sample metadata TSV with ST and Species
+                               columns (optional)
+    eval_min_group_n         — minimum evaluable samples per group (default 10)
 """
 
 import datetime
@@ -169,9 +182,10 @@ def run_evaluation(out_dir, cfg):
     ------
     out_dir/evaluation.txt
     """
-    kpsc_gt_path   = cfg["kpsc_gt_path"]
-    kpsc_meta_path = cfg.get("kpsc_meta_path")
-    min_group_n    = int(cfg.get("eval_min_group_n", 10))
+    kpsc_gt_path        = cfg["kpsc_gt_path"]
+    kleborate_gt_path   = cfg.get("kpsc_kleborate_gt_path")
+    kpsc_meta_path      = cfg.get("kpsc_meta_path")
+    min_group_n         = int(cfg.get("eval_min_group_n", 10))
 
     # ── Chromosomal calls (VAE + HMM) ───────────────────────────────────────
     chrom_calls = (
@@ -195,10 +209,29 @@ def run_evaluation(out_dir, cfg):
 
     # ── Ground truth: AMRFinder+ copy counts ────────────────────────────────
     available_genes = CHROM_GENES + (PLASMID_GENES if has_plasmid_calls else [])
-    gt_cols = ["sample_id"] + available_genes
     all_gt_cols = pd.read_csv(kpsc_gt_path, sep="\t", nrows=0).columns.tolist()
     gt_cols = ["sample_id"] + [g for g in available_genes if g in all_gt_cols]
     gt = pd.read_csv(kpsc_gt_path, sep="\t", usecols=gt_cols)
+
+    # ── Kleborate GT: override ompK35/ompK36/ramR if path is set ────────────
+    KLEBORATE_GENES = ["ompK35", "ompK36", "ramR"]
+    kleborate_gt_path_resolved = (
+        kleborate_gt_path
+        if kleborate_gt_path and os.path.isabs(kleborate_gt_path)
+        else os.path.join(os.path.dirname(kpsc_gt_path), os.path.basename(kleborate_gt_path))
+        if kleborate_gt_path else None
+    )
+    if kleborate_gt_path_resolved and os.path.exists(kleborate_gt_path_resolved):
+        kleb_cols_avail = pd.read_csv(kleborate_gt_path_resolved, sep="\t", nrows=0).columns.tolist()
+        kleb_use = ["sample_id"] + [g for g in KLEBORATE_GENES if g in kleb_cols_avail]
+        kleb_gt = pd.read_csv(kleborate_gt_path_resolved, sep="\t", usecols=kleb_use)
+        # Drop Kleborate-covered columns from AMRFinder GT, merge in Kleborate values
+        drop_cols = [g for g in KLEBORATE_GENES if g in gt.columns and g in kleb_gt.columns]
+        gt = gt.drop(columns=drop_cols).merge(kleb_gt, on="sample_id", how="left")
+        print(f"Loaded Kleborate GT → overriding {drop_cols} from AMRFinder.", flush=True)
+    elif kleborate_gt_path:
+        print(f"kpsc_kleborate_gt_path set but file not found: {kleborate_gt_path_resolved}. "
+              "Using AMRFinder GT for ompK35/ompK36/ramR.", flush=True)
 
     # Suffix gt columns with _gt to avoid collision with prediction columns
     df = gt.merge(chrom_calls, on="sample_id", suffixes=("_gt", ""))
@@ -289,10 +322,11 @@ def run_evaluation(out_dir, cfg):
         "=" * W,
         "GUIDANCE",
         "-" * W,
-        "Ground truth: AMRFinder+ copy counts from AllTheBacteria KpSC assemblies.",
+        "Ground truth: AMRFinder+ (blaSHV, blaKPC, blaCTX-M, blaNDM) +",
+        "  Kleborate (ompK35, ompK36, ramR) if kpsc_kleborate_gt_path is set.",
         "  blaSHV: positive = extra chromosomal copy (AMRFinder count >= 2).",
-        "  ompK35/ompK36: positive = gene absent (AMRFinder count = 0) — deletion.",
-        "  ramR: positive = gene absent/disrupted (count = 0) — efflux upregulated.",
+        "  ompK35/ompK36: positive = truncated/absent (Kleborate) — porin loss.",
+        "  ramR: positive = gene absent (BLAST-based) — efflux upregulated.",
         "  blaKPC/blaCTX-M/blaNDM: positive = gene present (count >= 1) — plasmid.",
         "FNR: fraction of true events called as normal. Primary optimisation target.",
         "  FN CRR/PCN p50 >> 1.0 (amp/presence) or << 1.0 (del) = signal present but",
@@ -306,7 +340,8 @@ def run_evaluation(out_dir, cfg):
         "KpSC experiment evaluation",
         f"Generated : {datetime.datetime.utcnow().isoformat()}",
         f"Out dir   : {out_dir}",
-        "Ground truth: AMRFinder+ on AllTheBacteria KpSC assemblies",
+        f"Ground truth: AMRFinder+ (blaSHV, plasmid genes)"
+        + (f" + Kleborate (porins, ramR)" if kleborate_gt_path_resolved and os.path.exists(kleborate_gt_path_resolved or "") else ""),
         "=" * W,
         "",
         "OVERALL",
