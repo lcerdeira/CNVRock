@@ -1,3 +1,0 @@
-- Always run Python via `.venv/bin/python` — never use system `python3` or `python`.
-- Write simple code. Add comments at non-obvious logic to aid future readability. When editing existing code, update any comments that no longer reflect the current logic.
-- Explicitly free large objects (e.g. `del df; gc.collect()`) once they are no longer needed.
