@@ -4,33 +4,38 @@ Evaluation — version 04: KpSC gene calls vs AMRFinder+ ground truth.
 Ground truth source: NCBI AMRFinder+ (amrfinder --plus) run on AllTheBacteria
 KpSC assemblies. The expected TSV has columns:
 
-    sample_id   — matches sample_ids in gene_calls.tsv
+    sample_id   — matches sample_ids in gene_calls.tsv / plasmid_gene_calls.tsv
     blaSHV      — integer copy count (0 = absent, 1 = single copy, 2+ = amplified)
     ompK35      — integer copy count (0 = absent means gene deleted)
     ompK36      — integer copy count (0 = absent means gene deleted)
     ramR        — integer copy count (0 = absent means gene disrupted/deleted)
+    blaKPC      — integer copy count (0 = absent, ≥1 = present on plasmid)
+    blaCTX-M    — integer copy count (0 = absent, ≥1 = present on plasmid)
+    blaNDM      — integer copy count (0 = absent, ≥1 = present on plasmid)
 
 Callers produce:
-    cn = -1  → uncallable (HMM sanity check failed or low coverage)
-    cn =  0  → deletion called (copy number < 1 by HMM)
-    cn =  1  → normal (single copy, baseline)
-    cn =  2  → amplification called
+    Chromosomal (gene_calls.tsv):
+        cn = -1  → uncallable (HMM sanity check failed or low coverage)
+        cn =  0  → deletion called
+        cn =  1  → normal (single copy, baseline)
+        cn =  2  → amplification called
+    Plasmid (plasmid_gene_calls.tsv):
+        cn = -1  → uncallable (no chromosomal median available)
+        cn =  0  → gene absent (PCN < absent_threshold)
+        cn =  1  → gene present, single copy
+        cn =  2  → gene amplified (PCN ≥ amp_threshold)
 
-Ground truth interpretation per gene:
-    blaSHV:  AMRFinder count >= 2  → amplified (copy > 1)
-             AMRFinder count == 1  → normal (single ancestral copy)
-             AMRFinder count == 0  → absent (rare; treat as deletion)
-    ompK35:  AMRFinder count == 0  → deleted (loss of function = resistance event)
-             AMRFinder count >= 1  → present (normal)
-    ompK36:  same interpretation as ompK35
-    ramR:    AMRFinder count == 0  → deleted/disrupted
-             AMRFinder count >= 1  → present (normal)
+Gene modes
+----------
+    "amp"      — chromosomal; positive = cn ≥ 2   (extra copies increase resistance)
+    "del"      — chromosomal; positive = cn = 0   (gene loss = resistance)
+    "presence" — plasmid;    positive = cn ≥ 1   (any copy = clinically resistant)
 
 Reads from cfg:
-    kpsc_gt_path       — path to AMRFinder+ ground truth TSV (required)
-    kpsc_meta_path     — path to sample metadata TSV with ST and Species columns
-                         (optional; stratified tables omitted if absent)
-    eval_min_group_n   — minimum evaluable samples per group to print (default 10)
+    kpsc_gt_path         — path to AMRFinder+ ground truth TSV (required)
+    kpsc_meta_path       — path to sample metadata TSV with ST and Species columns
+                           (optional; stratified tables omitted if absent)
+    eval_min_group_n     — minimum evaluable samples per group to print (default 10)
 """
 
 import datetime
@@ -40,43 +45,72 @@ import os
 import pandas as pd
 
 
-GENES     = ["blaSHV", "ompK35", "ompK36", "ramR"]
+# Chromosomal genes (from gene_calls.tsv, produced by VAE + HMM)
+CHROM_GENES = ["blaSHV", "ompK35", "ompK36", "ramR"]
+
+# Plasmid accessory genes (from plasmid_gene_calls.tsv, produced by PCN caller)
+# GT column names match GENE_PATTERNS keys in get_amrfinder_gt.py
+PLASMID_GENES = ["blaKPC", "blaCTX-M", "blaNDM"]
+
+GENES     = CHROM_GENES + PLASMID_GENES
 QUANTILES = [0.10, 0.25, 0.50, 0.75, 0.90]
 Q_LABELS  = ["p10", "p25", "p50", "p75", "p90"]
 
-# For each gene: what AMRFinder copy count constitutes "positive" (amplification
-# or deletion depending on biology)?
-# "amp" genes: positive = count >= 2 (extra copies → elevated expression/resistance)
-# "del" genes: positive = count == 0 (loss of gene = resistance)
+# Gene modes:
+#   "amp"      — positive = cn ≥ 2  (chromosomal amplification)
+#   "del"      — positive = cn = 0  (chromosomal deletion)
+#   "presence" — positive = cn ≥ 1  (plasmid gene present, any copy count)
 GENE_MODE = {
-    "blaSHV": "amp",   # chromosomal, extra copies increase resistance
-    "ompK35": "del",   # porin loss → impermeability resistance
-    "ompK36": "del",
-    "ramR":   "del",   # repressor deletion → efflux upregulation
+    "blaSHV":   "amp",       # chromosomal, extra copies increase resistance
+    "ompK35":   "del",       # porin loss → impermeability resistance
+    "ompK36":   "del",
+    "ramR":     "del",       # repressor deletion → efflux upregulation
+    "blaKPC":   "presence",  # plasmid carbapenemase; presence = resistance
+    "blaCTX-M": "presence",  # plasmid ESBL; presence = ESBL phenotype
+    "blaNDM":   "presence",  # plasmid metallo-carbapenemase; presence = resistance
+}
+
+# Map GT column name → call column name (plasmid calls use gene name from
+# plasmid_gene_coords.tsv, e.g. "blaKPC-2", while GT uses "blaKPC")
+PLASMID_GT_TO_CALL = {
+    "blaKPC":   "blaKPC-2",
+    "blaCTX-M": "blaCTX-M-15",
+    "blaNDM":   "blaNDM-1",
 }
 
 
 def _amrfinder_to_gt(copy_counts: pd.Series, gene: str) -> pd.Series:
-    """Convert AMRFinder copy count to ground-truth label (-1/0/1)."""
-    # -1 → missing/unknown in AMRFinder output
-    # 0  → normal (not the event of interest)
-    # 1  → positive (the resistance-associated copy number state)
-    if GENE_MODE[gene] == "amp":
+    """Convert AMRFinder copy count to ground-truth label (-1/0/1).
+
+    Returns:
+        -1  missing / unknown
+         0  not the event of interest (normal)
+         1  positive (the resistance-associated copy number state)
+    """
+    mode = GENE_MODE[gene]
+    if mode == "amp":
         return copy_counts.map(
             lambda v: -1 if pd.isna(v) else (1 if v >= 2 else 0)
         )
-    else:  # "del"
+    elif mode == "del":
         return copy_counts.map(
             lambda v: -1 if pd.isna(v) else (1 if v == 0 else 0)
+        )
+    else:  # "presence"
+        return copy_counts.map(
+            lambda v: -1 if pd.isna(v) else (1 if v >= 1 else 0)
         )
 
 
 def _cn_to_pred(cn: pd.Series, gene: str) -> pd.Series:
-    """Convert VAE+HMM CN call to predicted label (-1/0/1)."""
-    if GENE_MODE[gene] == "amp":
+    """Convert CN call to predicted label (-1/0/1)."""
+    mode = GENE_MODE[gene]
+    if mode == "amp":
         return cn.map(lambda v: -1 if v == -1 else (1 if v > 1 else 0))
-    else:  # "del"
+    elif mode == "del":
         return cn.map(lambda v: -1 if v == -1 else (1 if v == 0 else 0))
+    else:  # "presence"
+        return cn.map(lambda v: -1 if v == -1 else (1 if v >= 1 else 0))
 
 
 def _metrics(gt: pd.Series, pred_gt: pd.Series) -> dict:
@@ -139,16 +173,36 @@ def run_evaluation(out_dir, cfg):
     kpsc_meta_path = cfg.get("kpsc_meta_path")
     min_group_n    = int(cfg.get("eval_min_group_n", 10))
 
-    wide = (
+    # ── Chromosomal calls (VAE + HMM) ───────────────────────────────────────
+    chrom_calls = (
         pd.read_csv(os.path.join(out_dir, "gene_calls.tsv"), sep="\t")
-        .astype({g: pd.Int64Dtype() for g in GENES})
+        .astype({g: pd.Int64Dtype() for g in CHROM_GENES})
     )
 
-    # Ground truth: AMRFinder+ copy counts per sample and gene
-    gt_cols = ["sample_id"] + GENES
+    # ── Plasmid calls (PCN caller) — optional ────────────────────────────────
+    plasmid_path = os.path.join(out_dir, "plasmid_gene_calls.tsv")
+    has_plasmid_calls = os.path.exists(plasmid_path)
+    if has_plasmid_calls:
+        plasmid_calls = pd.read_csv(plasmid_path, sep="\t")
+        # Rename blaKPC-2 → blaKPC etc. so they match GT column names
+        rename_map = {v: k for k, v in PLASMID_GT_TO_CALL.items()}
+        plasmid_calls = plasmid_calls.rename(columns=rename_map)
+        pcn_rename = {f"pcn_{v}": f"pcn_{k}" for k, v in PLASMID_GT_TO_CALL.items()}
+        plasmid_calls = plasmid_calls.rename(columns=pcn_rename)
+        chrom_calls = chrom_calls.merge(plasmid_calls, on="sample_id", how="left")
+    else:
+        print("plasmid_gene_calls.tsv not found — plasmid gene metrics will be N/A.")
+
+    # ── Ground truth: AMRFinder+ copy counts ────────────────────────────────
+    available_genes = CHROM_GENES + (PLASMID_GENES if has_plasmid_calls else [])
+    gt_cols = ["sample_id"] + available_genes
+    all_gt_cols = pd.read_csv(kpsc_gt_path, sep="\t", nrows=0).columns.tolist()
+    gt_cols = ["sample_id"] + [g for g in available_genes if g in all_gt_cols]
     gt = pd.read_csv(kpsc_gt_path, sep="\t", usecols=gt_cols)
-    df = gt.merge(wide, on="sample_id")
-    del wide, gt
+
+    # Suffix gt columns with _gt to avoid collision with prediction columns
+    df = gt.merge(chrom_calls, on="sample_id", suffixes=("_gt", ""))
+    del chrom_calls, gt
     gc.collect()
 
     has_meta = False
@@ -159,20 +213,27 @@ def run_evaluation(out_dir, cfg):
         del meta
         gc.collect()
 
-    # Pre-compute labels
-    gt_label   = {g: _amrfinder_to_gt(df[g], g)     for g in GENES}
-    pred_label = {g: _cn_to_pred(df[g + "_call"] if g + "_call" in df.columns else df[g], g)
-                  for g in GENES}
-    # gene_calls.tsv uses gene name as column (blaSHV, ompK35, etc.)
-    pred_label = {g: _cn_to_pred(df[g], g) for g in GENES}
+    # Only evaluate genes present in both GT and calls
+    eval_genes = [g for g in GENES if f"{g}_gt" in df.columns and g in df.columns]
+    missing_genes = [g for g in GENES if g not in eval_genes]
+    if missing_genes:
+        print(f"Skipping genes not in merged data: {missing_genes}")
+
+    # Pre-compute labels — ground truth uses _gt suffix, predictions use bare gene name
+    gt_label   = {g: _amrfinder_to_gt(df[f"{g}_gt"], g) for g in eval_genes}
+    pred_label = {g: _cn_to_pred(df[g], g)               for g in eval_genes}
 
     gene_results = {}
     crr_results  = {}
 
-    for gene in GENES:
+    for gene in eval_genes:
         gt_s   = gt_label[gene]
         pred_s = pred_label[gene]
-        crr    = df[f"crr_{gene}"]
+        # Chromosomal genes have crr_{gene}; plasmid genes have pcn_{gene}
+        if gene in PLASMID_GENES:
+            crr = df.get(f"pcn_{gene}", pd.Series(dtype=float, index=df.index))
+        else:
+            crr = df[f"crr_{gene}"]
 
         gene_r = {"overall": _metrics(gt_s, pred_s)}
 
@@ -193,11 +254,13 @@ def run_evaluation(out_dir, cfg):
 
         gene_results[gene] = gene_r
 
+        crr_label = "pcn" if gene in PLASMID_GENES else "crr"
         crr_results[gene] = {
             "by_pred": {
                 label: _crr_quantiles(crr[pred_s == val])
                 for val, label in [(-1, "failed"), (0, "pred_normal"), (1, "pred_event")]
             },
+            "_label": crr_label,
         }
         eval_mask = (gt_s != -1) & (pred_s != -1)
         crr_results[gene]["by_outcome"] = {
@@ -230,14 +293,14 @@ def run_evaluation(out_dir, cfg):
         "  blaSHV: positive = extra chromosomal copy (AMRFinder count >= 2).",
         "  ompK35/ompK36: positive = gene absent (AMRFinder count = 0) — deletion.",
         "  ramR: positive = gene absent/disrupted (count = 0) — efflux upregulated.",
+        "  blaKPC/blaCTX-M/blaNDM: positive = gene present (count >= 1) — plasmid.",
         "FNR: fraction of true events called as normal. Primary optimisation target.",
-        "  FN p50 >> 1.0 (for amp genes) or << 1.0 (for del genes) = HMM signal present",
-        "  but being discarded — try tuning self_transition or HMM state initialisation.",
+        "  FN CRR/PCN p50 >> 1.0 (amp/presence) or << 1.0 (del) = signal present but",
+        "  being discarded — try tuning thresholds or HMM state initialisation.",
         "PPV: precision. Low PPV acceptable if FNR is the priority.",
         "  Assembly-derived ground truth is imperfect — apparent FPs may be real.",
         "delta: model-added missingness on GT-callable samples (HMM sanity failures).",
-        "  High delta with failed CRR p90 well off 1.0 → rescuable -1 calls.",
-        "Note: bacteria are haploid. CN=1 is the normal baseline (same as Pf).",
+        "Note: bacteria are haploid. CN=1 is the normal chromosomal baseline.",
         "",
         "=" * W,
         "KpSC experiment evaluation",
@@ -248,48 +311,54 @@ def run_evaluation(out_dir, cfg):
         "",
         "OVERALL",
         "-" * W,
-        f"{'Gene':<10} {'Mode':<5} {'MCC':>5} {'FNR':>5} {'PPV':>5} {'call_rate':>10} {'n_eval':>8}",
+        f"{'Gene':<12} {'Mode':<9} {'MCC':>5} {'FNR':>5} {'PPV':>5} {'call_rate':>10} {'n_eval':>8}",
         "-" * W,
     ]
-    for gene in GENES:
+    for gene in eval_genes:
         m = gene_results[gene]["overall"]
         call_rate = round(1.0 - (m["pred_missing_rate"] or 0.0), 2)
         lines.append(
-            f"{gene:<10} {GENE_MODE[gene]:<5} {_fmt(m['mcc']):>5} {_fmt(m['fnr']):>5} "
+            f"{gene:<12} {GENE_MODE[gene]:<9} {_fmt(m['mcc']):>5} {_fmt(m['fnr']):>5} "
             f"{_fmt(m['ppv']):>5} {_fmt(call_rate):>10} {m['n_eval']:>8}"
         )
 
     lines += [
         "", "MISSINGNESS", "-" * W,
-        f"{'Gene':<10} {'gt_miss':>10} {'pred_miss':>10} {'delta':>8}", "-" * W,
+        f"{'Gene':<12} {'gt_miss':>10} {'pred_miss':>10} {'delta':>8}", "-" * W,
     ]
-    for gene in GENES:
+    for gene in eval_genes:
         m = gene_results[gene]["overall"]
         lines.append(
-            f"{gene:<10} {_fmt(m['gt_missing_rate']):>10} "
+            f"{gene:<12} {_fmt(m['gt_missing_rate']):>10} "
             f"{_fmt(m['pred_missing_rate']):>10} {_fmt(m['delta']):>8}"
         )
 
     q_header = "  " + " ".join(f"{q:>5}" for q in Q_LABELS)
-    lines += ["", "CRR BY PREDICTED LABEL  (CRR = gene/flank copy ratio)", "-" * W,
-              f"  {'label':<12} {'n':>6}  {q_header.strip()}"]
-    for gene in GENES:
-        lines.append(f"  — {gene}  ({GENE_MODE[gene]})")
+    lines += [
+        "", "CRR/PCN BY PREDICTED LABEL",
+        "  (chromosomal genes: CRR = gene/flank copy ratio; plasmid genes: PCN = depth/chrom_median)",
+        "-" * W,
+        f"  {'label':<12} {'n':>6}  {q_header.strip()}",
+    ]
+    for gene in eval_genes:
+        metric_lbl = crr_results[gene]["_label"].upper()
+        lines.append(f"  — {gene}  ({GENE_MODE[gene]})  [{metric_lbl}]")
         for label, d in crr_results[gene]["by_pred"].items():
             lines.append(_crr_row(label, d))
 
     lines += [
-        "", "CRR BY CALL OUTCOME  (evaluable samples only)",
+        "", "CRR/PCN BY CALL OUTCOME  (evaluable samples only)",
         "-" * W,
         f"  {'outcome':<12} {'n':>6}  {q_header.strip()}",
     ]
-    for gene in GENES:
-        lines.append(f"  — {gene}  ({GENE_MODE[gene]})")
+    for gene in eval_genes:
+        metric_lbl = crr_results[gene]["_label"].upper()
+        lines.append(f"  — {gene}  ({GENE_MODE[gene]})  [{metric_lbl}]")
         for label, d in crr_results[gene]["by_outcome"].items():
             lines.append(_crr_row(label, d))
 
-    if any("by_species" in gene_results[g] for g in GENES):
-        for gene in GENES:
+    if any("by_species" in gene_results[g] for g in eval_genes):
+        for gene in eval_genes:
             if "by_species" not in gene_results[gene]:
                 continue
             lines += [
@@ -303,8 +372,8 @@ def run_evaluation(out_dir, cfg):
                     f"{_fmt(m['ppv']):>5} {m['n_eval']:>8}"
                 )
 
-    if any(gene_results[g].get("by_st") for g in GENES):
-        for gene in GENES:
+    if any(gene_results[g].get("by_st") for g in eval_genes):
+        for gene in eval_genes:
             st_r = gene_results[gene].get("by_st", {})
             if not st_r:
                 continue

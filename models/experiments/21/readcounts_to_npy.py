@@ -9,11 +9,10 @@ from concurrent.futures import ThreadPoolExecutor
 PATH_TO_READ_COUNTS = "readcounts"
 OUT_DIR             = Path("../../../data/inputs/KpSC-HS11286-1000bp-core-npy")
 
-# HS11286 chromosome name — must match the @SQ SM tag in your BAM headers exactly.
-# Check with: samtools view -H sample.bam | grep "^@SQ"
-# Common values: "NZ_CP003200.1", "chromosome", "CP003200.1"
+# HS11286 chromosome name — must match the @SQ SN tag in your BAM headers exactly.
+# GCF (RefSeq) download → "NC_016845.1". Verify: samtools view -H sample.bam | grep "^@SQ"
 CONTIGS = [
-    "NZ_CP003200.1",  # HS11286 chromosome — verify against BAM headers!
+    "NC_016845.1",  # HS11286 chromosome, RefSeq GCF download
 ]
 CONTIG_TO_IDX = {c: i for i, c in enumerate(CONTIGS)}
 
@@ -115,7 +114,8 @@ def validate_all_files(tsv_dir: str, sample_ids: list[str], n_workers: int = 16)
     return n_bins
 
 
-def build_npy(out_dir: Path, tsv_dir: str, sample_ids: list[str], n_workers: int = 16):
+def build_npy(out_dir: Path, tsv_dir: str, sample_ids: list[str],
+              n_workers: int = 16, max_zero_fraction: float = 0.10):
     out_dir.mkdir(parents=True, exist_ok=True)
     n_bins    = validate_all_files(tsv_dir, sample_ids, n_workers)
     n_samples = len(sample_ids)
@@ -161,7 +161,18 @@ def build_npy(out_dir: Path, tsv_dir: str, sample_ids: list[str], n_workers: int
         for idx, data in tqdm(pool.map(read_one, jobs), total=n_samples):
             counts[idx, :] = data
 
-    np.save(out_dir / "counts.npy", counts)
+    # Filter out bins that are consistently zero across samples (repetitive / unmappable regions).
+    # Keeps bins where fewer than max_zero_fraction of samples have count = 0.
+    zero_frac = (counts == 0).mean(axis=0)
+    keep = zero_frac < max_zero_fraction
+    n_kept = int(keep.sum())
+    print(f"Bin filter: keeping {n_kept} / {n_bins} bins (zero_frac < {max_zero_fraction}).")
+
+    counts  = counts[:, keep]
+    contigs = contigs[keep]
+
+    np.save(out_dir / "contigs.npy", contigs)   # overwrite with filtered positions
+    np.save(out_dir / "counts.npy",  counts)
     print(f"Done. counts shape: {counts.shape}  →  {out_dir}/counts.npy")
 
     return counts
