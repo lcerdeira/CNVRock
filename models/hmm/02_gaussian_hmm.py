@@ -142,8 +142,7 @@ def _hmm_one_sample(args):
 
         valid = (
             np.isfinite(cr) & (cr > 0) &
-            (inp >= low_cov_threshold) &
-            (rec >= low_cov_threshold)
+            (inp >= low_cov_threshold)
         )
         pos_v = pos[valid]
         cr_v  = np.clip(cr[valid], 0, 8)
@@ -253,8 +252,7 @@ def fit_hmm_sample(data, n_states, self_transition, low_cov_threshold):
 
         valid = (
             np.isfinite(cr) & (cr > 0) &
-            (inp >= low_cov_threshold) &
-            (rec >= low_cov_threshold)
+            (inp >= low_cov_threshold)
         )
         pos_v = pos[valid]
         cr_v  = np.clip(cr[valid], 0, 8)
@@ -372,7 +370,13 @@ def run_hmm_all_samples(store_path, out_dir, cfg):
     gc.collect()
 
     n = len(sample_ids)
-    copy_ratios = counts.astype(float) / (recons.astype(float) + 1e-6)   # (n, n_bins)
+    # Use per-sample mean as fallback denominator for bins where the reconstruction
+    # is near zero (VAE under-fit bins).  This keeps copy ratios sensible for all
+    # bins with real coverage, not just the ones the VAE reconstructed well.
+    sample_mean = counts.astype(float).mean(axis=1, keepdims=True)         # (n, 1)
+    safe_recon  = np.where(recons.astype(float) >= low_cov_threshold,
+                           recons.astype(float), sample_mean)
+    copy_ratios = counts.astype(float) / (safe_recon + 1e-6)               # (n, n_bins)
 
     args = [
         (sid, copy_ratios[idx], counts[idx].astype(float), recons[idx].astype(float),

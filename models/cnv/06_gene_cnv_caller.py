@@ -3,7 +3,7 @@ Gene-level CNV caller — version 06: KpSC chromosomal genes.
 
 Identical calling logic to 05_gene_cnv_caller (fractional gene coverage for
 long genes, CRR fallback for short genes) adapted for K. pneumoniae Species
-Complex (KpSC) targets on the HS11286 chromosome (NC_016845.1 / CP003200).
+Complex (KpSC) targets on the HS11286 chromosome (NC_016845.1, RefSeq).
 
 Genes of interest (all chromosomally encoded in KpSC):
   blaSHV   — ancestral chromosomal beta-lactamase; amplification increases
@@ -12,18 +12,6 @@ Genes of interest (all chromosomally encoded in KpSC):
   ompK36   — outer membrane porin (OmpC homolog); loss → carbapenem resistance.
   ramR     — repressor of acrAB efflux operon; deletion → MDR via AcrAB-TolC.
 
-IMPORTANT: Gene coordinates below are placeholders referenced to HS11286
-(NC_016845.1, ~5.33 Mb). Extract exact coordinates from the reference GFF:
-
-    python -c "
-    import sys
-    for line in open('HS11286.gff'):
-        if any(g in line for g in ['blaSHV','ompK35','ompK36','ramR']):
-            print(line.strip())
-    " > gene_coords.txt
-
-Then replace the placeholder start/end values in GENES_OF_INTEREST below.
-The contig name must exactly match the sequence ID in your FASTA/BAM header.
 
 Config keys used (same semantics as 05_gene_cnv_caller):
     cnv_crr_gate_threshold        — veto gate for long-gene fractional path
@@ -46,36 +34,19 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # KpSC genes of interest — HS11286 chromosome (NC_016845.1)
 # ---------------------------------------------------------------------------
-# TODO: Replace placeholder coordinates with values from the HS11286 GFF.
-# Contig name must match the sequence ID in your BAM/FASTA headers exactly.
-# Run: grep -E "blaSHV|ompK35|ompK36|ramR" HS11286.gff | awk '{print $1,$4,$5,$9}'
 
-CHROM = "NZ_CP003200.1"  # HS11286 chromosome — confirm against BAM @SQ headers
+CHROM = "NC_016845.1"  # HS11286 chromosome (RefSeq GCF download) — confirm with: samtools view -H *.bam | grep @SQ
 
 GENES_OF_INTEREST = [
-    # blaSHV: short gene (~861 bp → ~1 bin at 1 kb), fallback-eligible
-    {"call_id": "blaSHV",  "contig": CHROM, "start": 0, "end": 0},
-    # ompK35: ~1,098 bp → ~1–2 bins, fallback-eligible
-    {"call_id": "ompK35",  "contig": CHROM, "start": 0, "end": 0},
-    # ompK36: ~1,098 bp → ~1–2 bins, fallback-eligible
-    {"call_id": "ompK36",  "contig": CHROM, "start": 0, "end": 0},
-    # ramR: ~663 bp → 1 bin, fallback-eligible
-    {"call_id": "ramR",    "contig": CHROM, "start": 0, "end": 0},
+    # blaSHV-11: KPHS_25220, 861 bp, minus strand (GFF 1-based coords)
+    {"call_id": "blaSHV",  "contig": CHROM, "start": 2549403, "end": 2550263},
+    # ompK35: KPHS_18380 region, ~1079 bp, minus strand; note: disrupted pseudogene in HS11286
+    {"call_id": "ompK35",  "contig": CHROM, "start": 1904308, "end": 1905386},
+    # ompK36: KPHS_37010, ~1104 bp, minus strand
+    {"call_id": "ompK36",  "contig": CHROM, "start": 3727882, "end": 3728985},
+    # ramR: KPHS_06060, 465 bp, plus strand (MarR-family repressor of acrAB via ramA)
+    {"call_id": "ramR",    "contig": CHROM, "start": 648627, "end": 649091},
 ]
-
-# Placeholder sentinel — raises clearly if coordinates were not updated
-_PLACEHOLDER = 0
-
-
-def _check_coordinates():
-    for g in GENES_OF_INTEREST:
-        if g["start"] == _PLACEHOLDER and g["end"] == _PLACEHOLDER:
-            raise RuntimeError(
-                f"Gene '{g['call_id']}' in 06_gene_cnv_caller.py still has "
-                "placeholder coordinates (start=0, end=0). "
-                "Extract real coordinates from the HS11286 GFF and update "
-                "GENES_OF_INTEREST before running CNV calling."
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -84,8 +55,6 @@ def _check_coordinates():
 
 def run_cnv_calls(store_path, out_dir, cfg):
     """Compute gene-level CNV calls for all KpSC samples and write gene_calls.tsv."""
-    _check_coordinates()
-
     min_cn1_proportion     = cfg["cnv_min_cn1_proportion"]
     min_confidence         = cfg["cnv_min_confidence"]
     flank_padding          = cfg["cnv_flank_padding"]
@@ -105,9 +74,13 @@ def run_cnv_calls(store_path, out_dir, cfg):
     del contigs
     gc.collect()
 
-    n           = len(sample_ids)
-    copy_ratios = counts.astype(float) / (recons.astype(float) + 1e-6)
-    del recons
+    n                = len(sample_ids)
+    low_cov          = cfg.get("hmm_low_cov_threshold", 10)
+    sample_mean      = counts.astype(float).mean(axis=1, keepdims=True)
+    safe_recon       = np.where(recons.astype(float) >= low_cov,
+                                recons.astype(float), sample_mean)
+    copy_ratios = counts.astype(float) / (safe_recon + 1e-6)
+    del recons, safe_recon, sample_mean
     gc.collect()
 
     print(f"Computing gene CNV calls for {n} KpSC samples…", flush=True)
@@ -140,7 +113,8 @@ def run_cnv_calls(store_path, out_dir, cfg):
         cr_chrom   = copy_ratios[:, chrom_mask]
         mean_gene  = np.nanmean(cr_chrom[:, gene_mask_l],  axis=1)
         mean_flank = np.nanmean(cr_chrom[:, flank_mask_l], axis=1)
-        crr_all    = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            crr_all = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
 
         for idx, sid in enumerate(sample_ids):
             cn          = -1

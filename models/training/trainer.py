@@ -6,14 +6,12 @@ import tempfile
 import torch
 import torch.nn.functional as F
 
-from architectures import N_BINS_RAW
-
-
 def compute_loss(x, outputs, beta, sin_loss_weight=0.0):
     recon      = outputs["recon"]
     mu, logvar = outputs["z"]
 
-    recon_loss = F.mse_loss(recon, x[:, :N_BINS_RAW], reduction="sum") / x.size(0)
+    n_bins_raw = recon.shape[1]
+    recon_loss = F.mse_loss(recon, x[:, :n_bins_raw], reduction="sum") / x.size(0)
     kl         = (-0.5 * (1 + logvar - mu.pow(2) - logvar.exp())).sum(1).mean()
 
     # Encourage recon values to be near integers in log2(count+1) space.
