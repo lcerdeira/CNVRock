@@ -1,155 +1,160 @@
 """
-Download AllTheBacteria KpSC assemblies for ground truth generation.
+Download AllTheBacteria KpSC assemblies for Kleborate ground truth generation.
 
-Strategy:
-  1. Download AllTheBacteria v0.2 metadata (maps run_accession → assembly ftp URL).
-  2. For each run accession in kpsc_sra_accessions.txt, look up the assembly URL.
-  3. Download and decompress the assembly FASTA → data/assemblies/<sample_id>.fasta
+Strategy
+--------
+1. Download two small ATB metadata files (cached after first run):
+     ena_metadata.tsv.gz        run_accession → sample_accession
+     sample2species2file.tsv.gz sample_accession → tar.xz filename
+2. For each run accession in kpsc_sra_accessions.txt, resolve:
+     run_accession → sample_accession → klebsiella_*.asm.tar.xz
+3. Download only the tar.xz files that contain at least one of our samples.
+4. Extract only the FASTA files for our samples; rename to <run_accession>.fasta.
 
-AllTheBacteria metadata is a ~1 GB TSV (gzipped).  It is cached locally after
-first download.
+KpSC tar.xz files (ATB v0.2):
+  klebsiella_pneumoniae__01-15.asm.tar.xz   (~15 files, large)
+  klebsiella_quasipneumoniae__01.asm.tar.xz
+  klebsiella_variicola__01.asm.tar.xz
 
 Usage:
-    python data/setup/download_assemblies.py \\
-        --accessions   assets/kpsc_sra_accessions.txt \\
-        --out-dir      data/assemblies/ \\
-        --workers      8
+    # Limit to samples with completed BAMs (recommended):
+    ls data/raw/bam/*.bam | xargs -I{} basename {} .bam > assets/kpsc_bam_accessions.txt
 
-    # Dry-run — just print URLs without downloading:
     python data/setup/download_assemblies.py \\
-        --accessions   assets/kpsc_sra_accessions.txt \\
+        --accessions   assets/kpsc_bam_accessions.txt \\
         --out-dir      data/assemblies/ \\
+        --tmp-dir      data/assemblies/tmp/
+
+    # Dry-run — print which tar.xz files would be downloaded:
+    python data/setup/download_assemblies.py \\
+        --accessions   assets/kpsc_bam_accessions.txt \\
         --dry-run
 """
 
 import argparse
 import gzip
-import io
+import lzma
 import os
 import sys
+import tarfile
+import tempfile
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-ATB_METADATA_URL = (
-    "https://ftp.ebi.ac.uk/pub/databases/AllTheBacteria/"
-    "Releases/0.2/metadata/allthebacteria_v02_metadata.tsv.gz"
-)
-ATB_METADATA_CACHE = "assets/atb_metadata_v02.tsv.gz"
+ATB_BASE = "https://ftp.ebi.ac.uk/pub/databases/AllTheBacteria/Releases/0.2"
+ENA_META_URL    = f"{ATB_BASE}/metadata/ena_metadata.tsv.gz"
+S2S_URL         = f"{ATB_BASE}/metadata/sample2species2file.tsv.gz"
+ASSEMBLY_BASE   = f"{ATB_BASE}/assembly"
 
-# Fallback: ENA portal API for assemblies not in ATB metadata
-ENA_FILEREPORT_URL = (
-    "https://www.ebi.ac.uk/ena/portal/api/filereport"
-    "?accession={acc}&result=read_run&fields=run_accession,"
-    "sample_accession&format=tsv"
-)
-ENA_ASSEMBLY_URL = (
-    "https://www.ebi.ac.uk/ena/portal/api/filereport"
-    "?accession={sample}&result=assembly&fields=accession,"
-    "fasta_ftp&format=tsv"
-)
+ENA_META_CACHE  = "assets/atb_ena_metadata.tsv.gz"
+S2S_CACHE       = "assets/atb_sample2species2file.tsv.gz"
+
+KPSC_SPECIES = {"klebsiella_pneumoniae", "klebsiella_quasipneumoniae",
+                "klebsiella_variicola", "klebsiella_grimontii",
+                "klebsiella_michiganensis", "klebsiella_oxytoca"}
 
 
 # ---------------------------------------------------------------------------
-# Metadata loading
+# Helpers
 # ---------------------------------------------------------------------------
 
-def _download_file(url: str, dest: str, label: str = "") -> None:
-    print(f"Downloading {label or url} …", flush=True)
+def _download(url: str, dest: str, label: str = "") -> None:
+    print(f"  Downloading {label or url} …", flush=True)
     os.makedirs(os.path.dirname(os.path.abspath(dest)), exist_ok=True)
     urllib.request.urlretrieve(url, dest)
+    size_mb = os.path.getsize(dest) / 1024**2
+    print(f"  → {dest}  ({size_mb:.1f} MB)", flush=True)
 
 
-def load_atb_metadata(cache_path: str) -> dict[str, str]:
-    """Return {run_accession: fasta_ftp_url} from AllTheBacteria metadata."""
-    if not os.path.exists(cache_path):
-        _download_file(ATB_METADATA_URL, cache_path, "AllTheBacteria v0.2 metadata (~1 GB)")
-
-    print(f"Parsing ATB metadata ({cache_path}) …", flush=True)
-    run_to_ftp: dict[str, str] = {}
-
-    with gzip.open(cache_path, "rt") as f:
+def load_ena_metadata(cache: str) -> dict[str, str]:
+    """Return {run_accession: sample_accession}."""
+    if not os.path.exists(cache):
+        _download(ENA_META_URL, cache, "ena_metadata.tsv.gz")
+    print(f"Parsing {cache} …", flush=True)
+    run_to_sample: dict[str, str] = {}
+    with gzip.open(cache, "rt") as f:
         header = f.readline().rstrip("\n").split("\t")
-        # Look for run_accession and fasta_ftp (or assembly_ftp) columns
-        run_col  = next((i for i, h in enumerate(header) if "run" in h.lower()), None)
-        ftp_col  = next(
-            (i for i, h in enumerate(header)
-             if "fasta" in h.lower() or "assembly" in h.lower()),
-            None,
-        )
-        if run_col is None or ftp_col is None:
-            raise RuntimeError(
-                f"Cannot find run/fasta columns in ATB metadata. Header: {header}"
-            )
-        print(f"  run column: '{header[run_col]}'  fasta column: '{header[ftp_col]}'", flush=True)
-
+        try:
+            run_col    = header.index("run_accession")
+            sample_col = header.index("sample_accession")
+        except ValueError:
+            raise RuntimeError(f"Expected columns not found. Header: {header[:10]}")
         for line in f:
             parts = line.rstrip("\n").split("\t")
-            if len(parts) <= max(run_col, ftp_col):
+            if len(parts) > max(run_col, sample_col):
+                run  = parts[run_col].strip()
+                samp = parts[sample_col].strip()
+                if run and samp:
+                    run_to_sample[run] = samp
+    print(f"  {len(run_to_sample):,} run→sample mappings loaded.", flush=True)
+    return run_to_sample
+
+
+def load_sample2species(cache: str) -> dict[str, str]:
+    """Return {sample_accession: tar_filename}."""
+    if not os.path.exists(cache):
+        _download(S2S_URL, cache, "sample2species2file.tsv.gz")
+    print(f"Parsing {cache} …", flush=True)
+    sample_to_tar: dict[str, str] = {}
+    with gzip.open(cache, "rt") as f:
+        header = f.readline().rstrip("\n").split("\t")
+        try:
+            samp_col = header.index("sample")
+            spec_col = header.index("species")
+            file_col = header.index("file")
+        except ValueError:
+            raise RuntimeError(f"Expected columns not found. Header: {header}")
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) > max(samp_col, spec_col, file_col):
+                samp = parts[samp_col].strip()
+                spec = parts[spec_col].strip()
+                tar  = parts[file_col].strip()
+                if samp and spec in KPSC_SPECIES and tar:
+                    sample_to_tar[samp] = tar
+    print(f"  {len(sample_to_tar):,} KpSC sample→tar mappings loaded.", flush=True)
+    return sample_to_tar
+
+
+# ---------------------------------------------------------------------------
+# Extract FASTAs from a tar.xz
+# ---------------------------------------------------------------------------
+
+def _extract_from_tarxz(tar_path: str, wanted_samples: set[str],
+                         run_for_sample: dict[str, str], out_dir: str) -> dict[str, str]:
+    """Extract FASTAs for wanted_samples from tar_path.
+
+    Returns {run_accession: fasta_path} for successfully extracted samples.
+    """
+    extracted: dict[str, str] = {}
+    print(f"  Extracting from {os.path.basename(tar_path)} …", flush=True)
+
+    with tarfile.open(tar_path, "r:xz") as tf:
+        members = tf.getmembers()
+        for member in members:
+            name = os.path.basename(member.name)
+            # FASTAs inside tar are named like SAMEA12345.fasta or SAMEA12345.fa
+            stem = name.split(".")[0]
+            if stem not in wanted_samples:
                 continue
-            run = parts[run_col].strip()
-            ftp = parts[ftp_col].strip()
-            if run and ftp and ftp != "-":
-                run_to_ftp[run] = ftp
+            run_acc = run_for_sample[stem]
+            dest    = os.path.join(out_dir, f"{run_acc}.fasta")
+            if os.path.exists(dest) and os.path.getsize(dest) > 500:
+                extracted[run_acc] = dest
+                continue
+            f = tf.extractfile(member)
+            if f is None:
+                continue
+            data = f.read()
+            # Decompress if gzipped inside the tar
+            if data[:2] == b"\x1f\x8b":
+                data = gzip.decompress(data)
+            with open(dest, "wb") as out:
+                out.write(data)
+            extracted[run_acc] = dest
+            print(f"    extracted {run_acc} ({len(data)//1024} KB)", flush=True)
 
-    print(f"Loaded {len(run_to_ftp):,} run→FASTA mappings from ATB metadata.", flush=True)
-    return run_to_ftp
-
-
-# ---------------------------------------------------------------------------
-# ENA API fallback
-# ---------------------------------------------------------------------------
-
-def _ena_fasta_url(run_acc: str) -> str | None:
-    """Look up assembly FASTA URL via ENA portal API.  Returns None if not found."""
-    try:
-        with urllib.request.urlopen(ENA_FILEREPORT_URL.format(acc=run_acc), timeout=30) as r:
-            lines = r.read().decode().strip().splitlines()
-        if len(lines) < 2:
-            return None
-        parts = lines[1].split("\t")
-        if len(parts) < 2:
-            return None
-        sample_acc = parts[1].strip()
-        if not sample_acc:
-            return None
-
-        with urllib.request.urlopen(ENA_ASSEMBLY_URL.format(sample=sample_acc), timeout=30) as r:
-            lines = r.read().decode().strip().splitlines()
-        if len(lines) < 2:
-            return None
-        ftp = lines[1].split("\t")[-1].strip()
-        return ftp if ftp and ftp != "-" else None
-    except Exception:
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Download worker
-# ---------------------------------------------------------------------------
-
-def _download_one(run_acc: str, ftp_url: str, out_dir: str) -> tuple[str, str]:
-    """Download one assembly FASTA.  Returns (run_acc, status)."""
-    dest = os.path.join(out_dir, f"{run_acc}.fasta")
-    if os.path.exists(dest) and os.path.getsize(dest) > 1000:
-        return run_acc, "skipped"
-
-    # ENA FTP URLs sometimes start with "ftp://" or are bare paths
-    url = ftp_url if ftp_url.startswith(("http", "ftp")) else f"ftp://{ftp_url}"
-
-    try:
-        with urllib.request.urlopen(url, timeout=120) as r:
-            raw = r.read()
-
-        # Decompress if gzipped
-        if url.endswith(".gz") or raw[:2] == b"\x1f\x8b":
-            raw = gzip.decompress(raw)
-
-        with open(dest, "wb") as f:
-            f.write(raw)
-        return run_acc, "ok"
-    except Exception as e:
-        return run_acc, f"FAILED: {e}"
+    return extracted
 
 
 # ---------------------------------------------------------------------------
@@ -159,75 +164,120 @@ def _download_one(run_acc: str, ftp_url: str, out_dir: str) -> tuple[str, str]:
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--accessions", default="assets/kpsc_sra_accessions.txt",
-                        help="One SRA run accession per line.")
-    parser.add_argument("--out-dir",    default="data/assemblies/",
-                        help="Directory for downloaded FASTA files.")
-    parser.add_argument("--metadata-cache", default=ATB_METADATA_CACHE,
-                        help="Local cache path for ATB metadata TSV.gz.")
-    parser.add_argument("--workers",    type=int, default=8,
-                        help="Parallel download workers.")
-    parser.add_argument("--dry-run",    action="store_true",
-                        help="Print URLs without downloading.")
+    parser.add_argument("--accessions",  default="assets/kpsc_bam_accessions.txt",
+                        help="One SRA run accession per line (default: kpsc_bam_accessions.txt).")
+    parser.add_argument("--out-dir",     default="data/assemblies/",
+                        help="Output directory for extracted FASTA files.")
+    parser.add_argument("--tmp-dir",     default=None,
+                        help="Temp directory for tar.xz downloads (default: system tmp).")
+    parser.add_argument("--dry-run",     action="store_true",
+                        help="Print plan without downloading anything.")
     args = parser.parse_args()
 
     with open(args.accessions) as f:
-        accessions = [l.strip() for l in f if l.strip()]
-    print(f"Accessions to process: {len(accessions)}", flush=True)
+        run_accessions = [l.strip() for l in f if l.strip()]
+    print(f"Run accessions to resolve: {len(run_accessions)}", flush=True)
 
     os.makedirs(args.out_dir, exist_ok=True)
 
-    # ── Load ATB metadata ──────────────────────────────────────────────────
-    run_to_ftp = load_atb_metadata(args.metadata_cache)
+    # ── Build run → sample → tar mapping ─────────────────────────────────
+    run_to_sample  = load_ena_metadata(ENA_META_CACHE)
+    sample_to_tar  = load_sample2species(S2S_CACHE)
 
-    # ── Resolve URLs ───────────────────────────────────────────────────────
-    tasks: list[tuple[str, str]] = []
-    missing: list[str] = []
-    for acc in accessions:
-        if acc in run_to_ftp:
-            tasks.append((acc, run_to_ftp[acc]))
-        else:
-            missing.append(acc)
+    # For each run accession, resolve sample + tar
+    tar_to_runs: dict[str, list[tuple[str, str]]] = {}  # tar → [(run, sample)]
+    unresolved: list[str] = []
 
-    print(f"Found in ATB metadata: {len(tasks)}  |  not found: {len(missing)}", flush=True)
+    for run in run_accessions:
+        sample = run_to_sample.get(run)
+        if sample is None:
+            unresolved.append(run)
+            continue
+        tar = sample_to_tar.get(sample)
+        if tar is None:
+            unresolved.append(run)
+            continue
+        tar_to_runs.setdefault(tar, []).append((run, sample))
 
-    # ENA API fallback for missing accessions
-    if missing:
-        print(f"Trying ENA API for {len(missing)} missing accessions …", flush=True)
-        for acc in missing:
-            url = _ena_fasta_url(acc)
-            if url:
-                tasks.append((acc, url))
-                print(f"  ENA found: {acc} → {url[:60]}…", flush=True)
-            else:
-                print(f"  WARNING: no assembly found for {acc}", file=sys.stderr)
+    print(f"\nResolved:   {sum(len(v) for v in tar_to_runs.values())} samples across "
+          f"{len(tar_to_runs)} tar.xz files", flush=True)
+    print(f"Unresolved: {len(unresolved)} run accessions (not in ATB KpSC)", flush=True)
 
-    print(f"\nTotal assemblies to download: {len(tasks)}", flush=True)
+    if unresolved:
+        print(f"  First 10 unresolved: {unresolved[:10]}", flush=True)
+
+    print("\nTar files needed:", flush=True)
+    for tar, runs in sorted(tar_to_runs.items()):
+        # Count already done
+        n_done = sum(
+            1 for run, _ in runs
+            if os.path.exists(os.path.join(args.out_dir, f"{run}.fasta"))
+            and os.path.getsize(os.path.join(args.out_dir, f"{run}.fasta")) > 500
+        )
+        print(f"  {tar:<50}  {len(runs)} samples  ({n_done} already done)", flush=True)
 
     if args.dry_run:
-        for acc, url in tasks:
-            print(f"{acc}\t{url}")
         return
 
-    # ── Download ───────────────────────────────────────────────────────────
-    n_ok, n_skip, n_fail = 0, 0, 0
-    with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futures = {pool.submit(_download_one, acc, url, args.out_dir): acc
-                   for acc, url in tasks}
-        for i, fut in enumerate(as_completed(futures), 1):
-            acc, status = fut.result()
-            if status == "ok":
-                n_ok += 1
-            elif status == "skipped":
-                n_skip += 1
-            else:
-                n_fail += 1
-                print(f"  {status} [{acc}]", flush=True)
-            if i % 50 == 0 or i == len(tasks):
-                print(f"  {i}/{len(tasks)} | ok={n_ok} skip={n_skip} fail={n_fail}", flush=True)
+    # ── Download and extract each required tar.xz ─────────────────────────
+    tmp_root = args.tmp_dir or tempfile.gettempdir()
+    os.makedirs(tmp_root, exist_ok=True)
 
-    print(f"\nDone. ok={n_ok}  skipped={n_skip}  failed={n_fail}", flush=True)
-    print(f"Assemblies in {args.out_dir}: {len(os.listdir(args.out_dir))}", flush=True)
+    total_ok, total_skip, total_fail = 0, 0, 0
+
+    for tar_name, runs in sorted(tar_to_runs.items()):
+        # Skip if all samples already extracted
+        pending = [
+            (run, samp) for run, samp in runs
+            if not (os.path.exists(os.path.join(args.out_dir, f"{run}.fasta"))
+                    and os.path.getsize(os.path.join(args.out_dir, f"{run}.fasta")) > 500)
+        ]
+        already_done = len(runs) - len(pending)
+        total_skip += already_done
+        if not pending:
+            print(f"\n{tar_name}: all {len(runs)} already extracted — skipping.", flush=True)
+            continue
+
+        url      = f"{ASSEMBLY_BASE}/{tar_name}"
+        tar_path = os.path.join(tmp_root, tar_name)
+
+        print(f"\n{'='*60}", flush=True)
+        print(f"Processing {tar_name} ({len(pending)} samples needed) …", flush=True)
+
+        if not os.path.exists(tar_path):
+            try:
+                _download(url, tar_path, tar_name)
+            except Exception as e:
+                print(f"  ERROR downloading {tar_name}: {e}", file=sys.stderr)
+                total_fail += len(pending)
+                continue
+
+        wanted   = {samp for _, samp in pending}
+        run_map  = {samp: run for run, samp in pending}
+        try:
+            extracted = _extract_from_tarxz(tar_path, wanted, run_map, args.out_dir)
+            total_ok += len(extracted)
+            missing = wanted - set(run_map[r] for r in extracted)  # type: ignore[arg-type]
+            if missing:
+                print(f"  WARNING: {len(missing)} samples not found in tar: "
+                      f"{list(missing)[:5]}", file=sys.stderr)
+                total_fail += len(missing)
+        except Exception as e:
+            print(f"  ERROR extracting {tar_name}: {e}", file=sys.stderr)
+            total_fail += len(pending)
+
+        # Remove tar after extraction to save disk space
+        try:
+            os.unlink(tar_path)
+            print(f"  Removed {tar_path}", flush=True)
+        except OSError:
+            pass
+
+    print(f"\n{'='*60}", flush=True)
+    print(f"Done.  extracted={total_ok}  skipped={total_skip}  failed={total_fail}",
+          flush=True)
+    n_fasta = len([f for f in os.listdir(args.out_dir) if f.endswith(".fasta")])
+    print(f"Assemblies in {args.out_dir}: {n_fasta}", flush=True)
 
 
 if __name__ == "__main__":
