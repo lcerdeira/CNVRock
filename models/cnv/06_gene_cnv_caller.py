@@ -8,10 +8,13 @@ Complex (KpSC) targets on the HS11286 chromosome (NC_016845.1, RefSeq).
 Genes of interest (all chromosomally encoded in KpSC):
   blaSHV   — ancestral chromosomal beta-lactamase; amplification increases
               resistance to penicillins and early cephalosporins.
-  ompK35   — outer membrane porin (OmpF homolog); loss → carbapenem resistance.
-  ompK36   — outer membrane porin (OmpC homolog); loss → carbapenem resistance.
   ramR     — repressor of acrAB efflux operon; deletion → MDR via AcrAB-TolC.
 
+NOT included — requires sequence-level variant calling, not read-depth CNV:
+  ompK35   — loss-of-function via frameshift/truncation (not copy-number change);
+              CRR is identical between functional and disrupted samples.
+  ompK36   — same reason as ompK35.
+  Use Kleborate or a short-read variant caller (e.g. snippy) for porin status.
 
 Config keys used (same semantics as 05_gene_cnv_caller):
     cnv_crr_gate_threshold        — veto gate for long-gene fractional path
@@ -40,12 +43,11 @@ CHROM = "NC_016845.1"  # HS11286 chromosome (RefSeq GCF download) — confirm wi
 GENES_OF_INTEREST = [
     # blaSHV-11: KPHS_25220, 861 bp, minus strand (GFF 1-based coords)
     {"call_id": "blaSHV",  "contig": CHROM, "start": 2549403, "end": 2550263},
-    # ompK35: KPHS_18380 region, ~1079 bp, minus strand; note: disrupted pseudogene in HS11286
-    {"call_id": "ompK35",  "contig": CHROM, "start": 1904308, "end": 1905386},
-    # ompK36: KPHS_37010, ~1104 bp, minus strand
-    {"call_id": "ompK36",  "contig": CHROM, "start": 3727882, "end": 3728985},
     # ramR: KPHS_06060, 465 bp, plus strand (MarR-family repressor of acrAB via ramA)
     {"call_id": "ramR",    "contig": CHROM, "start": 648627, "end": 649091},
+    # ompK35 and ompK36 removed: loss-of-function occurs via frameshift/truncation,
+    # not copy-number deletion — CRR is ~1.0 whether functional or disrupted.
+    # Evaluate porin status using Kleborate GT directly (assembly-based).
 ]
 
 

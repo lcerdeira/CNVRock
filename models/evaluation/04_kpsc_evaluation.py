@@ -10,8 +10,9 @@ the assembly is divergent from its reference, even when the gene is physically
 present.  Kleborate uses curated KpSC-specific sequences and distinguishes
 full-length vs truncated genes — the clinically meaningful distinction.
 
-When kpsc_kleborate_gt_path is set in config, its ompK35/ompK36/ramR columns
-override the AMRFinder values for those three genes only.
+When kpsc_kleborate_gt_path is set in config, its blaSHV/ompK35/ompK36/ramR
+columns override the AMRFinder values for those genes.  blaSHV is overridden
+with BLAST copy counts (more sensitive than AMRFinder for amplification).
 
 AMRFinder+ TSV columns (kpsc_gt_path):
 
@@ -213,8 +214,12 @@ def run_evaluation(out_dir, cfg):
     gt_cols = ["sample_id"] + [g for g in available_genes if g in all_gt_cols]
     gt = pd.read_csv(kpsc_gt_path, sep="\t", usecols=gt_cols)
 
-    # ── Kleborate GT: override ompK35/ompK36/ramR if path is set ────────────
-    KLEBORATE_GENES = ["ompK35", "ompK36", "ramR"]
+    # ── Kleborate GT: override blaSHV/ompK35/ompK36/ramR if path is set ─────
+    # blaSHV: BLAST copy count from get_kleborate_gt.py overrides AMRFinder
+    #         (AMRFinder misses ~30 amplified samples caught by read depth)
+    # ompK35/ompK36: Kleborate sequence-level calls; not evaluable by read-depth CNV
+    # ramR: BLAST presence/absence
+    KLEBORATE_GENES = ["blaSHV", "ompK35", "ompK36", "ramR"]
     kleborate_gt_path_resolved = (
         kleborate_gt_path
         if kleborate_gt_path and os.path.isabs(kleborate_gt_path)
@@ -341,7 +346,7 @@ def run_evaluation(out_dir, cfg):
         f"Generated : {datetime.datetime.utcnow().isoformat()}",
         f"Out dir   : {out_dir}",
         f"Ground truth: AMRFinder+ (blaSHV, plasmid genes)"
-        + (f" + Kleborate (porins, ramR)" if kleborate_gt_path_resolved and os.path.exists(kleborate_gt_path_resolved or "") else ""),
+        + (f" + Kleborate (blaSHV copies, porins, ramR)" if kleborate_gt_path_resolved and os.path.exists(kleborate_gt_path_resolved or "") else ""),
         "=" * W,
         "",
         "OVERALL",
