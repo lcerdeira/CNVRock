@@ -57,15 +57,22 @@ import tempfile
 
 
 # ---------------------------------------------------------------------------
-# ramR coordinates in HS11286 (NC_016845.1, RefSeq annotation)
-# KPHS_06060: 465 bp, plus strand, positions 648627..649091
+# Gene coordinates in HS11286 (NC_016845.1, RefSeq annotation)
 # ---------------------------------------------------------------------------
 
+# ramR: KPHS_06060, 465 bp, plus strand
 RAMR_CONTIG = "NC_016845.1"
 RAMR_START  = 648627   # 1-based, inclusive
 RAMR_END    = 649091
 RAMR_BLAST_MIN_IDENTITY  = 80.0   # %
 RAMR_BLAST_MIN_COVERAGE  = 60.0   # % of query length covered by HSP
+
+# blaSHV-11: KPHS_25220, 861 bp, minus strand
+BLASHV_CONTIG = "NC_016845.1"
+BLASHV_START  = 2549403  # 1-based, inclusive
+BLASHV_END    = 2550263
+BLASHV_BLAST_MIN_IDENTITY = 80.0   # % — covers most blaSHV alleles (high family conservation)
+BLASHV_BLAST_MIN_COVERAGE = 80.0   # % of query — require near-full-length hit per copy
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +245,93 @@ def _blast_ramr(query_fasta: str, assemblies_dir: str) -> dict[str, int]:
 
 
 # ---------------------------------------------------------------------------
+# BLAST-based blaSHV copy counting
+# ---------------------------------------------------------------------------
+
+def _extract_blashv_sequence(reference_fasta: str) -> str:
+    """Extract blaSHV-11 nucleotide sequence from HS11286 reference using samtools faidx."""
+    region = f"{BLASHV_CONTIG}:{BLASHV_START}-{BLASHV_END}"
+    try:
+        result = subprocess.run(
+            ["samtools", "faidx", reference_fasta, region],
+            capture_output=True, text=True, check=True,
+        )
+        return result.stdout
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"WARNING: samtools faidx failed for blaSHV ({e}).", file=sys.stderr)
+        return ""
+
+
+def _blast_blashv(query_fasta: str, assemblies_dir: str) -> dict[str, int]:
+    """Run blastn of blaSHV-11 query against all assemblies.
+
+    Returns {sample_id: copy_count} where copy_count is the number of
+    non-overlapping HSPs meeting identity and coverage thresholds.
+    cn=1 → single chromosomal copy (normal).
+    cn≥2 → amplification.
+    cn=0 → blaSHV absent (rare in K. pneumoniae).
+    """
+    query_len = BLASHV_END - BLASHV_START + 1
+    blashv_calls: dict[str, int] = {}
+
+    fasta_files = [
+        f for f in os.listdir(assemblies_dir)
+        if f.endswith((".fasta", ".fa", ".fna"))
+    ]
+    if not fasta_files:
+        print(f"WARNING: no FASTA files found in {assemblies_dir}", file=sys.stderr)
+        return blashv_calls
+
+    print(f"BLASTing blaSHV against {len(fasta_files)} assemblies in {assemblies_dir} ...", flush=True)
+
+    for fname in fasta_files:
+        sample_id = fname.rsplit(".", 1)[0]
+        assembly  = os.path.join(assemblies_dir, fname)
+        try:
+            result = subprocess.run(
+                [
+                    "blastn",
+                    "-query",  query_fasta,
+                    "-subject", assembly,
+                    "-outfmt", "6 pident length qstart qend sstart send",
+                    "-perc_identity", str(BLASHV_BLAST_MIN_IDENTITY),
+                    # Allow up to 20 HSPs — amplified strains may have many copies
+                    "-max_hsps", "20",
+                ],
+                capture_output=True, text=True, check=True,
+            )
+            # Count non-overlapping hits on the subject (assembly) side
+            # Each copy of blaSHV occupies a distinct genomic region → distinct sstart/send
+            hits: list[tuple[int, int]] = []  # (sstart, send) of accepted HSPs
+            for line in result.stdout.strip().splitlines():
+                pct_id, hsp_len, q_start, q_end, s_start, s_end = map(float, line.split("\t"))
+                coverage = (q_end - q_start + 1) / query_len * 100.0
+                if pct_id < BLASHV_BLAST_MIN_IDENTITY or coverage < BLASHV_BLAST_MIN_COVERAGE:
+                    continue
+                s_lo, s_hi = int(min(s_start, s_end)), int(max(s_start, s_end))
+                # Suppress if >50% overlaps an already-counted hit
+                overlaps = False
+                for (h_lo, h_hi) in hits:
+                    overlap = max(0, min(s_hi, h_hi) - max(s_lo, h_lo))
+                    if overlap / (s_hi - s_lo + 1) > 0.5:
+                        overlaps = True
+                        break
+                if not overlaps:
+                    hits.append((s_lo, s_hi))
+            blashv_calls[sample_id] = len(hits)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"  WARNING: BLAST failed for {sample_id}: {e}", file=sys.stderr)
+            blashv_calls[sample_id] = -1
+
+    n1 = sum(1 for v in blashv_calls.values() if v == 1)
+    n2 = sum(1 for v in blashv_calls.values() if v >= 2)
+    n0 = sum(1 for v in blashv_calls.values() if v == 0)
+    nf = sum(1 for v in blashv_calls.values() if v == -1)
+    print(f"blaSHV BLAST: single={n1}  amplified(≥2)={n2}  absent={n0}  failed={nf}", flush=True)
+    return blashv_calls
+
+
+# ---------------------------------------------------------------------------
 # Merge with AMRFinder GT
 # ---------------------------------------------------------------------------
 
@@ -267,10 +361,11 @@ def main():
                              "columns into the output.  Optional.")
     parser.add_argument("--reference",      default=None,
                         help="HS11286.fasta path — needed for samtools faidx to extract "
-                             "ramR sequence.  Skip if --assemblies-dir not supplied.")
+                             "ramR and blaSHV sequences.  Skip if --assemblies-dir not supplied.")
     parser.add_argument("--assemblies-dir", default=None,
                         help="Directory of per-sample assembly FASTA files for BLAST-based "
-                             "ramR calling.  Files must be named <sample_id>.fasta/.fa/.fna.")
+                             "ramR and blaSHV copy-number calling.  "
+                             "Files must be named <sample_id>.fasta/.fa/.fna.")
     parser.add_argument("--out",            required=True,
                         help="Output TSV path.")
     args = parser.parse_args()
@@ -279,37 +374,62 @@ def main():
     kleborate = parse_kleborate(args.kleborate_tsv)
     print(f"Parsed {len(kleborate):,} samples from Kleborate TSV.", flush=True)
 
-    # ── ramR via BLAST (optional) ─────────────────────────────────────────────
-    ramr_calls: dict[str, int] = {}
+    # ── ramR + blaSHV via BLAST (optional) ───────────────────────────────────
+    ramr_calls:   dict[str, int] = {}
+    blashv_calls: dict[str, int] = {}
     if args.assemblies_dir and args.reference:
-        query_fasta_content = _extract_ramr_sequence(args.reference)
-        if query_fasta_content:
+        # ramR — presence/absence
+        ramr_seq = _extract_ramr_sequence(args.reference)
+        if ramr_seq:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".fasta", delete=False) as tf:
-                tf.write(query_fasta_content)
+                tf.write(ramr_seq)
                 query_path = tf.name
             try:
                 ramr_calls = _blast_ramr(query_path, args.assemblies_dir)
             finally:
                 os.unlink(query_path)
+        # blaSHV — copy number
+        blashv_seq = _extract_blashv_sequence(args.reference)
+        if blashv_seq:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".fasta", delete=False) as tf:
+                tf.write(blashv_seq)
+                query_path = tf.name
+            try:
+                blashv_calls = _blast_blashv(query_path, args.assemblies_dir)
+            finally:
+                os.unlink(query_path)
     elif args.assemblies_dir:
-        print("WARNING: --reference not supplied; skipping BLAST for ramR.", file=sys.stderr)
+        print("WARNING: --reference not supplied; skipping BLAST for ramR and blaSHV.", file=sys.stderr)
     else:
-        print("--assemblies-dir not supplied; ramR will be -1 (uncallable).", flush=True)
+        print("--assemblies-dir not supplied; ramR and blaSHV will use AMRFinder GT.", flush=True)
 
-    # ── Load AMRFinder GT for non-porin genes ─────────────────────────────────
+    # ── Load AMRFinder GT for non-overridden genes ────────────────────────────
+    # Columns we override with BLAST or Kleborate:
+    #   ompK35, ompK36 — Kleborate (sequence-level)
+    #   ramR           — BLAST (if assemblies-dir supplied)
+    #   blaSHV         — BLAST copy count (if assemblies-dir supplied), else AMRFinder
+    BLAST_OVERRIDE_COLS = {"ompK35", "ompK36", "ramR"}
+    if blashv_calls:
+        BLAST_OVERRIDE_COLS.add("blaSHV")
+
     amr_gt: dict[str, dict] = {}
     amr_extra_cols: list[str] = []
     if args.amrfinder_gt:
         amr_gt = load_amrfinder_gt(args.amrfinder_gt)
-        # Identify columns to carry forward (skip ompK35/ompK36/ramR — we replace them)
         sample_amr = next(iter(amr_gt.values()), {})
-        amr_extra_cols = [c for c in sample_amr if c not in ("ompK35", "ompK36", "ramR")]
+        amr_extra_cols = [c for c in sample_amr if c not in BLAST_OVERRIDE_COLS]
+        # If blaSHV not in BLAST override, carry it from AMRFinder
+        if "blaSHV" not in BLAST_OVERRIDE_COLS and "blaSHV" in sample_amr:
+            amr_extra_cols = ["blaSHV"] + [c for c in amr_extra_cols if c != "blaSHV"]
         print(f"Loaded AMRFinder GT ({len(amr_gt):,} samples); "
               f"carrying forward: {amr_extra_cols}", flush=True)
 
     # ── Build merged output ───────────────────────────────────────────────────
-    all_sample_ids = sorted(set(kleborate) | set(amr_gt))
-    out_cols = ["sample_id", "ompK35", "ompK36", "ramR"] + amr_extra_cols
+    all_sample_ids = sorted(set(kleborate) | set(amr_gt) | set(blashv_calls))
+    # blaSHV goes first (primary chromosomal target), then porins, ramR, then rest
+    blast_cols = ["blaSHV"] if blashv_calls else []
+    out_cols = ["sample_id"] + blast_cols + ["ompK35", "ompK36", "ramR"] + \
+               [c for c in amr_extra_cols if c not in blast_cols]
 
     n_written = 0
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
@@ -320,14 +440,17 @@ def main():
         for sid in all_sample_ids:
             kleb = kleborate.get(sid, {})
             amr  = amr_gt.get(sid, {})
-            row  = {
+            row: dict = {
                 "sample_id": sid,
                 "ompK35":    kleb.get("ompK35", -1),
                 "ompK36":    kleb.get("ompK36", -1),
                 "ramR":      ramr_calls.get(sid, -1),
             }
+            if blashv_calls:
+                row["blaSHV"] = blashv_calls.get(sid, -1)
             for col in amr_extra_cols:
-                row[col] = amr.get(col, -1)
+                if col not in row:
+                    row[col] = amr.get(col, -1)
             writer.writerow(row)
             n_written += 1
 
@@ -352,6 +475,11 @@ def main():
         n_a = sum(1 for v in ramr_calls.values() if v == 0)
         n_u = sum(1 for v in ramr_calls.values() if v == -1)
         print(f"  ramR: functional={n_p}  absent={n_a}  uncallable={n_u}")
+    if blashv_calls:
+        n1 = sum(1 for v in blashv_calls.values() if v == 1)
+        n2 = sum(1 for v in blashv_calls.values() if v >= 2)
+        n0 = sum(1 for v in blashv_calls.values() if v == 0)
+        print(f"  blaSHV copies: 1={n1}  ≥2(amp)={n2}  0(absent)={n0}")
 
 
 if __name__ == "__main__":
