@@ -1,0 +1,76 @@
+# Experiment 23 — KpSC chromosomal CNV: fix broken HMM, keep CRR threshold
+#
+# Exp 22 post-mortem:
+#   hmm_self_transition=0.999 caused catastrophic over-segmentation (p50=2129
+#   transitions per sample vs exp 21's p50=13). hmmlearn is numerically unstable
+#   at near-unity self-transitions. All chromosomal genes became uncallable.
+#   blaKPC (PCN pathway) was unaffected: MCC=1.00.
+#
+# Changes from experiment 22:
+#   hmm_self_transition  0.999 → 0.80  : revert — 0.80 gave stable p50=13
+#   cnv_min_cn1_proportion 0.80 → 0.55 : revert — 0.80 was too strict at p50=13
+#
+# Kept from experiment 22:
+#   cnv_crr_amp_threshold  1.75  (was 1.25 in exp 21 — raised to reduce blaSHV FP)
+#   cnv_crr_gate_threshold 1.75  (consistent with amp threshold)
+#   kpsc_kleborate_gt_path       (Kleborate GT for ompK35/ompK36)
+
+# Versioned components (same as exp 22)
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+evaluation:   "04_kpsc_evaluation"
+
+# Data (same NPY store as exp 21/22)
+store_path: "../../../data/inputs/KpSC-HS11286-1000bp-core-npy"
+out_dir:    "../../../data/results/23_kpsc_chromosomal_v3"
+normalise:  true
+
+# Ground truth
+kpsc_gt_path:            "../../../assets/kpsc_amrfinder_ground_truth.tsv"
+kpsc_kleborate_gt_path:  "../../../assets/kpsc_kleborate_ground_truth.tsv"
+kpsc_meta_path:          "../../../assets/kpsc_sample_metadata.tsv"
+
+# Plasmid PCN calling (blaKPC-2; blaCTX-M-15 and blaNDM-1 pending Phase B BAMs)
+plasmid_cnv:               "07_plasmid_cnv_caller"
+plasmid_store_path:        "../../../data/inputs/KpSC-plasmid-1000bp-npy"
+plasmid_gene_coords_path:  "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
+pcn_absent_threshold:      0.20
+pcn_amp_threshold:         1.50
+
+# Model (same as exp 21/22 — no architecture changes)
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+# HMM — reverted to exp 21 values after exp 22 failure
+# 0.999 caused hmmlearn numerical instability → p50=2129 transitions (vs 13 in exp 21).
+# 0.80 means ~20% per-bin transition probability, which empirically gave stable
+# segmentation with p50=13 transitions per sample.
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+# CNV calling
+# cnv_crr_amp_threshold kept at 1.75 (raised from 1.25 in exp 21).
+# At 1.25, blaSHV PPV was 0.03 — noise floor pushed too many samples above threshold.
+# At 1.75, requires genuine 75% excess depth to call amplification.
+# cnv_min_cn1_proportion reverted to 0.55 — 0.80 caused 100% sanity-check failure.
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      3
+cnv_min_gene_coverage_fraction: 0.50
+
+eval_min_group_n: 10
