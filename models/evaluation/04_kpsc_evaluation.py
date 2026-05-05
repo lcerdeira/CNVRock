@@ -189,10 +189,10 @@ def run_evaluation(out_dir, cfg):
     min_group_n         = int(cfg.get("eval_min_group_n", 10))
 
     # ── Chromosomal calls (VAE + HMM) ───────────────────────────────────────
-    chrom_calls = (
-        pd.read_csv(os.path.join(out_dir, "gene_calls.tsv"), sep="\t")
-        .astype({g: pd.Int64Dtype() for g in CHROM_GENES})
-    )
+    chrom_calls = pd.read_csv(os.path.join(out_dir, "gene_calls.tsv"), sep="\t")
+    # Only cast gene columns that are actually present (caller version may vary)
+    cast_cols = {g: pd.Int64Dtype() for g in CHROM_GENES if g in chrom_calls.columns}
+    chrom_calls = chrom_calls.astype(cast_cols)
 
     # ── Plasmid calls (PCN caller) — optional ────────────────────────────────
     plasmid_path = os.path.join(out_dir, "plasmid_gene_calls.tsv")
