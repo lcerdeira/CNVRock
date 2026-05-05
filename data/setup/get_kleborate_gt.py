@@ -103,48 +103,49 @@ def _v2_porin_call(value: str, gene_prefix: str) -> int:
 
 
 def _parse_kleborate_v3(rows: list[dict]) -> dict[str, dict]:
-    """Parse Kleborate ≥3.x output.  Strain column varies; porin columns use
-    'Ompk35' / 'Ompk36' (lowercase k) with values like 'OmpK35', 'truncated',
-    'absent' depending on version.  Best-effort; falls back to -1 if unclear.
-    """
-    result = {}
-    strain_col = None
-    for candidate in ("strain", "Strain", "sample", "Sample", "sample_id"):
-        if candidate in rows[0]:
-            strain_col = candidate
-            break
-    if strain_col is None:
-        print("WARNING: cannot identify strain column in Kleborate v3 output.", file=sys.stderr)
-        return result
+    """Parse Kleborate ≥3.x output.
 
+    In v3 the KPSC preset combines both porins in a single column:
+        klebsiella_pneumo_complex__amr__Omp_mutations
+
+    Example values:
+        '-'                                         → both functional
+        'OmpK35:p.Glu42fs'                          → OmpK35 disrupted
+        'OmpK36:p.Ala183fs'                         → OmpK36 disrupted
+        'OmpK36:p.134_135insGlyAsp;OmpK35:p.Glu42fs' → both disrupted
+
+    Any entry with 'OmpK35:' → ompK35=0 (disrupted).
+    Any entry with 'OmpK36:' → ompK36=0 (disrupted).
+    '-' or gene not mentioned → gene functional (cn=1).
+    """
+    # v3 KPSC column name for Omp mutations
+    OMP_COL = "klebsiella_pneumo_complex__amr__Omp_mutations"
+
+    result = {}
     for row in rows:
-        sid = row.get(strain_col, "").strip()
+        sid = row.get("strain", "").strip()
         if not sid:
             continue
 
-        ompk35 = _v3_porin_call(row, "Ompk35", "OmpK35")
-        ompk36 = _v3_porin_call(row, "Ompk36", "OmpK36")
+        omp_val = row.get(OMP_COL, "").strip()
+        ompk35, ompk36 = _v3_omp_mutations_call(omp_val)
         result[sid] = {"ompK35": ompk35, "ompK36": ompk36}
     return result
 
 
-def _v3_porin_call(row: dict, col_prefix: str, gene_name: str) -> int:
-    """Try multiple Kleborate v3 column name patterns for a porin gene."""
-    for key in (col_prefix, f"{col_prefix}_type", f"{col_prefix}_best_hit",
-                col_prefix.upper(), f"{gene_name}_type", gene_name):
-        if key in row:
-            v = row[key].strip()
-            if v in ("", "-", "absent", "Absent", "None"):
-                return 0
-            if v in ("truncated", "Truncated", "truncation", "premature_stop"):
-                return 0
-            if gene_name.lower() in v.lower() and not any(
-                x in v for x in ("trunc", "premature", "*", "partial")
-            ):
-                return 1
-            if v.lower() in ("present", "functional"):
-                return 1
-    return -1
+def _v3_omp_mutations_call(omp_value: str) -> tuple[int, int]:
+    """Parse Kleborate v3 Omp_mutations field → (ompK35_cn, ompK36_cn).
+
+    Returns 1=functional, 0=disrupted for each gene.
+    Logic: if the gene name appears in the field, it has a mutation → disrupted.
+    If the field is '-' or the gene is not mentioned, it is functional.
+    """
+    v = omp_value.strip()
+    if v == "-" or v == "":
+        return 1, 1   # no mutations → both functional
+    ompk35 = 0 if "OmpK35:" in v else 1
+    ompk36 = 0 if "OmpK36:" in v else 1
+    return ompk35, ompk36
 
 
 def parse_kleborate(tsv_path: str) -> dict[str, dict]:
@@ -157,12 +158,16 @@ def parse_kleborate(tsv_path: str) -> dict[str, dict]:
         raise RuntimeError(f"Kleborate output is empty: {tsv_path}")
 
     header = set(rows[0].keys())
-    # v2 uses 'strain', 'OmpK35', 'OmpK36' (capital K)
+    # v2: separate 'OmpK35' / 'OmpK36' columns (capital K)
+    # v3: combined 'klebsiella_pneumo_complex__amr__Omp_mutations' column
     if "OmpK35" in header or "OmpK36" in header:
         print(f"Detected Kleborate v2 format ({tsv_path})", flush=True)
         return _parse_kleborate_v2(rows)
+    elif any("Omp_mutations" in h for h in header):
+        print(f"Detected Kleborate v3 KPSC preset format ({tsv_path})", flush=True)
+        return _parse_kleborate_v3(rows)
     else:
-        print(f"Detected Kleborate v3 format ({tsv_path})", flush=True)
+        print(f"Detected Kleborate v3 format ({tsv_path}) — attempting v3 parse", flush=True)
         return _parse_kleborate_v3(rows)
 
 
