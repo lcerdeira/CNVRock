@@ -3,7 +3,9 @@
     "allow": [
       "Bash(git -C /Users/lshlt19/GitHub/CNVRock status)",
       "Bash(git -C /Users/lshlt19/GitHub/CNVRock add README.md)",
-      "Bash(git -C /Users/lshlt19/GitHub/CNVRock commit -m ' *)"
+      "Bash(git -C /Users/lshlt19/GitHub/CNVRock commit -m ' *)",
+      "Bash(git -C /Users/lshlt19/GitHub/CNVRock add data/setup/add_phase_c_genes.py)",
+      "Bash(git -C /Users/lshlt19/GitHub/CNVRock commit -m \"Fix aac6-Ib-cr CDS lookup: add cds_query override for genes whose internal name differs from NCBI gene name\")"
     ]
   }
 }
