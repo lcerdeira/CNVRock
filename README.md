@@ -4,20 +4,19 @@ Antimicrobial resistance (AMR) is one of the leading global health threats. In *
 
 CNVRock adapts the [autoresearch](https://github.com/karpathy/autoresearch) strategy — where an AI agent continuously proposes and runs ML experiments overnight — to detect AMR-related copy-number variation in KpSC whole-genome sequencing data. A convolutional VAE learns a low-dimensional representation of genome-wide read depth; a Gaussian HMM segments the latent trajectories into copy-number states; a gene caller converts those states into per-gene calls. Claude proposes the next experiment, emails a summary, and a background daemon runs it after authorisation.
 
-**Current results (exp 27, Phase C):**
+**Current results (exp 29, full cohort, n=547):**
 
 | Gene | Type | MCC | FNR | PPV | Notes |
 |------|------|-----|-----|-----|-------|
-| blaSHV | chrom amp | — | — | — | chromosomal calling in progress |
-| ramR | chrom del | — | — | — | chromosomal calling in progress |
+| blaSHV | chrom amp | — | — | — | called; GT unreliable (assembly collapse hides tandem dups) |
 | blaKPC-2 | plasmid | 1.00 | 0.00 | 1.00 | |
 | blaNDM-1 | plasmid | 0.99 | 0.00 | 0.99 | |
-| blaCTX-M-15 | plasmid | 0.82 | 0.20 | 1.00 | 53 FNs; reads cross-map to blaSHV |
-| qnrB1 | plasmid | — | — | — | called (174 samples); GT eval pending |
-| aac6-Ib-cr | plasmid | — | — | — | called (83 samples); GT eval pending |
-| blaOXA-48 | plasmid | — | — | — | called (77 samples); GT eval pending |
-| blaCTX-M-14 | plasmid | — | — | — | 0 calls; reads cross-map to CTX-M-15 |
-| blaTEM-1 | plasmid | — | — | — | 0 calls; reads cross-map to chr blaSHV |
+| blaCTX-M-15 | plasmid | 0.82 | 0.20 | 1.00 | 33 irreducible FNs; reads cross-map to chromosomal blaSHV |
+| qnrB1 | plasmid | 0.98 | 0.01 | 0.97 | |
+| blaOXA-48 | plasmid | 0.98 | 0.02 | 0.97 | GT covers OXA-48-like family (OXA-181/232/244) |
+| aac(6')-Ib-cr | plasmid | 0.86 | 0.26 | 0.95 | |
+
+Hold-out validation (exp 30, 20% stratified split) in progress.
 
 ## Layout
 
@@ -55,9 +54,9 @@ cd models/experiments/27
 bash run.sh
 ```
 
-Or directly:
+Or directly (after `conda activate cnvrock`):
 ```bash
-.venv/bin/python models/train.py models/experiments/27/config.yaml
+python models/train.py models/experiments/30/config.yaml
 ```
 
 ## Adding a new experiment

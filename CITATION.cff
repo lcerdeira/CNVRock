@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+message: "If you use CNVRock, please cite it as below."
+type: software
+title: "CNVRock: AMR gene copy-number variation in Klebsiella pneumoniae using variational autoencoders"
+version: "0.1.0"
+date-released: "2025"
+license: MIT
+repository-code: "https://github.com/lcerdeira/CNVRock"
+
+authors:
+  - family-names: Cerdeira
+    given-names: Louise
+    affiliation: "London School of Hygiene & Tropical Medicine"
+    orcid: "https://orcid.org/0000-0000-0000-0000"  # replace with your ORCID
+
+abstract: >
+  CNVRock detects antimicrobial resistance gene copy-number variation in
+  Klebsiella pneumoniae Species Complex (KpSC) whole-genome sequencing data.
+  A convolutional variational autoencoder learns a low-dimensional
+  representation of genome-wide read depth; a Gaussian HMM segments latent
+  trajectories into copy-number states; gene-specific callers convert those
+  states into per-gene calls for both chromosomal genes (blaSHV) and
+  plasmid-borne resistance genes (blaKPC, blaNDM, blaCTX-M, qnrB, blaOXA-48,
+  aac(6')-Ib-cr). Applied to 547 KpSC short-read samples from the
+  AllTheBacteria catalog, CNVRock achieves MCC ≥ 0.82 across all evaluated
+  genes.
+
+keywords:
+  - antimicrobial resistance
+  - copy number variation
+  - Klebsiella pneumoniae
+  - variational autoencoder
+  - whole genome sequencing
+  - plasmid copy number
+
+references:
+  - type: dataset
+    title: "AllTheBacteria"
+    url: "https://www.allthebacteria.org/"
+  - type: software
+    title: "AMRFinder+"
+    url: "https://www.ncbi.nlm.nih.gov/pathogens/antimicrobial-resistance/AMRFinder/"
+  - type: software
+    title: "Kleborate"
+    url: "https://github.com/klebgenomics/Kleborate"

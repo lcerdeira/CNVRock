@@ -1,0 +1,43 @@
+name: cnvrock
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+
+  # Deep learning — GPU (CUDA 12.x) build; change to cpuonly if no GPU
+  - pytorch::pytorch=2.5.1
+  - pytorch::pytorch-cuda=12.4
+
+  # Core scientific stack
+  - conda-forge::numpy>=1.26
+  - conda-forge::scipy>=1.13
+  - conda-forge::pandas>=2.2
+  - conda-forge::scikit-learn>=1.5
+  - conda-forge::pyarrow>=16.0
+  - conda-forge::pyyaml>=6.0
+  - conda-forge::matplotlib>=3.9
+  - conda-forge::tqdm>=4.66
+
+  # HMM segmentation
+  - conda-forge::hmmlearn>=0.3
+
+  # Diagnostics app
+  - conda-forge::streamlit>=1.35
+  - conda-forge::bokeh>=3.4
+  - conda-forge::umap-learn>=0.5
+
+  # Report generation (optional)
+  - pip:
+    - python-docx>=1.0
+
+# CPU-only alternative (remove pytorch-cuda line and change pytorch to):
+#   - pytorch::pytorch=2.5.1
+#   - pytorch::cpuonly
+#
+# After creating the environment:
+#   conda activate cnvrock
+#   python models/train.py models/experiments/30/config.yaml
