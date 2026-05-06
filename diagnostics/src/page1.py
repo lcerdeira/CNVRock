@@ -26,7 +26,7 @@ def page1():
 
     results = load_results(cfg["out_dir"])
     inputs  = load_inputs(cfg["store_path"])
-    meta, gff = load_meta()
+    meta, gff = load_meta(cfg.get("kpsc_meta_path"))
 
     # --- Sample filter ---------------------------------------------------------
     filter_key = f"meta_filter_{EXPERIMENT}"
@@ -130,6 +130,21 @@ def page1():
     with col3:
         st.button("I'm Feeling Lucky", on_click=on_lucky_click, width="stretch")
 
+    # Sample metadata badge
+    if SAMPLE_ID and not meta.empty and SAMPLE_ID in meta.index:
+        row    = meta.loc[SAMPLE_ID]
+        badges = []
+        if "Species" in meta.columns:
+            sp = str(row.get("Species", ""))
+            if sp and sp != "nan":
+                badges.append(f"**Species:** {sp}")
+        if "ST" in meta.columns:
+            st_val = str(row.get("ST", ""))
+            if st_val and st_val not in ("nan", "Unknown", "-"):
+                badges.append(f"**ST:** {st_val}")
+        if badges:
+            st.caption("  ·  ".join(badges))
+
     pca_df, variance = compute_pca(results["latents"])
     contours = compute_pca_contours(pca_df, meta)
 
@@ -144,7 +159,7 @@ def page1():
         st.pyplot(lat_fig, width="stretch")
         plt.close(lat_fig)
 
-        fig = plot_pca(pca_df, variance, contours, SAMPLE_ID)
+        fig = plot_pca(pca_df, variance, contours, SAMPLE_ID, meta=meta)
         st.pyplot(fig, width="stretch")
         plt.close(fig)
     with col_cn:
@@ -176,9 +191,10 @@ def page1():
         )
     st.dataframe(pd.DataFrame(gene_calls), hide_index=True, width="stretch")
 
-    @st.dialog("Gene annotations", width="large")
-    def _show_gff(chrom):
-        st.dataframe(gff[gff["seqid"] == chrom], hide_index=True, width="stretch")
+    if not gff.empty:
+        @st.dialog("Gene annotations", width="large")
+        def _show_gff(chrom):
+            st.dataframe(gff[gff["seqid"] == chrom], hide_index=True, width="stretch")
 
-    if st.button("Gene annotations"):
-        _show_gff(st.session_state.get("chrom_slider", data["chrom"].iloc[0]))
+        if st.button("Gene annotations"):
+            _show_gff(st.session_state.get("chrom_slider", data["chrom"].iloc[0]))

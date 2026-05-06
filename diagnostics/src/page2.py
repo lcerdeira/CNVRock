@@ -13,7 +13,7 @@ def page2():
         st.stop("Please select a results directory.")
 
     results    = load_results(os.path.join("../data/results/", RESULTS_DIR))
-    meta, _gff = load_meta()
+    meta, _gff = load_meta()  # uses default KpSC path or Pf9 fallback
 
     with st.expander("Settings", expanded=False):
         n_void      = st.slider("Void probes",    1_000, 50_000,  5_000, step=1_000)
