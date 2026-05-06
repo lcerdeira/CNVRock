@@ -60,8 +60,11 @@ GENE_PATTERNS = {
     "blaCTX-M":  ["blaCTX-M"],
     "blaNDM":    ["blaNDM"],
     # Phase C plasmid genes (added for exp 28 evaluation)
-    "qnrB1":     ["qnrB1"],
-    "blaOXA-48": ["OXA-48", "blaOXA-48"],
+    # qnrB1 reference cross-maps to other qnrB variants → GT covers whole family
+    "qnrB1":     ["qnrB"],
+    # OXA-48 reference captures OXA-48-like variants (OXA-181/232/244 >90% aa identity)
+    "blaOXA-48": ["OXA-48", "blaOXA-48", "OXA-181", "OXA-232", "OXA-244",
+                  "OXA-162", "OXA-204"],
     "aac6-Ib-cr":["aac(6')-Ib-cr", "aac(6)-Ib-cr"],
 }
 
