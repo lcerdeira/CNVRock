@@ -35,7 +35,7 @@ done
 echo ""
 echo "=== Running evaluation ==="
 cd "$REPO_DIR"
-.venv/bin/python - <<'EOF'
+python - <<'EOF'
 import importlib, os, sys, yaml
 
 sys.path.insert(0, os.path.join(os.getcwd(), "models"))
