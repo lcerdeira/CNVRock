@@ -38,56 +38,66 @@ def load_results(results_dir):
     gene_calls_path = os.path.join(results_dir, "gene_calls.tsv")
     gene_calls = pd.read_csv(gene_calls_path, sep="\t", index_col=0) if os.path.exists(gene_calls_path) else None
 
+    plasmid_path = os.path.join(results_dir, "plasmid_gene_calls.tsv")
+    plasmid_calls = pd.read_csv(plasmid_path, sep="\t", index_col=0) if os.path.exists(plasmid_path) else None
+
     return {
         "latents": latents_df,
         "reconstructions": reconstructions_df,
         "segments": segments,
         "gene_calls": gene_calls,
+        "plasmid_calls": plasmid_calls,
     }
 
 @st.cache_data
 def load_meta():
-    meta_df = pd.read_csv(
-        "../assets/Pf_9_samples_20260227.txt", index_col=0, sep = "\t",
-        usecols = [
-            "Sample", "Study", "Country", "Admin level 1", "Year", "Population", "% callable",
-            "QC pass", "Exclusion reason", "Sample type"]
+    try:
+        meta_df = pd.read_csv(
+            "../assets/Pf_9_samples_20260227.txt", index_col=0, sep = "\t",
+            usecols = [
+                "Sample", "Study", "Country", "Admin level 1", "Year", "Population", "% callable",
+                "QC pass", "Exclusion reason", "Sample type"]
+            )
+        cnv_calls = pd.read_csv(
+            "../assets/20260313_full_cnv_data_pf9.tsv", sep = "\t", index_col=0,
+            usecols = [
+                "Sample",
+                "CRT_uncurated_coverage_only", "CRT_curated_coverage_only", "CRT_faceaway_only",
+                "GCH1_uncurated_coverage_only", "GCH1_curated_coverage_only", "GCH1_faceaway_only",
+                "MDR1_uncurated_coverage_only", "MDR1_curated_coverage_only", "MDR1_faceaway_only",
+                "PM2_PM3_uncurated_coverage_only", "PM2_PM3_curated_coverage_only", "PM2_PM3_faceaway_only",
+                "HRP2_uncurated_coverage_only", "HRP2_final_deletion_call",
+                "HRP3_uncurated_coverage_only", "HRP3_final_deletion_call",
+            ]
         )
-    cnv_calls = pd.read_csv(
-        "../assets/20260313_full_cnv_data_pf9.tsv", sep = "\t", index_col=0,
-        usecols = [
-            "Sample",
-            "CRT_uncurated_coverage_only", "CRT_curated_coverage_only", "CRT_faceaway_only",
-            "GCH1_uncurated_coverage_only", "GCH1_curated_coverage_only", "GCH1_faceaway_only",
-            "MDR1_uncurated_coverage_only", "MDR1_curated_coverage_only", "MDR1_faceaway_only",
-            "PM2_PM3_uncurated_coverage_only", "PM2_PM3_curated_coverage_only", "PM2_PM3_faceaway_only",
-            "HRP2_uncurated_coverage_only", "HRP2_final_deletion_call",
-            "HRP3_uncurated_coverage_only", "HRP3_final_deletion_call",
-        ]
-    )
-    gff = pd.read_csv(
-        "../assets/PlasmoDB-54_Pfalciparum3D7.gff",
-        sep="\t", comment="#", header=None,
-        names=["seqid", "source", "type", "start", "end", "score", "strand", "phase", "attributes"]
-    )
+        gff = pd.read_csv(
+            "../assets/PlasmoDB-54_Pfalciparum3D7.gff",
+            sep="\t", comment="#", header=None,
+            names=["seqid", "source", "type", "start", "end", "score", "strand", "phase", "attributes"]
+        )
 
-    def parse_attributes(attr_string):
-        attrs = {}
-        for item in attr_string.split(';'):
-            if "=" in item:
-                key, value = item.split('=', 1)
-                attrs[key] = value
-        return attrs
-    
-    attr_df = gff['attributes'].apply(parse_attributes).apply(pd.Series)
-    gff = pd.concat([gff, attr_df], axis=1)
-    gff = gff.loc[gff["type"].isin(["protein_coding_gene", "ncRNA"])].reset_index(drop = True).drop(
-        columns = [
-            "source", "attributes", "Note", "score", "protein_source_id",
-            "strand", "phase", "Parent", "gene_id", "type"]
-    ).sort_values("ID")
+        def parse_attributes(attr_string):
+            attrs = {}
+            for item in attr_string.split(';'):
+                if "=" in item:
+                    key, value = item.split('=', 1)
+                    attrs[key] = value
+            return attrs
 
-    return meta_df.merge(cnv_calls, left_index=True, right_index=True, how="left"), gff
+        attr_df = gff['attributes'].apply(parse_attributes).apply(pd.Series)
+        gff = pd.concat([gff, attr_df], axis=1)
+        gff = gff.loc[gff["type"].isin(["protein_coding_gene", "ncRNA"])].reset_index(drop = True).drop(
+            columns = [
+                "source", "attributes", "Note", "score", "protein_source_id",
+                "strand", "phase", "Parent", "gene_id", "type"]
+        ).sort_values("ID")
+
+        return meta_df.merge(cnv_calls, left_index=True, right_index=True, how="left"), gff
+
+    except FileNotFoundError:
+        # Pf9 metadata not present (e.g. running with KpSC experiments).
+        # Return empty frames — sample viewer falls back to showing all samples.
+        return pd.DataFrame(), pd.DataFrame(columns=["seqid", "start", "end", "ID"])
 
 @st.cache_data
 def load_inputs(inputs_path):
@@ -126,6 +136,8 @@ _KDE_CLASSES = {"gDNA": "green", "sWGA": "blue"}
 @st.cache_data
 def compute_pca_contours(pca_df, meta):
     """Compute KDE contour paths per sample class. Cached — independent of selected sample."""
+    if "Sample type" not in meta.columns:
+        return {}
     pca_with_type = pca_df.join(meta[["Sample type"]], how="left")
 
     pad_x = (pca_df["PC1"].max() - pca_df["PC1"].min()) * 0.15
@@ -233,13 +245,13 @@ def compute_coverage(latents_df, n_void=20_000, umap_n_neighbors=15, umap_min_di
     probes      = candidates[mask]
     probe_dists = cand_dists[mask]
 
-    if len(probes) < n_void:
-        raise ValueError(f"Only {len(probes)} probe candidates survived filtering (need {n_void})")
-
-    # Take the n_void closest to the boundary
-    top_idx     = np.argpartition(probe_dists, n_void)[:n_void]
-    probes      = probes[top_idx]
-    probe_dists = probe_dists[top_idx]
+    if len(probes) <= n_void:
+        pass  # use all available probes — no partitioning needed
+    else:
+        # Take the n_void closest to the boundary
+        top_idx     = np.argpartition(probe_dists, n_void)[:n_void]
+        probes      = probes[top_idx]
+        probe_dists = probe_dists[top_idx]
 
     # PCA to 6D first, then UMAP
     combined     = np.vstack([probes, z])
@@ -366,7 +378,10 @@ def plot_coverage(coverage_df, latents_df, meta):
 
     probe_df  = coverage_df[coverage_df["type"] == "void_probe"]
     sample_df = coverage_df[coverage_df["type"] == "sample"].copy()
-    sample_df = sample_df.join(meta[["Sample type"]], how="left")
+    if "Sample type" in meta.columns:
+        sample_df = sample_df.join(meta[["Sample type"]], how="left")
+    else:
+        sample_df["Sample type"] = "Unknown"
     sample_df["Sample type"] = sample_df["Sample type"].fillna("Unknown")
 
     probe_payload = json.dumps({
@@ -498,12 +513,25 @@ if _MODELS_DIR not in sys.path:
 
 
 def list_experiments():
-    """Return sorted list of experiment folder names that contain a config.yaml."""
-    return sorted([
-        d for d in os.listdir(_EXPERIMENTS_DIR)
-        if d[0].isdigit()
-        and os.path.isfile(os.path.join(_EXPERIMENTS_DIR, d, "config.yaml"))
-    ])
+    """Return sorted list of experiment folders whose out_dir data exists locally."""
+    result = []
+    for d in os.listdir(_EXPERIMENTS_DIR):
+        if not d[0].isdigit():
+            continue
+        cfg_path = os.path.join(_EXPERIMENTS_DIR, d, "config.yaml")
+        if not os.path.isfile(cfg_path):
+            continue
+        try:
+            with open(cfg_path) as f:
+                cfg = yaml.safe_load(f)
+            out_dir = cfg.get("out_dir", "")
+            if out_dir and not os.path.isabs(out_dir):
+                out_dir = os.path.normpath(os.path.join(os.path.dirname(cfg_path), out_dir))
+            if os.path.isfile(os.path.join(out_dir, "latents.npy")):
+                result.append(d)
+        except Exception:
+            continue
+    return sorted(result)
 
 
 @st.cache_data
@@ -514,7 +542,13 @@ def load_experiment_config(experiment_id):
     with open(config_path) as f:
         cfg = yaml.safe_load(f)
     # Resolve relative paths against the config file's own directory
-    for key in ("store_path", "out_dir", "pf9_gt_path", "pf9_meta_path"):
+    path_keys = (
+        "store_path", "out_dir",
+        "pf9_gt_path", "pf9_meta_path",
+        "kpsc_gt_path", "kpsc_meta_path", "kpsc_kleborate_gt_path",
+        "plasmid_store_path", "plasmid_gene_coords_path",
+    )
+    for key in path_keys:
         if key in cfg and not os.path.isabs(cfg[key]):
             cfg[key] = os.path.normpath(os.path.join(config_dir, cfg[key]))
     return cfg
@@ -564,7 +598,11 @@ def plot_copy_number(data, segments=None):
         st.session_state["chrom_slider"] = random.choice(chrom_options)
         st.session_state["lucky_chrom"] = st.session_state["chrom_slider"]
 
-    selected_chrom = st.select_slider("Chromosome", chrom_options, key="chrom_slider", label_visibility="hidden")
+    if len(chrom_options) == 1:
+        selected_chrom = chrom_options[0]
+        st.caption(f"Chromosome: {selected_chrom}")
+    else:
+        selected_chrom = st.select_slider("Chromosome", chrom_options, key="chrom_slider", label_visibility="hidden")
 
     filtered = data[data["chrom"] == selected_chrom].reset_index(drop=True)
     x       = filtered.start.values.astype(float)

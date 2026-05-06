@@ -62,8 +62,58 @@ def page1():
     filtered_ids   = set(filtered_meta.index)
     sample_options = [s for s in results["latents"].index if s in filtered_ids]
     if not sample_options:
-        st.warning("No samples match the current filter — showing all samples.")
         sample_options = list(results["latents"].index)
+
+    # --- Gene call filter (plasmid + chromosomal) ----------------------------
+    _CN_STATE_LABELS = {-1: "uncallable", 0: "absent / deletion", 1: "normal / present", 2: "amplified"}
+
+    with st.expander("Filter by gene calls", expanded=False):
+        gene_filtered_ids = set(sample_options)
+
+        plasmid_calls = results.get("plasmid_calls")
+        if plasmid_calls is not None:
+            st.markdown("**Plasmid genes** (cn: 0 = absent, 1 = present, 2 = amplified)")
+            p_genes = [c for c in plasmid_calls.columns if not c.startswith("pcn_")]
+            cols = st.columns(min(4, len(p_genes)))
+            for i, gene in enumerate(p_genes):
+                with cols[i % len(cols)]:
+                    available_states = sorted(plasmid_calls[gene].dropna().unique().astype(int).tolist())
+                    state_labels = [_CN_STATE_LABELS.get(s, str(s)) for s in available_states]
+                    selected = st.multiselect(
+                        gene, options=available_states,
+                        format_func=lambda s: _CN_STATE_LABELS.get(s, str(s)),
+                        key=f"pfilter_{EXPERIMENT}_{gene}",
+                        placeholder="any",
+                    )
+                    if selected:
+                        keep = set(plasmid_calls.index[plasmid_calls[gene].isin(selected)].tolist())
+                        gene_filtered_ids &= keep
+
+        chrom_calls = results.get("gene_calls")
+        if chrom_calls is not None:
+            st.markdown("**Chromosomal genes** (cn: 0 = deletion, 1 = normal, 2 = amplified, -1 = uncallable)")
+            c_genes = [c for c in chrom_calls.columns if not c.startswith("crr_")]
+            cols = st.columns(min(4, len(c_genes)))
+            for i, gene in enumerate(c_genes):
+                with cols[i % len(cols)]:
+                    available_states = sorted(chrom_calls[gene].dropna().unique().astype(int).tolist())
+                    selected = st.multiselect(
+                        gene, options=available_states,
+                        format_func=lambda s: _CN_STATE_LABELS.get(s, str(s)),
+                        key=f"cfilter_{EXPERIMENT}_{gene}",
+                        placeholder="any",
+                    )
+                    if selected:
+                        keep = set(chrom_calls.index[chrom_calls[gene].isin(selected)].tolist())
+                        gene_filtered_ids &= keep
+
+        n_before = len(sample_options)
+        sample_options = [s for s in sample_options if s in gene_filtered_ids]
+        if len(sample_options) < n_before:
+            st.caption(f"{len(sample_options)} / {n_before} samples match gene filter")
+        if not sample_options:
+            st.warning("No samples match — gene filter cleared.")
+            sample_options = list(results["latents"].index)
 
     def on_lucky_click():
         st.session_state["sample_select"] = random.choice(sample_options)

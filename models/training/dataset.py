@@ -1,16 +1,39 @@
 import math
+import os
+from typing import Optional
+
 import numpy as np
 import torch
 import torch.nn.functional as F
-import os
 from torch.utils.data import Dataset
 
 
 class ReadCountDataset(Dataset):
-    def __init__(self, npy_dir: str, normalise: bool = True):
-        # npy_dir should contain counts.npy and sample_ids.npy
-        self.counts     = np.load(os.path.join(npy_dir, "counts.npy"))
-        self.sample_ids = np.load(os.path.join(npy_dir, "sample_ids.npy"), allow_pickle=True)
+    def __init__(self, npy_dir: str, normalise: bool = True,
+                 exclude_ids: Optional[set] = None):
+        """Load read-count data from a numpy store directory.
+
+        Args:
+            npy_dir:     Directory containing counts.npy and sample_ids.npy.
+            normalise:   Apply per-sample median log2 normalisation.
+            exclude_ids: Set of sample ID strings to exclude (e.g. held-out
+                         validation samples). Excluded samples are removed from
+                         __len__ and __getitem__ so the DataLoader never sees them.
+                         Pass None (default) to use all samples.
+        """
+        counts     = np.load(os.path.join(npy_dir, "counts.npy"))
+        sample_ids = np.load(os.path.join(npy_dir, "sample_ids.npy"), allow_pickle=True)
+
+        if exclude_ids:
+            keep_mask       = np.array([sid not in exclude_ids for sid in sample_ids])
+            counts          = counts[keep_mask]
+            sample_ids      = sample_ids[keep_mask]
+            n_excluded      = int((~keep_mask).sum())
+            print(f"ReadCountDataset: excluded {n_excluded} hold-out samples "
+                  f"({len(sample_ids)} training samples remain)", flush=True)
+
+        self.counts     = counts
+        self.sample_ids = sample_ids
         self.normalise  = normalise
         n_bins_raw = self.counts.shape[1]
         # Must be a multiple of 32 so 5 stride-2 encoder layers divide evenly

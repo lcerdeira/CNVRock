@@ -43,11 +43,11 @@ CHROM = "NC_016845.1"  # HS11286 chromosome (RefSeq GCF download) — confirm wi
 GENES_OF_INTEREST = [
     # blaSHV-11: KPHS_25220, 861 bp, minus strand (GFF 1-based coords)
     {"call_id": "blaSHV",  "contig": CHROM, "start": 2549403, "end": 2550263},
-    # ramR: KPHS_06060, 465 bp, plus strand (MarR-family repressor of acrAB via ramA)
-    {"call_id": "ramR",    "contig": CHROM, "start": 648627, "end": 649091},
-    # ompK35 and ompK36 removed: loss-of-function occurs via frameshift/truncation,
-    # not copy-number deletion — CRR is ~1.0 whether functional or disrupted.
-    # Evaluate porin status using Kleborate GT directly (assembly-based).
+    # ramR removed: disruption in KpSC is almost exclusively via IS element insertion
+    # or point mutation — not physical deletion.  crr_ramR never drops below 0.70
+    # across 545 samples, confirming no read-depth-detectable deletions exist.
+    # Evaluate ramR status using Kleborate GT (assembly + BLAST-based).
+    # ompK35 and ompK36 removed for the same reason (frameshift/truncation).
 ]
 
 
