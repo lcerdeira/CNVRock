@@ -61,7 +61,7 @@ NEW_GENES = [
     {
         "gene":             "blaOXA-48",
         "query":            ('blaOXA-48 AND "Klebsiella pneumoniae"[organism] '
-                             'AND plasmid[filter] AND refseq[filter]'),
+                             'AND plasmid[filter] AND refseq[filter] AND 5000:500000[SLEN]'),
         "pattern":          "blaOXA",
         "absent_threshold": "0.20",
         "slen_range":       "700:950",   # OXA-48 CDS ~828 bp
@@ -77,7 +77,7 @@ NEW_GENES = [
     {
         "gene":             "aac6-Ib-cr",
         "query":            ('"Klebsiella pneumoniae"[organism] AND aac AND Ib-cr '
-                             'AND plasmid[filter] AND refseq[filter]'),
+                             'AND plasmid[filter] AND 10000:300000[SLEN]'),
         "pattern":          "aac",
         "absent_threshold": "0.20",
         "slen_range":       "450:650",   # aac(6')-Ib CDS ~543 bp
@@ -108,7 +108,10 @@ def _fetch_plasmid_ncbi(gene: str, query: str) -> tuple[str, str]:
     handle    = Entrez.esummary(db="nucleotide", id=",".join(ids))
     summaries = Entrez.read(handle)
     handle.close()
-    best_id   = max(summaries, key=lambda s: int(s.get("Length", 0)))["Id"]
+    # Prefer plasmid-sized sequences (<500 kb) to avoid picking chromosome contigs.
+    plasmid_sized = [s for s in summaries if int(s.get("Length", 0)) < 500_000]
+    candidates = plasmid_sized if plasmid_sized else summaries
+    best_id = max(candidates, key=lambda s: int(s.get("Length", 0)))["Id"]
 
     print(f"  Downloading best match (id {best_id}, {len(ids)} candidates) …")
     time.sleep(0.5)
@@ -263,8 +266,9 @@ def main():
 
             if coords_hit is None:
                 print(f"  ERROR: {gene} not found on {acc} by BLAST. "
-                      f"Try a different plasmid or set a fallback accession.",
+                      f"Deleting cached {out_fa.name} — re-run to try a different plasmid.",
                       file=sys.stderr)
+                out_fa.unlink(missing_ok=True)
                 continue
 
             print(f"  Appending {acc} to {EXTENDED_FA.name} …")
