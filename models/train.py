@@ -170,6 +170,10 @@ def main():
     elif cfg.get("kpsc_gt_path"):
         cfg_resolved = dict(cfg)
         cfg_resolved["kpsc_gt_path"] = resolve(cfg["kpsc_gt_path"])
+        for key in ("kpsc_kleborate_gt_path", "kpsc_meta_path",
+                    "plasmid_gene_coords_path"):
+            if cfg.get(key):
+                cfg_resolved[key] = resolve(cfg[key])
         run_evaluation(out_dir, cfg_resolved)
     else:
         print("Skipping evaluation (no gt_path set in config).", flush=True)
