@@ -8,17 +8,19 @@
 #SBATCH --partition=normal
 
 # Phase B: extract unmapped reads from each existing BAM and remap to
-# HS11286_extended.fasta to obtain read counts at blaCTX-M-15 and blaNDM-1.
+# HS11286_extended.fasta to obtain read counts at plasmid resistance genes.
 #
-# The existing BAMs were mapped to HS11286 (chromosome + native plasmids).
-# MK552109.1 (blaCTX-M-15) and MZ606384.2 (blaNDM-1) were not in that
-# reference, so reads from those plasmids are in the unmapped fraction.
+# Which genes are counted is driven by assets/plasmid_refs/plasmid_gene_coords.tsv.
+# blaKPC-2 is excluded — it is already in the original BAMs (NC_016846.1).
 #
-# Output per sample: <accession>.plasmid_counts.tsv (one line)
-#   <acc>  <ctxm_count>  <ndm_count>
+# Output per sample: <accession>.plasmid_counts.tsv
+#   Header: sample_id <tab> gene1 <tab> gene2 ...
+#   Data:   <acc>     <tab> count <tab> count ...
 #
 # Usage:
 #   cd ~/CNVRock
+#   # Delete old counts if gene list has changed:
+#   rm -f data/inputs/plasmid_remap_counts/*.plasmid_counts.tsv
 #   N=$(wc -l < assets/kpsc_bam_accessions.txt)
 #   sbatch --array=1-${N}%50 hpc/remap_unmapped_to_plasmids.sh
 
@@ -30,17 +32,30 @@ module load bwa/0.718
 REPO_DIR="/home/lshlt19/CNVRock"
 BAM_DIR="$REPO_DIR/data/raw/bam"
 REF="$REPO_DIR/assets/HS11286_extended.fasta"
+COORDS="$REPO_DIR/assets/plasmid_refs/plasmid_gene_coords.tsv"
 ACCS="$REPO_DIR/assets/kpsc_bam_accessions.txt"
 OUT_DIR="$REPO_DIR/data/inputs/plasmid_remap_counts"
 
-# Gene loci (±500 bp padding, matching existing blaKPC-2 bin convention)
-# blaCTX-M-15: MK552109.1:119392-120264 → padded 118892-120764
-# blaNDM-1:    MZ606384.2:90937-91746   → padded 90437-92246
-CTXM_REGION="MK552109.1:118892-120764"
-NDM_REGION="MZ606384.2:90437-92246"
-
 mkdir -p "$OUT_DIR" "$REPO_DIR/logs"
 
+# ── Read gene loci from coords TSV (skip header and blaKPC-2) ────────────────
+GENE_NAMES=()
+GENE_REGIONS=()
+while IFS=$'\t' read -r gene contig start end rest; do
+    [[ "$gene" == "gene" ]] && continue        # header row
+    [[ "$gene" == "blaKPC-2" ]] && continue   # already in original BAMs
+    GENE_NAMES+=("$gene")
+    GENE_REGIONS+=("${contig}:${start}-${end}")
+done < "$COORDS"
+
+if [[ "${#GENE_NAMES[@]}" -eq 0 ]]; then
+    echo "ERROR: no non-KPC genes found in $COORDS" >&2
+    exit 1
+fi
+
+echo "Genes to count: ${GENE_NAMES[*]}"
+
+# ── Get sample accession for this array task ──────────────────────────────────
 ACC=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$ACCS")
 if [[ -z "$ACC" ]]; then
     echo "No accession for task $SLURM_ARRAY_TASK_ID — skipping."
@@ -65,28 +80,41 @@ trap "rm -rf $TMP" EXIT
 
 echo "Task $SLURM_ARRAY_TASK_ID: $ACC"
 
-# Step 1: Extract unmapped reads as FASTQ
+# ── Extract unmapped reads as FASTQ ──────────────────────────────────────────
 samtools view -b -f 4 "$BAM" | \
     samtools fastq - > "$TMP/unmapped.fq"
 
 N_READS=$(( $(wc -l < "$TMP/unmapped.fq") / 4 ))
 echo "  Unmapped reads: $N_READS"
 
-if [[ "$N_READS" -eq 0 ]]; then
-    echo -e "${ACC}\t0\t0" > "$OUT"
-    echo "  No unmapped reads — writing zeros."
-    exit 0
+# ── Remap to extended reference ───────────────────────────────────────────────
+if [[ "$N_READS" -gt 0 ]]; then
+    bwa mem -t "$SLURM_CPUS_PER_TASK" "$REF" "$TMP/unmapped.fq" 2>/dev/null | \
+        samtools view -b -F 4 -q 10 | \
+        samtools sort -o "$TMP/plasmid.bam"
+    samtools index "$TMP/plasmid.bam"
+    HAVE_BAM=1
+else
+    HAVE_BAM=0
 fi
 
-# Step 2: Remap to extended reference (new plasmid contigs will attract their reads)
-bwa mem -t "$SLURM_CPUS_PER_TASK" "$REF" "$TMP/unmapped.fq" 2>/dev/null | \
-    samtools view -b -F 4 -q 10 | \
-    samtools sort -o "$TMP/plasmid.bam"
-samtools index "$TMP/plasmid.bam"
+# ── Count reads at each gene locus ────────────────────────────────────────────
+HEADER="sample_id"
+VALUES="$ACC"
+for i in "${!GENE_NAMES[@]}"; do
+    gene="${GENE_NAMES[$i]}"
+    region="${GENE_REGIONS[$i]}"
+    HEADER="${HEADER}\t${gene}"
+    if [[ "$HAVE_BAM" -eq 1 ]]; then
+        cnt=$(samtools view -c -F 4 "$TMP/plasmid.bam" "$region" 2>/dev/null || echo 0)
+    else
+        cnt=0
+    fi
+    VALUES="${VALUES}\t${cnt}"
+    echo "  ${gene}: ${cnt}"
+done
 
-# Step 3: Count reads at each gene locus
-ctxm_count=$(samtools view -c -F 4 "$TMP/plasmid.bam" "$CTXM_REGION" 2>/dev/null || echo 0)
-ndm_count=$(samtools  view -c -F 4 "$TMP/plasmid.bam" "$NDM_REGION"  2>/dev/null || echo 0)
-
-echo -e "${ACC}\t${ctxm_count}\t${ndm_count}" > "$OUT"
-echo "  CTX-M=$ctxm_count  NDM=$ndm_count"
+# Write header + data (header helps merge script identify columns)
+echo -e "$HEADER" > "$OUT"
+echo -e "$VALUES" >> "$OUT"
+echo "Done: $ACC"
