@@ -59,6 +59,10 @@ GENE_PATTERNS = {
     "blaKPC":    ["blaKPC"],
     "blaCTX-M":  ["blaCTX-M"],
     "blaNDM":    ["blaNDM"],
+    # Phase C plasmid genes (added for exp 28 evaluation)
+    "qnrB1":     ["qnrB1"],
+    "blaOXA-48": ["OXA-48", "blaOXA-48"],
+    "aac6-Ib-cr":["aac(6')-Ib-cr", "aac(6)-Ib-cr"],
 }
 
 # ---------------------------------------------------------------------------
