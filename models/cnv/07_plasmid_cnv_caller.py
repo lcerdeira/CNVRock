@@ -40,6 +40,13 @@ Config keys
     pcn_absent_threshold     — PCN below this → gene absent  (default 0.2)
     pcn_amp_threshold        — PCN above this → amplified     (default 1.5)
 
+Per-gene threshold override
+---------------------------
+    plasmid_gene_coords.tsv may include an optional `absent_threshold` column.
+    When present for a gene, it overrides pcn_absent_threshold for that gene only.
+    Useful when one plasmid reference has more cross-mapping noise than others
+    (e.g. blaCTX-M-15 reference attracts reads from other CTX-M family members).
+
 Outputs
 -------
     out_dir/plasmid_gene_calls.tsv
@@ -100,11 +107,14 @@ def run_plasmid_cnv_calls(out_dir: str, cfg: dict) -> None:
     with open(coords_path) as f:
         reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
+            # Per-gene absent_threshold overrides global config value when set
+            gene_absent = row.get("absent_threshold", "").strip()
             genes.append({
-                "gene":   row["gene"],
-                "contig": row["contig"],
-                "start":  int(row["start"]),
-                "end":    int(row["end"]),
+                "gene":             row["gene"],
+                "contig":           row["contig"],
+                "start":            int(row["start"]),
+                "end":              int(row["end"]),
+                "absent_threshold": float(gene_absent) if gene_absent else absent_thresh,
             })
 
     if not genes:
@@ -140,6 +150,7 @@ def run_plasmid_cnv_calls(out_dir: str, cfg: dict) -> None:
         gene_counts = plasmid_counts[:, gene_mask].astype(float)  # (n, n_gene_bins)
         mean_depth  = gene_counts.mean(axis=1)                     # (n,)
 
+        gene_absent_thresh = gene_info["absent_threshold"]
         for idx, sid in enumerate(plasmid_ids):
             chrom_med = median_map.get(sid)
             if chrom_med is None or chrom_med < 1.0:
@@ -147,7 +158,7 @@ def run_plasmid_cnv_calls(out_dir: str, cfg: dict) -> None:
                 pcn = None
             else:
                 pcn = float(mean_depth[idx]) / float(chrom_med)
-                if pcn < absent_thresh:
+                if pcn < gene_absent_thresh:
                     cn = 0
                 elif pcn >= amp_thresh:
                     cn = 2
