@@ -168,6 +168,100 @@ New plasmid genes are added without any code changes:
 4. `python3 data/setup/merge_plasmid_counts.py ...` — update NPY store
 5. Create next experiment config; all new genes are called automatically
 
+## Installation
+
+### Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| conda / mamba | ≥23 | environment management |
+| CUDA | 12.x | GPU training (CPU works but is ~10× slower) |
+| BWA | ≥0.7.17 | read alignment |
+| SAMtools | ≥1.20 | BAM processing |
+| BLAST+ | ≥2.14 | plasmid gene discovery |
+
+### 1. Clone and create the environment
+
+```bash
+git clone https://github.com/lcerdeira/CNVRock.git
+cd CNVRock
+conda env create -f environment.yml   # installs PyTorch + all dependencies
+conda activate cnvrock
+```
+
+For CPU-only (no GPU), edit `environment.yml` before creating: replace `pytorch-cuda=12.4` with `cpuonly`.
+
+### 2. Prepare read-count stores
+
+The pipeline expects per-sample BAMs aligned to HS11286 (NC_016845.1). Starting from BAM files listed in `assets/kpsc_bam_accessions.txt`:
+
+```bash
+# Extract 1 kb bin read counts from each BAM
+sbatch --array=1-N%50 hpc/collect_readcounts.sh
+
+# Convert per-sample count files to a single NPY store
+python data/setup/readcounts_to_npy.py \
+    --counts-dir data/raw/ \
+    --store-path data/inputs/KpSC-HS11286-1000bp-core-npy/
+```
+
+### 3. Prepare plasmid read-count store
+
+Unmapped reads from step 2 are remapped to plasmid gene contigs:
+
+```bash
+sbatch hpc/build_extended_reference.sh          # BWA-index extended reference
+sbatch --array=1-N%50 hpc/remap_unmapped_to_plasmids.sh
+python data/setup/merge_plasmid_counts.py \
+    --counts-dir data/inputs/plasmid_remap_counts/ \
+    --store-path data/inputs/KpSC-plasmid-1000bp-npy/
+```
+
+### 4. Prepare ground truth
+
+```bash
+# AMRFinder+ copy counts (requires assemblies in data/assemblies/)
+sbatch hpc/get_amrfinder_gt.sh
+
+# Kleborate MLST / resistance (writes ST to assets/kpsc_kleborate_ground_truth.tsv)
+sbatch hpc/get_kleborate_gt.sh
+```
+
+### 5. Run an experiment
+
+```bash
+# Full pipeline: train VAE → HMM segmentation → gene calls → evaluation
+python models/train.py models/experiments/29/config.yaml
+
+# Or submit to SLURM GPU queue
+sbatch hpc/train_gpu.sh models/experiments/29/config.yaml
+```
+
+### 6. Launch the diagnostics app
+
+```bash
+cd diagnostics
+streamlit run app.py
+```
+
+Select an experiment from the dropdown — the app auto-resolves all paths from `config.yaml`.
+
+---
+
+## Key findings
+
+### blaCTX-M-15 false negatives: variant-specific, not lineage-specific
+
+33 samples (6% of CTX-M-positive cases) are consistently missed across all experiments. Root cause: their CTX-M reads map to chromosomal blaSHV in the original BWA alignment and never appear as unmapped reads available for plasmid remapping.
+
+ST11 has the highest FNR (0.46) because it is enriched for **blaCTX-M-65**, a variant not represented in the plasmid reference panel. Per-sample AMRFinder+ analysis confirms: 9/12 ST11 FNs carry CTX-M-65 exclusively (PCN ≈ 0.000), whereas ST11 CTX-M-15 carriers are detected normally (PCN 0.52–4.30). Adding a blaCTX-M-65 reference contig is expected to recover these cases.
+
+### blaSHV amplification: assembly-based GT underestimates copy number
+
+AMRFinder+ reports ≤ 1 copy for all 545 samples — consistent with assembly collapse of tandem duplications in short-read de novo assembly. CNVRock calls 34 samples as amplified (CRR 1.75–10.5×), with copy-ratio signal strongly above the chromosomal median. These are likely true tandem duplications invisible to assembly-based tools; long-read sequencing would be required to confirm.
+
+---
+
 ## Setup
 
-See [data/setup/](data/setup/) for scripts that prepare the reference, extract read counts from BAMs, and build the NPY stores.
+See [data/setup/](data/setup/) for all data-preparation scripts. The full workflow from BAMs to a trained model takes approximately 4–6 hours on an LSHTM HPC node (1× NVIDIA A100, 32 GB RAM, 8 CPUs).
