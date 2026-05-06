@@ -16,7 +16,7 @@ def page2():
     meta, _gff = load_meta()
 
     with st.expander("Settings", expanded=False):
-        n_void      = st.slider("Void probes",    5_000, 50_000, 20_000, step=5_000)
+        n_void      = st.slider("Void probes",    1_000, 50_000,  5_000, step=1_000)
         n_neighbors = st.slider("UMAP n_neighbors", 5, 100, 15)
         min_dist    = st.slider("UMAP min_dist",    0.0, 0.5, 0.05, step=0.05)
 

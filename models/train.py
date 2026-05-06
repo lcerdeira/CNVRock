@@ -100,18 +100,34 @@ def main():
     device = get_device()
     print(f"Device: {device}", flush=True)
 
-    ds = ReadCountDataset(store_path, normalise=cfg["normalise"])
+    # Load held-out IDs (optional).  These samples are excluded from training
+    # but included in inference so the full cohort has latents/reconstructions.
+    holdout_ids_path = cfg.get("holdout_ids_path")
+    holdout_ids: set = set()
+    if holdout_ids_path:
+        holdout_ids_path = resolve(holdout_ids_path)
+        with open(holdout_ids_path) as _f:
+            holdout_ids = {ln.strip() for ln in _f if ln.strip()}
+        print(f"Hold-out split: {len(holdout_ids)} samples excluded from training",
+              flush=True)
+
+    # Training dataset excludes held-out samples; full dataset used for inference.
+    ds_train = ReadCountDataset(store_path, normalise=cfg["normalise"],
+                                exclude_ids=holdout_ids if holdout_ids else None)
+    ds_full  = ReadCountDataset(store_path, normalise=cfg["normalise"])
 
     num_workers = 8 if device.type == "cuda" else 0
 
     downsample_ratio = cfg.get("cnv_downsample_ratio")
     if downsample_ratio is not None:
-        dl = _make_downsampled_loader(ds, cfg, resolve, downsample_ratio, cfg["batch_size"], num_workers)
+        dl = _make_downsampled_loader(ds_train, cfg, resolve, downsample_ratio,
+                                      cfg["batch_size"], num_workers)
     else:
-        dl = DataLoader(ds, batch_size=cfg["batch_size"], shuffle=True, num_workers=num_workers)
+        dl = DataLoader(ds_train, batch_size=cfg["batch_size"], shuffle=True,
+                        num_workers=num_workers)
 
     # Pass n_bins_raw if the architecture supports it (06+); older archs ignore it
-    n_bins_raw = ds.counts.shape[1]
+    n_bins_raw = ds_train.counts.shape[1]
     if "n_bins_raw" in inspect.signature(ConvVAE.__init__).parameters:
         model = ConvVAE(latent_dim=cfg["latent_dim"], n_bins_raw=n_bins_raw).to(device)
     else:
@@ -130,7 +146,8 @@ def main():
         weight_decay=cfg["weight_decay"],
     )
 
-    print(f"samples={len(ds)} | latent_dim={cfg['latent_dim']}", flush=True)
+    print(f"samples={len(ds_train)} (train) + {len(holdout_ids)} (held-out) "
+          f"| latent_dim={cfg['latent_dim']}", flush=True)
 
     os.makedirs(out_dir, exist_ok=True)
     checkpoint_path = os.path.join(out_dir, "checkpoint.pth")
@@ -153,7 +170,10 @@ def main():
         model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
         print("Loaded best checkpoint for inference.", flush=True)
 
-    run_inference(model, ds, device, out_dir, batch_size=cfg["batch_size"])
+    # Inference runs over the FULL cohort (including held-out samples) so every
+    # sample gets latents, reconstructions, and gene calls.  Evaluation then
+    # restricts metrics to held-out samples using eval_holdout_ids_path.
+    run_inference(model, ds_full, device, out_dir, batch_size=cfg["batch_size"])
 
     print("Fitting HMM segments...", flush=True)
     run_hmm_all_samples(store_path, out_dir, cfg)
@@ -184,7 +204,8 @@ def main():
         cfg_resolved = dict(cfg)
         cfg_resolved["kpsc_gt_path"] = resolve(cfg["kpsc_gt_path"])
         for key in ("kpsc_kleborate_gt_path", "kpsc_meta_path",
-                    "plasmid_gene_coords_path"):
+                    "plasmid_gene_coords_path", "eval_holdout_ids_path",
+                    "holdout_ids_path"):
             if cfg.get(key):
                 cfg_resolved[key] = resolve(cfg[key])
         run_evaluation(out_dir, cfg_resolved)
