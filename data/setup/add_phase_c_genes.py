@@ -62,6 +62,9 @@ NEW_GENES = [
         "gene":             "blaOXA-48",
         "query":            ('blaOXA-48 AND "Klebsiella pneumoniae"[organism] '
                              'AND plasmid[filter] AND 5000:500000[SLEN]'),
+        # NCBI search keeps returning NZ_ WGS contigs. Use pOXA-48a directly:
+        # Carattoli et al. 2012 (AAC) — canonical 61 kb IncL/M OXA-48 plasmid.
+        "plasmid_accession": "JN626286.1",
         "pattern":          "blaOXA",
         "absent_threshold": "0.20",
         "slen_range":       "700:950",   # OXA-48 CDS ~828 bp
@@ -116,8 +119,9 @@ def _fetch_plasmid_ncbi(gene: str, query: str) -> tuple[str, str]:
     candidates = plasmid_sized if plasmid_sized else summaries
     # NZ_ accessions are WGS assembly contigs, not standalone plasmids.
     # Prefer CP/AP/classical accessions (complete plasmid sequences).
+    # esummary nucleotide uses "Caption" for the bare accession.
     complete = [s for s in candidates
-                if not s.get("AccessionVersion", "").startswith("NZ_")]
+                if not s.get("Caption", "").startswith("NZ_")]
     candidates = complete if complete else candidates
     best_id = max(candidates, key=lambda s: int(s.get("Length", 0)))["Id"]
 
@@ -132,6 +136,19 @@ def _fetch_plasmid_ncbi(gene: str, query: str) -> tuple[str, str]:
     acc   = lines[0].split()[0].lstrip(">")
     print(f"  Downloaded: {acc} ({len(''.join(lines[1:])):,} bp)")
     return acc, fasta_text
+
+
+def _fetch_accession_direct(acc: str) -> tuple[str, str]:
+    """Download a specific NCBI accession as FASTA, bypassing search heuristics."""
+    print(f"  Fetching {acc} directly from NCBI …")
+    time.sleep(0.5)
+    handle     = Entrez.efetch(db="nucleotide", id=acc, rettype="fasta", retmode="text")
+    fasta_text = handle.read()
+    handle.close()
+    lines = fasta_text.strip().split("\n")
+    returned_acc = lines[0].split()[0].lstrip(">")
+    print(f"  Downloaded: {returned_acc} ({len(''.join(lines[1:])):,} bp)")
+    return returned_acc, fasta_text
 
 
 def _blast_find_gene(gene_name: str, plasmid_fasta: str, query_gene_fa: str) -> dict | None:
@@ -256,6 +273,10 @@ def main():
             print(f"  {gene}.fasta already downloaded.")
             with open(out_fa) as f:
                 acc = f.readline().split()[0].lstrip(">")
+        elif "plasmid_accession" in gene_info:
+            acc, fasta_text = _fetch_accession_direct(gene_info["plasmid_accession"])
+            out_fa.write_text(fasta_text)
+            print(f"  Saved → {out_fa}")
         else:
             acc, fasta_text = _fetch_plasmid_ncbi(gene, query)
             out_fa.write_text(fasta_text)
