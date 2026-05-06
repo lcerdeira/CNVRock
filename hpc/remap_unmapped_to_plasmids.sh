@@ -2,17 +2,21 @@
 #SBATCH --job-name=kpsc_plasmid_remap
 #SBATCH --output=/home/lshlt19/CNVRock/logs/plasmid_remap_%A_%a.out
 #SBATCH --error=/home/lshlt19/CNVRock/logs/plasmid_remap_%A_%a.err
-#SBATCH --time=00:30:00
+#SBATCH --time=01:00:00
 #SBATCH --mem=8G
 #SBATCH --cpus-per-task=4
 #SBATCH --partition=normal
 
-# Extract unmapped reads from each existing BAM and remap to
-# HS11286_plasmids_only.fasta (plasmid contigs only, no chromosome) to obtain
-# read counts at plasmid resistance genes.
+# Extract unmapped reads from each existing BAM and remap to individual
+# per-gene plasmid references to obtain read counts at plasmid resistance genes.
 #
-# Using plasmid-only reference avoids MAPQ=0 from chromosomal paralogues
-# (e.g. blaSHV competing with blaCTX-M, aac6-Ib competing with aac6-Ib-cr).
+# Per-gene references avoid MAPQ=0 from inter-plasmid cross-mapping:
+# using a combined reference causes closely-related genes (e.g. blaCTX-M-15
+# vs blaCTX-M-14, or any plasmid sharing repeat regions) to compete, assigning
+# MAPQ=0 to reads that would otherwise map uniquely to a single gene's plasmid.
+#
+# Each gene is mapped independently to its own representative plasmid FASTA
+# (assets/plasmid_refs/<gene>.fasta, pre-indexed with bwa index).
 #
 # Which genes are counted is driven by assets/plasmid_refs/plasmid_gene_coords.tsv.
 # blaKPC-2 is excluded — it is already in the original BAMs (NC_016846.1).
@@ -23,6 +27,8 @@
 #
 # Usage:
 #   cd ~/CNVRock
+#   # Build per-gene BWA indices once (if not already done):
+#   for f in assets/plasmid_refs/*.fasta; do bwa index "$f"; done
 #   # Delete old counts if gene list has changed:
 #   rm -f data/inputs/plasmid_remap_counts/*.plasmid_counts.tsv
 #   N=$(wc -l < assets/kpsc_bam_accessions.txt)
@@ -35,10 +41,7 @@ module load bwa/0.718
 
 REPO_DIR="/home/lshlt19/CNVRock"
 BAM_DIR="$REPO_DIR/data/raw/bam"
-# Plasmid-only reference excludes the HS11286 chromosome and native plasmid (NC_016845.1,
-# NC_016846.1) so that reads cross-mapping to chromosomal paralogues (e.g. blaSHV for
-# CTX-M, aac6-Ib for aac6-Ib-cr) are not assigned MAPQ=0 and then filtered out.
-REF="$REPO_DIR/assets/HS11286_plasmids_only.fasta"
+PLASMID_DIR="$REPO_DIR/assets/plasmid_refs"
 COORDS="$REPO_DIR/assets/plasmid_refs/plasmid_gene_coords.tsv"
 ACCS="$REPO_DIR/assets/kpsc_bam_accessions.txt"
 OUT_DIR="$REPO_DIR/data/inputs/plasmid_remap_counts"
@@ -61,6 +64,15 @@ if [[ "${#GENE_NAMES[@]}" -eq 0 ]]; then
 fi
 
 echo "Genes to count: ${GENE_NAMES[*]}"
+
+# ── Validate that per-gene plasmid FASTAs and BWA indices exist ───────────────
+for gene in "${GENE_NAMES[@]}"; do
+    fa="$PLASMID_DIR/${gene}.fasta"
+    if [[ ! -f "${fa}.bwt" ]]; then
+        echo "ERROR: BWA index missing for $fa — run: bwa index $fa" >&2
+        exit 1
+    fi
+done
 
 # ── Get sample accession for this array task ──────────────────────────────────
 ACC=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$ACCS")
@@ -87,41 +99,38 @@ trap "rm -rf $TMP" EXIT
 
 echo "Task $SLURM_ARRAY_TASK_ID: $ACC"
 
-# ── Extract unmapped reads as FASTQ ──────────────────────────────────────────
+# ── Extract unmapped reads as FASTQ (once, reused for all genes) ──────────────
 samtools view -b -f 4 "$BAM" | \
     samtools fastq - > "$TMP/unmapped.fq"
 
 N_READS=$(( $(wc -l < "$TMP/unmapped.fq") / 4 ))
 echo "  Unmapped reads: $N_READS"
 
-# ── Remap to extended reference ───────────────────────────────────────────────
-if [[ "$N_READS" -gt 0 ]]; then
-    bwa mem -t "$SLURM_CPUS_PER_TASK" "$REF" "$TMP/unmapped.fq" 2>/dev/null | \
-        samtools view -b -F 4 -q 10 | \
-        samtools sort -o "$TMP/plasmid.bam"
-    samtools index "$TMP/plasmid.bam"
-    HAVE_BAM=1
-else
-    HAVE_BAM=0
-fi
-
-# ── Count reads at each gene locus ────────────────────────────────────────────
+# ── Map to each gene's plasmid individually and count ────────────────────────
 HEADER="sample_id"
 VALUES="$ACC"
 for i in "${!GENE_NAMES[@]}"; do
     gene="${GENE_NAMES[$i]}"
     region="${GENE_REGIONS[$i]}"
     HEADER="${HEADER}\t${gene}"
-    if [[ "$HAVE_BAM" -eq 1 ]]; then
-        cnt=$(samtools view -c -F 4 "$TMP/plasmid.bam" "$region" 2>/dev/null || echo 0)
+
+    if [[ "$N_READS" -gt 0 ]]; then
+        gene_fa="$PLASMID_DIR/${gene}.fasta"
+        bwa mem -t "$SLURM_CPUS_PER_TASK" "$gene_fa" "$TMP/unmapped.fq" 2>/dev/null | \
+            samtools view -b -F 4 -q 10 | \
+            samtools sort -o "$TMP/${gene}.bam"
+        samtools index "$TMP/${gene}.bam"
+        cnt=$(samtools view -c -F 4 "$TMP/${gene}.bam" "$region" 2>/dev/null || echo 0)
+        rm -f "$TMP/${gene}.bam" "$TMP/${gene}.bam.bai"
     else
         cnt=0
     fi
+
     VALUES="${VALUES}\t${cnt}"
     echo "  ${gene}: ${cnt}"
 done
 
-# Write header + data (header helps merge script identify columns)
+# ── Write output ──────────────────────────────────────────────────────────────
 echo -e "$HEADER" > "$OUT"
 echo -e "$VALUES" >> "$OUT"
 echo "Done: $ACC"
