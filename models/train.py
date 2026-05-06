@@ -161,6 +161,18 @@ def main():
     print("Calling gene CNVs...", flush=True)
     run_cnv_calls(store_path, out_dir, cfg)
 
+    if cfg.get("plasmid_store_path") and cfg.get("plasmid_gene_coords_path"):
+        print("Calling plasmid gene CNVs...", flush=True)
+        run_plasmid_cnv_calls = importlib.import_module(
+            f"cnv.{cfg.get('plasmid_cnv', '07_plasmid_cnv_caller')}"
+        ).run_plasmid_cnv_calls
+        plasmid_cfg = dict(cfg)
+        plasmid_cfg["plasmid_store_path"]       = resolve(cfg["plasmid_store_path"])
+        plasmid_cfg["plasmid_gene_coords_path"] = resolve(cfg["plasmid_gene_coords_path"])
+        run_plasmid_cnv_calls(out_dir, plasmid_cfg)
+    else:
+        print("Skipping plasmid CNV calling (plasmid_store_path not set).", flush=True)
+
     if cfg.get("pf9_gt_path"):
         cfg_resolved = dict(cfg)
         cfg_resolved["pf9_gt_path"] = resolve(cfg["pf9_gt_path"])
