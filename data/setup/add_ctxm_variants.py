@@ -140,8 +140,16 @@ def _blast_find_gene(gene_name: str, plasmid_fasta: str, query_gene_fa: str) -> 
 
 def _fetch_gene_sequence(gene_name: str) -> str:
     """Fetch the reference gene CDS from NCBI as a FASTA string (for BLAST query)."""
-    # Search for the gene CDS sequence
-    query = f'{gene_name}[gene] AND "Klebsiella pneumoniae"[organism] AND CDS[feature key]'
+    # Hardcoded fallback accessions for known resistance genes.
+    # AF252622.1 = blaCTX-M-14 beta-lactamase from K. pneumoniae (Chanawong et al. 2002).
+    # NOTE: AY077516 is HIV-1 env gene — do NOT use.
+    FALLBACK_ACCS = {
+        "blaCTX-M-14": "AF252622.1",
+    }
+
+    # Search for the gene CDS sequence — narrow to ~800-1100 bp (CTX-M CDS is ~876 bp)
+    query = (f'"{gene_name}"[title] AND beta-lactamase[title] '
+             f'AND 800:1100[SLEN]')
     print(f"  Fetching reference gene sequence for {gene_name} …")
     time.sleep(0.5)
 
@@ -152,11 +160,11 @@ def _fetch_gene_sequence(gene_name: str) -> str:
     ids = record.get("IdList", [])
     if not ids:
         # Fallback: use a known NCBI accession for the gene
-        fallback = {"blaCTX-M-14": "AY077516.1"}
-        acc = fallback.get(gene_name)
+        acc = FALLBACK_ACCS.get(gene_name)
         if acc is None:
             raise RuntimeError(f"Cannot find reference sequence for {gene_name}")
         ids = [acc]
+        print(f"  Primary search returned no hits — using fallback accession {acc}")
 
     time.sleep(0.5)
     handle   = Entrez.efetch(db="nucleotide", id=ids[0], rettype="fasta", retmode="text")
