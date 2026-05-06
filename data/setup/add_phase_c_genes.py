@@ -81,6 +81,9 @@ NEW_GENES = [
         "pattern":          "aac",
         "absent_threshold": "0.20",
         "slen_range":       "450:650",   # aac(6')-Ib CDS ~543 bp
+        # Internal name "aac6-Ib-cr" doesn't match NCBI gene name aac(6')-Ib-cr;
+        # search without quotes so the parentheses aren't treated as field tags.
+        "cds_query":        'aac AND Ib-cr AND aminoglycoside AND 450:650[SLEN]',
     },
 ]
 
@@ -159,10 +162,12 @@ def _blast_find_gene(gene_name: str, plasmid_fasta: str, query_gene_fa: str) -> 
         return None
 
 
-def _fetch_gene_sequence(gene_name: str, slen_range: str) -> str:
-    query = f'"{gene_name}"[title] AND beta-lactamase[title] AND {slen_range}[SLEN]'
-    # qnr and aac genes are not beta-lactamases — broaden the search
-    if not gene_name.startswith("bla"):
+def _fetch_gene_sequence(gene_name: str, slen_range: str, cds_query: str | None = None) -> str:
+    if cds_query:
+        query = cds_query
+    elif gene_name.startswith("bla"):
+        query = f'"{gene_name}"[title] AND beta-lactamase[title] AND {slen_range}[SLEN]'
+    else:
         query = f'"{gene_name}"[title] AND {slen_range}[SLEN]'
 
     print(f"  Fetching reference gene sequence for {gene_name} …")
@@ -255,7 +260,7 @@ def main():
             print(f"  {acc} already in HS11286_extended.fasta — skipping append.")
         else:
             print(f"  Locating {gene} on {acc} via BLAST …")
-            gene_fasta_text = _fetch_gene_sequence(gene, slen_range)
+            gene_fasta_text = _fetch_gene_sequence(gene, slen_range, gene_info.get("cds_query"))
             with tempfile.NamedTemporaryFile(mode="w", suffix=".fasta", delete=False) as tf:
                 tf.write(gene_fasta_text)
                 gene_query_path = tf.name
