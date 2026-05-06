@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/lshlt19/GitHub/CNVRock status)",
+      "Bash(git -C /Users/lshlt19/GitHub/CNVRock add README.md)",
+      "Bash(git -C /Users/lshlt19/GitHub/CNVRock commit -m ' *)"
+    ]
+  }
+}
