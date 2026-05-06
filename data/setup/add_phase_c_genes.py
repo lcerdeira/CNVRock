@@ -61,7 +61,7 @@ NEW_GENES = [
     {
         "gene":             "blaOXA-48",
         "query":            ('blaOXA-48 AND "Klebsiella pneumoniae"[organism] '
-                             'AND plasmid[filter] AND refseq[filter] AND 5000:500000[SLEN]'),
+                             'AND plasmid[filter] AND 5000:500000[SLEN]'),
         "pattern":          "blaOXA",
         "absent_threshold": "0.20",
         "slen_range":       "700:950",   # OXA-48 CDS ~828 bp
@@ -114,6 +114,11 @@ def _fetch_plasmid_ncbi(gene: str, query: str) -> tuple[str, str]:
     # Prefer plasmid-sized sequences (<500 kb) to avoid picking chromosome contigs.
     plasmid_sized = [s for s in summaries if int(s.get("Length", 0)) < 500_000]
     candidates = plasmid_sized if plasmid_sized else summaries
+    # NZ_ accessions are WGS assembly contigs, not standalone plasmids.
+    # Prefer CP/AP/classical accessions (complete plasmid sequences).
+    complete = [s for s in candidates
+                if not s.get("AccessionVersion", "").startswith("NZ_")]
+    candidates = complete if complete else candidates
     best_id = max(candidates, key=lambda s: int(s.get("Length", 0)))["Id"]
 
     print(f"  Downloading best match (id {best_id}, {len(ids)} candidates) …")
