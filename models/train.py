@@ -167,6 +167,7 @@ def main():
             f"cnv.{cfg.get('plasmid_cnv', '07_plasmid_cnv_caller')}"
         ).run_plasmid_cnv_calls
         plasmid_cfg = dict(cfg)
+        plasmid_cfg["store_path"]               = store_path   # already resolved
         plasmid_cfg["plasmid_store_path"]       = resolve(cfg["plasmid_store_path"])
         plasmid_cfg["plasmid_gene_coords_path"] = resolve(cfg["plasmid_gene_coords_path"])
         run_plasmid_cnv_calls(out_dir, plasmid_cfg)
