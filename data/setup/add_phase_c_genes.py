@@ -76,7 +76,7 @@ NEW_GENES = [
     },
     {
         "gene":             "aac6-Ib-cr",
-        "query":            ("aac(6')-Ib-cr AND \"Klebsiella pneumoniae\"[organism] "
+        "query":            ('"Klebsiella pneumoniae"[organism] AND aac AND Ib-cr '
                              'AND plasmid[filter] AND refseq[filter]'),
         "pattern":          "aac",
         "absent_threshold": "0.20",
