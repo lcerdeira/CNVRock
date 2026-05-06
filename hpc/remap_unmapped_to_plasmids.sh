@@ -7,8 +7,12 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --partition=normal
 
-# Phase B: extract unmapped reads from each existing BAM and remap to
-# HS11286_extended.fasta to obtain read counts at plasmid resistance genes.
+# Extract unmapped reads from each existing BAM and remap to
+# HS11286_plasmids_only.fasta (plasmid contigs only, no chromosome) to obtain
+# read counts at plasmid resistance genes.
+#
+# Using plasmid-only reference avoids MAPQ=0 from chromosomal paralogues
+# (e.g. blaSHV competing with blaCTX-M, aac6-Ib competing with aac6-Ib-cr).
 #
 # Which genes are counted is driven by assets/plasmid_refs/plasmid_gene_coords.tsv.
 # blaKPC-2 is excluded — it is already in the original BAMs (NC_016846.1).
@@ -31,7 +35,10 @@ module load bwa/0.718
 
 REPO_DIR="/home/lshlt19/CNVRock"
 BAM_DIR="$REPO_DIR/data/raw/bam"
-REF="$REPO_DIR/assets/HS11286_extended.fasta"
+# Plasmid-only reference excludes the HS11286 chromosome and native plasmid (NC_016845.1,
+# NC_016846.1) so that reads cross-mapping to chromosomal paralogues (e.g. blaSHV for
+# CTX-M, aac6-Ib for aac6-Ib-cr) are not assigned MAPQ=0 and then filtered out.
+REF="$REPO_DIR/assets/HS11286_plasmids_only.fasta"
 COORDS="$REPO_DIR/assets/plasmid_refs/plasmid_gene_coords.tsv"
 ACCS="$REPO_DIR/assets/kpsc_bam_accessions.txt"
 OUT_DIR="$REPO_DIR/data/inputs/plasmid_remap_counts"
