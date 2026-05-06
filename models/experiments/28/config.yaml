@@ -1,0 +1,62 @@
+# Experiment 28 — KpSC Phase C: Add qnrB1, blaOXA-48, aac6-Ib-cr evaluation
+#
+# Exp 27 results (Phase C first pass):
+#   blaKPC:   MCC=1.00  FNR=0.00  PPV=1.00  ✓
+#   blaNDM:   MCC=0.99  FNR=0.00  PPV=0.99  ✓
+#   blaCTX-M: MCC=0.82  FNR=0.20  PPV=1.00  ✓ (53 irreducible FNs; accepted)
+#   qnrB1:    called 174 samples; GT eval pending
+#   aac6-Ib-cr: called 83 samples; GT eval pending
+#   blaOXA-48: called 77 samples; GT eval pending
+#
+# Exp 28 changes:
+#   - kpsc_amrfinder_ground_truth.tsv updated with qnrB1, blaOXA-48, aac6-Ib-cr
+#     columns (re-aggregated from existing per-sample AMRFinder TSVs)
+#   - 04_kpsc_evaluation.py updated to evaluate all three Phase C genes
+#   - All model/HMM parameters identical to exp 27; no retraining needed
+#   - Reuses exp 27 checkpoint to skip training; evaluates on existing plasmid calls
+
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+evaluation:   "04_kpsc_evaluation"
+
+store_path: "../../../data/inputs/KpSC-HS11286-1000bp-core-npy"
+out_dir:    "../../../data/results/28_kpsc_phase_c_v2"
+normalise:  true
+
+kpsc_gt_path:            "../../../assets/kpsc_amrfinder_ground_truth.tsv"
+kpsc_kleborate_gt_path:  "../../../assets/kpsc_kleborate_ground_truth.tsv"
+kpsc_meta_path:          "../../../assets/kpsc_sample_metadata.tsv"
+
+plasmid_cnv:               "07_plasmid_cnv_caller"
+plasmid_store_path:        "../../../data/inputs/KpSC-plasmid-1000bp-npy"
+plasmid_gene_coords_path:  "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
+pcn_absent_threshold:      0.20   # global default; overridden per-gene in coords TSV
+pcn_amp_threshold:         1.50
+
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      3
+cnv_min_gene_coverage_fraction: 0.50
+
+eval_min_group_n: 10

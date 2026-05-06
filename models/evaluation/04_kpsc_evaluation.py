@@ -64,7 +64,7 @@ CHROM_GENES = ["blaSHV", "ompK35", "ompK36", "ramR"]
 
 # Plasmid accessory genes (from plasmid_gene_calls.tsv, produced by PCN caller)
 # GT column names match GENE_PATTERNS keys in get_amrfinder_gt.py
-PLASMID_GENES = ["blaKPC", "blaCTX-M", "blaNDM"]
+PLASMID_GENES = ["blaKPC", "blaCTX-M", "blaNDM", "qnrB1", "blaOXA-48", "aac6-Ib-cr"]
 
 GENES     = CHROM_GENES + PLASMID_GENES
 QUANTILES = [0.10, 0.25, 0.50, 0.75, 0.90]
@@ -75,21 +75,27 @@ Q_LABELS  = ["p10", "p25", "p50", "p75", "p90"]
 #   "del"      — positive = cn = 0  (chromosomal deletion)
 #   "presence" — positive = cn ≥ 1  (plasmid gene present, any copy count)
 GENE_MODE = {
-    "blaSHV":   "amp",       # chromosomal, extra copies increase resistance
-    "ompK35":   "del",       # porin loss → impermeability resistance
-    "ompK36":   "del",
-    "ramR":     "del",       # repressor deletion → efflux upregulation
-    "blaKPC":   "presence",  # plasmid carbapenemase; presence = resistance
-    "blaCTX-M": "presence",  # plasmid ESBL; presence = ESBL phenotype
-    "blaNDM":   "presence",  # plasmid metallo-carbapenemase; presence = resistance
+    "blaSHV":     "amp",       # chromosomal, extra copies increase resistance
+    "ompK35":     "del",       # porin loss → impermeability resistance
+    "ompK36":     "del",
+    "ramR":       "del",       # repressor deletion → efflux upregulation
+    "blaKPC":     "presence",  # plasmid carbapenemase; presence = resistance
+    "blaCTX-M":   "presence",  # plasmid ESBL; presence = ESBL phenotype
+    "blaNDM":     "presence",  # plasmid metallo-carbapenemase; presence = resistance
+    "qnrB1":      "presence",  # plasmid PMQR; presence = quinolone resistance
+    "blaOXA-48":  "presence",  # plasmid OXA-type carbapenemase
+    "aac6-Ib-cr": "presence",  # plasmid aminoglycoside/fluoroquinolone resistance
 }
 
 # Map GT column name → call column name (plasmid calls use gene name from
 # plasmid_gene_coords.tsv, e.g. "blaKPC-2", while GT uses "blaKPC")
 PLASMID_GT_TO_CALL = {
-    "blaKPC":   "blaKPC-2",
-    "blaCTX-M": "blaCTX-M-15",
-    "blaNDM":   "blaNDM-1",
+    "blaKPC":     "blaKPC-2",
+    "blaCTX-M":   "blaCTX-M-15",
+    "blaNDM":     "blaNDM-1",
+    "qnrB1":      "qnrB1",      # same name in GT and calls
+    "blaOXA-48":  "blaOXA-48",
+    "aac6-Ib-cr": "aac6-Ib-cr",
 }
 
 
