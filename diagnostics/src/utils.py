@@ -21,7 +21,6 @@ from bokeh.models import NumeralTickFormatter, PanTool, WheelZoomTool, LabelSet
 from bokeh.palettes import Plasma256
 
 @st.cache_data
-@st.cache_data
 def load_results(results_dir):
     latents         = np.load(os.path.join(results_dir, "latents.npy"))
     reconstructions = np.load(os.path.join(results_dir, "reconstructions.npy"))
@@ -49,18 +48,39 @@ def load_results(results_dir):
         "plasmid_calls": plasmid_calls,
     }
 
+_ASSETS_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../assets"))
+
 @st.cache_data
-def load_meta():
+def load_meta(meta_path=None):
+    """Load sample metadata and GFF annotations.
+
+    Tries paths in order:
+      1. `meta_path` argument (from experiment config kpsc_meta_path)
+      2. Default KpSC metadata in assets/kpsc_sample_metadata.tsv
+      3. Legacy Pf9 files in ../assets/ (backwards compatibility)
+
+    Returns (meta_df, gff_df) where gff_df may be an empty DataFrame.
+    """
+    _empty_gff = pd.DataFrame(columns=["seqid", "start", "end", "ID"])
+
+    # Generic TSV loader — works for KpSC or any file with a sample_id column
+    for path in [meta_path,
+                 os.path.join(_ASSETS_DIR, "kpsc_sample_metadata.tsv")]:
+        if path and os.path.exists(path):
+            meta = pd.read_csv(path, sep="\t", index_col="sample_id")
+            return meta, _empty_gff
+
+    # Pf9 legacy fallback
     try:
         meta_df = pd.read_csv(
-            "../assets/Pf_9_samples_20260227.txt", index_col=0, sep = "\t",
-            usecols = [
-                "Sample", "Study", "Country", "Admin level 1", "Year", "Population", "% callable",
-                "QC pass", "Exclusion reason", "Sample type"]
-            )
+            "../assets/Pf_9_samples_20260227.txt", index_col=0, sep="\t",
+            usecols=["Sample", "Study", "Country", "Admin level 1", "Year",
+                     "Population", "% callable", "QC pass", "Exclusion reason",
+                     "Sample type"],
+        )
         cnv_calls = pd.read_csv(
-            "../assets/20260313_full_cnv_data_pf9.tsv", sep = "\t", index_col=0,
-            usecols = [
+            "../assets/20260313_full_cnv_data_pf9.tsv", sep="\t", index_col=0,
+            usecols=[
                 "Sample",
                 "CRT_uncurated_coverage_only", "CRT_curated_coverage_only", "CRT_faceaway_only",
                 "GCH1_uncurated_coverage_only", "GCH1_curated_coverage_only", "GCH1_faceaway_only",
@@ -68,36 +88,37 @@ def load_meta():
                 "PM2_PM3_uncurated_coverage_only", "PM2_PM3_curated_coverage_only", "PM2_PM3_faceaway_only",
                 "HRP2_uncurated_coverage_only", "HRP2_final_deletion_call",
                 "HRP3_uncurated_coverage_only", "HRP3_final_deletion_call",
-            ]
+            ],
         )
         gff = pd.read_csv(
             "../assets/PlasmoDB-54_Pfalciparum3D7.gff",
             sep="\t", comment="#", header=None,
-            names=["seqid", "source", "type", "start", "end", "score", "strand", "phase", "attributes"]
+            names=["seqid", "source", "type", "start", "end", "score",
+                   "strand", "phase", "attributes"],
         )
 
-        def parse_attributes(attr_string):
+        def _parse_attrs(s):
             attrs = {}
-            for item in attr_string.split(';'):
+            for item in s.split(";"):
                 if "=" in item:
-                    key, value = item.split('=', 1)
-                    attrs[key] = value
+                    k, v = item.split("=", 1)
+                    attrs[k] = v
             return attrs
 
-        attr_df = gff['attributes'].apply(parse_attributes).apply(pd.Series)
+        attr_df = gff["attributes"].apply(_parse_attrs).apply(pd.Series)
         gff = pd.concat([gff, attr_df], axis=1)
-        gff = gff.loc[gff["type"].isin(["protein_coding_gene", "ncRNA"])].reset_index(drop = True).drop(
-            columns = [
-                "source", "attributes", "Note", "score", "protein_source_id",
-                "strand", "phase", "Parent", "gene_id", "type"]
-        ).sort_values("ID")
-
+        gff = (
+            gff.loc[gff["type"].isin(["protein_coding_gene", "ncRNA"])]
+            .reset_index(drop=True)
+            .drop(columns=["source", "attributes", "Note", "score",
+                            "protein_source_id", "strand", "phase",
+                            "Parent", "gene_id", "type"])
+            .sort_values("ID")
+        )
         return meta_df.merge(cnv_calls, left_index=True, right_index=True, how="left"), gff
 
-    except FileNotFoundError:
-        # Pf9 metadata not present (e.g. running with KpSC experiments).
-        # Return empty frames — sample viewer falls back to showing all samples.
-        return pd.DataFrame(), pd.DataFrame(columns=["seqid", "start", "end", "ID"])
+    except (FileNotFoundError, KeyError):
+        return pd.DataFrame(), _empty_gff
 
 @st.cache_data
 def load_inputs(inputs_path):
@@ -132,6 +153,12 @@ def compute_pca(latents_df):
     return df, variance
 
 _KDE_CLASSES = {"gDNA": "green", "sWGA": "blue"}
+
+_SPECIES_COLORS_MPL = {
+    "Klebsiella pneumoniae":      "steelblue",
+    "Klebsiella quasipneumoniae": "darkorange",
+    "Klebsiella variicola":       "seagreen",
+}
 
 @st.cache_data
 def compute_pca_contours(pca_df, meta):
@@ -193,29 +220,45 @@ def plot_latents(latent_values):
     fig.tight_layout()
     return fig
 
-def plot_pca(pca_df, variance, contours, selected_sample):
+def plot_pca(pca_df, variance, contours, selected_sample, meta=None):
     fig, ax = plt.subplots(figsize=(4, 4))
 
     other    = pca_df[pca_df.index != selected_sample]
     selected = pca_df[pca_df.index == selected_sample]
 
-    for color, paths in contours.values():
-        for verts in paths:
-            ax.plot(verts[:, 0], verts[:, 1], color=color, alpha=0.7, linewidth=1.5)
+    # KpSC: colour background dots by species
+    if meta is not None and "Species" in meta.columns:
+        plotted_ids = set()
+        for sp, color in _SPECIES_COLORS_MPL.items():
+            sp_ids = set(meta.index[meta["Species"] == sp])
+            sub    = other[other.index.isin(sp_ids)]
+            if len(sub):
+                label = sp.replace("Klebsiella ", "K. ")
+                ax.scatter(sub["PC1"], sub["PC2"], c=color, s=8, alpha=0.5,
+                           zorder=-1, label=label)
+            plotted_ids |= sp_ids
+        rest = other[~other.index.isin(plotted_ids)]
+        if len(rest):
+            ax.scatter(rest["PC1"], rest["PC2"], c="grey", s=8, alpha=0.3, zorder=-2)
+        ax.legend(framealpha=0.7, fontsize=7, markerscale=2)
+    else:
+        # Pf9 / fallback: grey background, KDE contours
+        for color, paths in contours.values():
+            for verts in paths:
+                ax.plot(verts[:, 0], verts[:, 1], color=color, alpha=0.7, linewidth=1.5)
+        ax.scatter(other["PC1"], other["PC2"], c="grey", s=8, alpha=0.4, zorder=-1)
+        handles = [
+            Line2D([0], [0], color=color, linewidth=1.5, label=stype)
+            for stype, (color, _) in contours.items()
+        ]
+        if handles:
+            ax.legend(handles=handles, framealpha=0.7, fontsize=8)
 
-    ax.scatter(other["PC1"],    other["PC2"],    c="grey", s=8,  alpha=0.4, zorder=-1)
-    ax.scatter(selected["PC1"], selected["PC2"], c="red",  s=40, alpha=1.0, zorder=3)
-
-    handles = [
-        Line2D([0], [0], color=color, linewidth=1.5, label=stype)
-        for stype, (color, _) in contours.items()
-    ]
-    ax.legend(handles=handles, framealpha=0.7, fontsize=8)
-
+    ax.scatter(selected["PC1"], selected["PC2"], c="red", s=60, alpha=1.0,
+               zorder=3, marker="*")
     ax.set_xlabel(f"PC1 ({variance[0]:.1f}%)")
     ax.set_ylabel(f"PC2 ({variance[1]:.1f}%)")
     fig.tight_layout()
-
     return fig
 
 @st.cache_data
@@ -368,6 +411,13 @@ _SAMPLE_TYPE_COLORS = {
     "Unknown": "rgba(180,180,180,0.5)",
 }
 
+_SPECIES_COLORS_RGBA = {
+    "Klebsiella pneumoniae":      "rgba(70,150,220,0.65)",
+    "Klebsiella quasipneumoniae": "rgba(230,120,30,0.65)",
+    "Klebsiella variicola":       "rgba(60,180,100,0.65)",
+    "Unknown":                    "rgba(180,180,180,0.45)",
+}
+
 def plot_coverage(coverage_df, latents_df, meta):
     import json
 
@@ -378,11 +428,22 @@ def plot_coverage(coverage_df, latents_df, meta):
 
     probe_df  = coverage_df[coverage_df["type"] == "void_probe"]
     sample_df = coverage_df[coverage_df["type"] == "sample"].copy()
-    if "Sample type" in meta.columns:
+
+    # Choose grouping column: Species (KpSC) or Sample type (Pf9)
+    if "Species" in meta.columns:
+        color_col = "Species"
+        color_map = _SPECIES_COLORS_RGBA
+        sample_df = sample_df.join(meta[["Species"]], how="left")
+        sample_df["Species"] = sample_df["Species"].fillna("Unknown")
+    elif "Sample type" in meta.columns:
+        color_col = "Sample type"
+        color_map = _SAMPLE_TYPE_COLORS
         sample_df = sample_df.join(meta[["Sample type"]], how="left")
+        sample_df["Sample type"] = sample_df["Sample type"].fillna("Unknown")
     else:
-        sample_df["Sample type"] = "Unknown"
-    sample_df["Sample type"] = sample_df["Sample type"].fillna("Unknown")
+        color_col = "_group"
+        color_map = {"All samples": "rgba(80,170,255,0.6)"}
+        sample_df[color_col] = "All samples"
 
     probe_payload = json.dumps({
         "x":          probe_df["u1"].tolist(),
@@ -391,16 +452,16 @@ def plot_coverage(coverage_df, latents_df, meta):
         "customdata": probe_df[lat_cols].values.tolist(),
     })
 
-    ordered_types = [t for t in _SAMPLE_TYPE_COLORS if t in sample_df["Sample type"].values]
-    other_types   = [t for t in sample_df["Sample type"].unique() if t not in _SAMPLE_TYPE_COLORS]
+    ordered_types = [t for t in color_map if t in sample_df[color_col].values]
+    other_types   = [t for t in sample_df[color_col].unique() if t not in color_map]
     type_payloads = {}
     for stype in ordered_types + other_types:
-        sub = sample_df[sample_df["Sample type"] == stype]
+        sub = sample_df[sample_df[color_col] == stype]
         type_payloads[stype] = {
             "x":          sub["u1"].tolist(),
             "y":          sub["u2"].tolist(),
             "customdata": sub[lat_cols].values.tolist(),
-            "color":      _SAMPLE_TYPE_COLORS.get(stype, "rgba(180,180,180,0.5)"),
+            "color":      color_map.get(stype, "rgba(180,180,180,0.5)"),
         }
 
     return f"""<!DOCTYPE html>
