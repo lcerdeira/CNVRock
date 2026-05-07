@@ -192,162 +192,112 @@ GENE_TARGETS = [
 
 # ════════════════════════════════════════════════════════════════════════════
 # PLSDB API helpers
+#
+# Actual response format (confirmed from live API):
+#   filter_nuccore?AMR_genes=X   → {"NUCCORE_ACC": ["acc1", "acc2", ...]}
+#   filter_taxonomy?TAXONOMY_genus=X → {"NUCCORE_ACC": ["acc1", ...]}
+#   summary/?NUCCORE_ACC=X       → {"Metadata_annotations": {"NUCCORE": {...}}}
+#     NUCCORE fields: NUCCORE_ACC, NUCCORE_Topology, NUCCORE_Completeness,
+#                     Length, NUCCORE_Description, AMR_genes
 # ════════════════════════════════════════════════════════════════════════════
 
-def _plsdb_filter_nuccore(amr_gene: str, timeout: int = 60) -> list[dict]:
-    """
-    Query PLSDB filter_nuccore endpoint for plasmids containing amr_gene.
-    Returns list of record dicts; empty list on failure.
-    """
-    url = f"{PLSDB_BASE}/filter_nuccore"
-    params = {"AMR_genes": amr_gene}
+def _plsdb_filter_nuccore(amr_gene: str, timeout: int = 90) -> list[str]:
+    """Return list of NUCCORE_ACC strings for plasmids annotated with amr_gene."""
     try:
-        r = SESSION.get(url, params=params, timeout=timeout)
+        r = SESSION.get(f"{PLSDB_BASE}/filter_nuccore",
+                        params={"AMR_genes": amr_gene}, timeout=timeout)
         r.raise_for_status()
-        # API may return JSON list or CSV; handle both
-        ct = r.headers.get("Content-Type", "")
-        if "json" in ct:
-            data = r.json()
-            return data if isinstance(data, list) else data.get("records", [])
-        else:
-            # Try CSV parse
-            import csv as _csv
-            reader = _csv.DictReader(io.StringIO(r.text), delimiter="\t"
-                                     if "\t" in r.text[:200] else ",")
-            return list(reader)
+        return r.json().get("NUCCORE_ACC", [])
     except Exception as e:
         print(f"  WARNING: PLSDB filter_nuccore failed for {amr_gene}: {e}",
               file=sys.stderr)
         return []
 
 
-def _plsdb_filter_taxonomy(genus: str = "Klebsiella", timeout: int = 60) -> set[str]:
-    """
-    Return set of NUCCORE_ACC values for plasmids hosted in <genus>.
-    Used to cross-filter nuccore results.
-    """
-    url = f"{PLSDB_BASE}/filter_taxonomy"
-    params = {"TAXONOMY_genus": genus}
+def _plsdb_filter_taxonomy(genus: str = "Klebsiella", timeout: int = 90) -> set[str]:
+    """Return set of NUCCORE_ACC strings hosted in <genus>."""
     try:
-        r = SESSION.get(url, params=params, timeout=timeout)
+        r = SESSION.get(f"{PLSDB_BASE}/filter_taxonomy",
+                        params={"TAXONOMY_genus": genus}, timeout=timeout)
         r.raise_for_status()
-        ct = r.headers.get("Content-Type", "")
-        if "json" in ct:
-            data = r.json()
-            records = data if isinstance(data, list) else data.get("records", [])
-        else:
-            import csv as _csv
-            delim = "\t" if "\t" in r.text[:200] else ","
-            records = list(_csv.DictReader(io.StringIO(r.text), delimiter=delim))
-        # Collect accession field — try common field names
-        accs = set()
-        for rec in records:
-            for k in ("NUCCORE_ACC", "acc", "accession", "NUCCORE_Id"):
-                if k in rec and rec[k]:
-                    accs.add(rec[k].strip())
-                    break
-        return accs
+        return set(r.json().get("NUCCORE_ACC", []))
     except Exception as e:
         print(f"  WARNING: PLSDB filter_taxonomy failed: {e}", file=sys.stderr)
         return set()
 
 
-def _plsdb_download_fasta(accessions: list[str],
-                           out_path: Path,
-                           poll_interval: int = 5,
-                           max_wait: int = 300) -> bool:
-    """
-    Download FASTA sequences for a list of PLSDB accessions.
-    Uses the async POST→GET polling pattern documented in plsdbapi.
-    Returns True on success.
-    """
-    url_post = f"{PLSDB_BASE}/fasta"
+def _plsdb_summary(acc: str, timeout: int = 30) -> dict:
+    """Fetch NUCCORE metadata dict for a single accession."""
     try:
-        r = SESSION.post(url_post,
-                         json={"fastas": accessions},
-                         timeout=60)
+        r = SESSION.get(f"{PLSDB_BASE}/summary/",
+                        params={"NUCCORE_ACC": acc}, timeout=timeout)
         r.raise_for_status()
-        job_id = r.json().get("job_id") or r.json().get("id")
-        if not job_id:
-            # Some versions return the file directly
-            if r.text.startswith(">"):
-                out_path.write_text(r.text)
-                return True
-            print(f"  WARNING: no job_id in PLSDB fasta response: {r.text[:200]}",
-                  file=sys.stderr)
-            return False
+        return r.json().get("Metadata_annotations", {}).get("NUCCORE", {})
+    except Exception:
+        return {}
 
-        # Poll until done
-        url_get = f"{PLSDB_BASE}/fasta"
-        waited = 0
-        while waited < max_wait:
-            time.sleep(poll_interval)
-            waited += poll_interval
-            rg = SESSION.get(url_get, params={"job_id": job_id}, timeout=60)
-            if rg.status_code == 200 and rg.text.strip().startswith(">"):
-                out_path.write_text(rg.text)
-                return True
-            if rg.status_code not in (200, 202):
-                print(f"  WARNING: PLSDB fasta poll returned {rg.status_code}",
-                      file=sys.stderr)
-                return False
-        print(f"  WARNING: PLSDB fasta download timed out after {max_wait}s",
+
+def _pick_best_representative(candidates: list[str],
+                               klebsiella_accs: set[str],
+                               max_inspect: int = 20) -> str | None:
+    """
+    From a list of candidate accessions, choose the best representative:
+      1. Prefer Klebsiella host (intersection with taxonomy filter)
+      2. Prefer complete + circular topology
+      3. Prefer longer sequence
+    Fetches summary metadata for up to max_inspect candidates to avoid
+    excessive API calls.
+    """
+    if not candidates:
+        return None
+
+    # Prioritise Klebsiella hits; fall back to all candidates
+    pool = [a for a in candidates if a in klebsiella_accs] or candidates
+    # Prefer complete (CP/AP prefixes) over NZ_ WGS before even calling summary
+    complete = [a for a in pool if not a.startswith("NZ_")]
+    pool = complete[:max_inspect] if complete else pool[:max_inspect]
+
+    best_acc, best_score = None, -1.0
+    for acc in pool:
+        meta  = _plsdb_summary(acc)
+        time.sleep(0.2)
+        desc  = meta.get("NUCCORE_Description", "")
+        score = (
+            2.0 if "Klebsiella" in desc else 0.0
+        ) + (
+            1.0 if meta.get("NUCCORE_Topology") == "circular" else 0.0
+        ) + (
+            1.0 if meta.get("NUCCORE_Completeness") == "complete" else 0.0
+        ) + (
+            meta.get("Length", 0) / 1_000_000
+        )
+        if score > best_score:
+            best_score, best_acc = score, acc
+    return best_acc
+
+
+def _download_fasta_ncbi(acc: str, out_path: Path) -> bool:
+    """
+    Download a plasmid FASTA from NCBI Entrez (more reliable than PLSDB endpoint).
+    Requires Biopython.
+    """
+    if not HAS_BIOPYTHON:
+        print("  WARNING: Biopython required for FASTA download", file=sys.stderr)
+        return False
+    try:
+        time.sleep(0.4)
+        h  = Entrez.efetch(db="nucleotide", id=acc,
+                           rettype="fasta", retmode="text")
+        fa = h.read(); h.close()
+        if fa.startswith(">"):
+            out_path.write_text(fa)
+            return True
+        print(f"  WARNING: NCBI returned unexpected content for {acc}",
               file=sys.stderr)
         return False
     except Exception as e:
-        print(f"  WARNING: PLSDB fasta download failed: {e}", file=sys.stderr)
+        print(f"  WARNING: NCBI efetch failed for {acc}: {e}", file=sys.stderr)
         return False
-
-
-def _pick_best_representative(records: list[dict],
-                               klebsiella_accs: set[str]) -> str | None:
-    """
-    From a list of PLSDB records, pick the best representative accession:
-      1. Prefer Klebsiella host
-      2. Prefer complete topology
-      3. Prefer longer sequence
-    Returns the NUCCORE_ACC string or None.
-    """
-    if not records:
-        return None
-
-    def _acc(rec):
-        for k in ("NUCCORE_ACC", "acc", "accession"):
-            if k in rec and rec[k]:
-                return rec[k].strip()
-        return None
-
-    def _length(rec):
-        for k in ("NUCCORE_Length", "length", "Length", "NUCCORE_Len"):
-            try:
-                return int(rec[k])
-            except (KeyError, ValueError, TypeError):
-                pass
-        return 0
-
-    def _topology(rec):
-        for k in ("NUCCORE_Topology", "topology", "Topology"):
-            v = str(rec.get(k, "")).lower()
-            if "circular" in v or "complete" in v:
-                return 1
-        return 0
-
-    # Score: Klebsiella(2) + complete(1) + length(normalised)
-    max_len = max((_length(r) for r in records), default=1) or 1
-    scored = []
-    for rec in records:
-        a = _acc(rec)
-        if not a:
-            continue
-        score = (2 if a in klebsiella_accs else 0) + \
-                _topology(rec) + \
-                _length(rec) / max_len
-        scored.append((score, a))
-
-    if not scored:
-        return None
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return scored[0][1]
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -526,7 +476,7 @@ def process_gene(gene_info: dict,
         print(f"  {out_fa.name} already downloaded")
     else:
         print(f"  Downloading FASTA for {best_acc} …")
-        ok = _plsdb_download_fasta([best_acc], out_fa)
+        ok = _download_fasta_ncbi(best_acc, out_fa)
         if not ok or not out_fa.exists():
             print(f"  WARNING: FASTA download failed for {best_acc}",
                   file=sys.stderr)
