@@ -278,76 +278,130 @@ def _pick_best_representative(candidates: list[str],
 
 def _download_fasta_ncbi(acc: str, out_path: Path) -> bool:
     """
-    Download a plasmid FASTA from NCBI Entrez (more reliable than PLSDB endpoint).
-    Requires Biopython.
+    Download a plasmid FASTA from NCBI using eutils REST API.
+    Falls back to Biopython Entrez if requests fails.
     """
-    if not HAS_BIOPYTHON:
-        print("  WARNING: Biopython required for FASTA download", file=sys.stderr)
-        return False
+    ncbi_efetch = (
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+        f"?db=nucleotide&id={acc}&rettype=fasta&retmode=text"
+        "&email=louise.cerdeira@gmail.com"
+    )
     try:
         time.sleep(0.4)
-        h  = Entrez.efetch(db="nucleotide", id=acc,
-                           rettype="fasta", retmode="text")
-        fa = h.read(); h.close()
+        r = SESSION.get(ncbi_efetch, timeout=60)
+        r.raise_for_status()
+        fa = r.text
         if fa.startswith(">"):
             out_path.write_text(fa)
             return True
         print(f"  WARNING: NCBI returned unexpected content for {acc}",
               file=sys.stderr)
-        return False
     except Exception as e:
-        print(f"  WARNING: NCBI efetch failed for {acc}: {e}", file=sys.stderr)
-        return False
+        print(f"  WARNING: NCBI eutils request failed for {acc}: {e}",
+              file=sys.stderr)
+
+    # Biopython fallback
+    if HAS_BIOPYTHON:
+        try:
+            time.sleep(0.4)
+            h  = Entrez.efetch(db="nucleotide", id=acc,
+                               rettype="fasta", retmode="text")
+            fa = h.read(); h.close()
+            if fa.startswith(">"):
+                out_path.write_text(fa)
+                return True
+        except Exception as e:
+            print(f"  WARNING: Biopython efetch fallback failed for {acc}: {e}",
+                  file=sys.stderr)
+    return False
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # NCBI CDS lookup (Biopython fallback for gene coordinates)
 # ════════════════════════════════════════════════════════════════════════════
 
+def _ncbi_efetch(acc: str) -> str | None:
+    """Fetch FASTA from NCBI eutils (no Biopython required)."""
+    url = (
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+        f"?db=nucleotide&id={acc}&rettype=fasta&retmode=text"
+        "&email=louise.cerdeira@gmail.com"
+    )
+    try:
+        time.sleep(0.4)
+        r = SESSION.get(url, timeout=60)
+        r.raise_for_status()
+        fa = r.text
+        return fa if fa.startswith(">") else None
+    except Exception:
+        return None
+
+
+def _ncbi_esearch(term: str) -> list[str]:
+    """Search NCBI nucleotide and return a list of GI/accession IDs."""
+    url = (
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+        f"?db=nucleotide&term={requests.utils.quote(term)}&retmax=5&retmode=json"
+        "&email=louise.cerdeira@gmail.com"
+    )
+    try:
+        time.sleep(0.4)
+        r = SESSION.get(url, timeout=30)
+        r.raise_for_status()
+        return r.json().get("esearchresult", {}).get("idlist", [])
+    except Exception:
+        return []
+
+
 def _fetch_cds_fasta(gene: str, cds_acc: str | None = None) -> str | None:
     """
     Fetch a short CDS FASTA to use as BLAST query.
-    Priority: explicit cds_acc > NCBI search by gene name.
-    Returns FASTA string or None.
+    Priority: explicit cds_acc > NCBI eutils search by gene name.
+    Uses requests directly; Biopython is optional.
     """
-    if not HAS_BIOPYTHON:
-        print("  WARNING: Biopython not available for CDS lookup", file=sys.stderr)
+    if cds_acc:
+        fa = _ncbi_efetch(cds_acc)
+        if fa:
+            print(f"  CDS fetched via {cds_acc}")
+            return fa
+        print(f"  WARNING: direct CDS fetch failed ({cds_acc})", file=sys.stderr)
+
+    # Fallback: Biopython Entrez search
+    if HAS_BIOPYTHON:
+        queries = [
+            f'"{gene}"[gene] AND 500:1500[SLEN]',
+            f'"{gene}"[title] AND beta-lactamase AND 500:1500[SLEN]',
+        ]
+        for q in queries:
+            try:
+                time.sleep(0.4)
+                h = Entrez.esearch(db="nucleotide", term=q, retmax=5)
+                rec = Entrez.read(h); h.close()
+                ids = rec.get("IdList", [])
+                if ids:
+                    time.sleep(0.4)
+                    h = Entrez.efetch(db="nucleotide", id=ids[0],
+                                      rettype="fasta", retmode="text")
+                    fa = h.read(); h.close()
+                    if fa.startswith(">"):
+                        print(f"  CDS fetched via NCBI search (query: {q[:60]}…)")
+                        return fa
+            except Exception as e:
+                print(f"  WARNING: CDS search failed: {e}", file=sys.stderr)
         return None
 
-    if cds_acc:
-        try:
-            time.sleep(0.4)
-            h = Entrez.efetch(db="nucleotide", id=cds_acc, rettype="fasta",
-                              retmode="text")
-            fa = h.read(); h.close()
-            if fa.startswith(">"):
-                print(f"  CDS fetched via {cds_acc}")
-                return fa
-        except Exception as e:
-            print(f"  WARNING: direct CDS fetch failed ({cds_acc}): {e}",
-                  file=sys.stderr)
-
-    # Fallback: search by gene name for a short CDS-only sequence
+    # Pure-requests fallback: eutils esearch
     queries = [
         f'"{gene}"[gene] AND 500:1500[SLEN]',
-        f'"{gene}"[title] AND beta-lactamase AND 500:1500[SLEN]',
+        f'"{gene}"[title] AND 500:1500[SLEN]',
     ]
     for q in queries:
-        try:
-            time.sleep(0.4)
-            h = Entrez.esearch(db="nucleotide", term=q, retmax=5)
-            rec = Entrez.read(h); h.close()
-            ids = rec.get("IdList", [])
-            if ids:
-                time.sleep(0.4)
-                h = Entrez.efetch(db="nucleotide", id=ids[0],
-                                  rettype="fasta", retmode="text")
-                fa = h.read(); h.close()
-                if fa.startswith(">"):
-                    print(f"  CDS fetched via NCBI search (query: {q[:60]}…)")
-                    return fa
-        except Exception as e:
-            print(f"  WARNING: CDS search failed: {e}", file=sys.stderr)
+        ids = _ncbi_esearch(q)
+        if ids:
+            fa = _ncbi_efetch(ids[0])
+            if fa:
+                print(f"  CDS fetched via eutils search (query: {q[:60]}…)")
+                return fa
     return None
 
 
