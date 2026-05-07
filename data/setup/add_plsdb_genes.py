@@ -92,7 +92,6 @@ GENE_TARGETS = [
         "amr_gene":         "blaCTX-M-65",
         "family_pattern":   "CTX-M",
         "absent_threshold": 0.20,
-        "cds_acc":          "AY575727.1",   # blaCTX-M-65 CDS GenBank
         "priority":         1,
     },
     {
@@ -100,7 +99,6 @@ GENE_TARGETS = [
         "amr_gene":         "blaCTX-M-27",
         "family_pattern":   "CTX-M",
         "absent_threshold": 0.20,
-        "cds_acc":          "AB285816.1",
         "priority":         1,
     },
     {
