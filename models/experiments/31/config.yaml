@@ -1,0 +1,67 @@
+# Experiment 31 — Phase D: PLSDB variant panel (priority-1 genes)
+#
+# Adds blaCTX-M-65, blaCTX-M-27, blaNDM-5, blaOXA-181 to the plasmid reference.
+# These were selected to recover the 53 CTX-M FNs in exp 29/30:
+#   - 12/53 FNs are ST11 carrying blaCTX-M-65 exclusively
+#   - remaining FNs carry other non-15 CTX-M variants or have structural
+#     cross-mapping to chromosomal blaSHV
+#
+# Architecture, HMM, and chromosomal CNV caller unchanged from exp 30.
+# Plasmid gene panel extended by add_plsdb_genes.py --max-priority 1.
+#
+# New genes added vs exp 30:
+#   blaCTX-M-65  (CP030319.1)
+#   blaCTX-M-27  (CP138680.1)
+#   blaNDM-5     (CP034201.2)
+#   blaOXA-181   (CP113224.1)
+#
+# Expected improvements:
+#   blaCTX-M: FNR 0.13 → <0.05 (recovering ST11 CTX-M-65 cases)
+#   blaNDM:   MCC stays ~1.00; NDM-5 adds sensitivity for non-NDM-1 samples
+#   blaOXA:   MCC stays ~0.98; OXA-181 reduces need for cross-variant imputation
+
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+evaluation:   "04_kpsc_evaluation"
+
+store_path: "../../../data/inputs/KpSC-HS11286-1000bp-core-npy"
+out_dir:    "../../../data/results/31_kpsc_phase_d_v1"
+normalise:  true
+
+kpsc_gt_path:            "../../../assets/kpsc_amrfinder_ground_truth.tsv"
+kpsc_kleborate_gt_path:  "../../../assets/kpsc_kleborate_ground_truth.tsv"
+kpsc_meta_path:          "../../../assets/kpsc_sample_metadata.tsv"
+
+plasmid_cnv:               "07_plasmid_cnv_caller"
+plasmid_store_path:        "../../../data/inputs/KpSC-plasmid-1000bp-npy"
+plasmid_gene_coords_path:  "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
+pcn_absent_threshold:      0.20
+pcn_amp_threshold:         1.50
+
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      3
+cnv_min_gene_coverage_fraction: 0.50
+
+eval_min_group_n: 10
