@@ -33,6 +33,8 @@ After running:
         --store-path data/inputs/KpSC-plasmid-1000bp-npy/
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
 import io
