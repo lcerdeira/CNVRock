@@ -4,19 +4,19 @@ Antimicrobial resistance (AMR) is one of the leading global health threats. In *
 
 CNVRock adapts the [autoresearch](https://github.com/karpathy/autoresearch) strategy — where an AI agent continuously proposes and runs ML experiments overnight — to detect AMR-related copy-number variation in KpSC whole-genome sequencing data. A convolutional VAE learns a low-dimensional representation of genome-wide read depth; a Gaussian HMM segments the latent trajectories into copy-number states; a gene caller converts those states into per-gene calls. Claude proposes the next experiment, emails a summary, and a background daemon runs it after authorisation.
 
-**Results — full cohort (exp 29, n=545) and hold-out validation (exp 30, 20% stratified split, n=109):**
+**Results — full cohort (exp 31, n=545) with Phase D plasmid panel (blaKPC-2, blaNDM-1/5, blaCTX-M-15, blaOXA-48/181, qnrB1, aac(6')-Ib-cr):**
 
-| Gene | Type | MCC (full) | MCC (hold-out) | FNR (hold-out) | PPV (hold-out) | Notes |
-|------|------|-----------|---------------|---------------|---------------|-------|
-| blaSHV | chrom amp | — | — | — | — | GT unreliable: assembly collapse hides tandem dups |
-| blaKPC-2 | plasmid | 1.00 | 1.00 | 0.00 | 1.00 | |
-| blaNDM-1 | plasmid | 0.99 | 1.00 | 0.00 | 1.00 | |
-| blaCTX-M-15 | plasmid | 0.82 | 0.88 | 0.13 | 1.00 | Irreducible FNs: reads cross-map to chromosomal blaSHV |
-| qnrB1 | plasmid | 0.98 | 0.92 | 0.12 | 1.00 | |
-| blaOXA-48 | plasmid | 0.98 | 0.96 | 0.06 | 1.00 | GT covers OXA-48-like family (OXA-181/232/244) |
-| aac(6')-Ib-cr | plasmid | 0.86 | 0.93 | 0.04 | 0.93 | |
+| Gene | Type | MCC | FNR | PPV | Notes |
+|------|------|-----|-----|-----|-------|
+| blaSHV | chrom amp | −0.01 | — | — | GT unreliable: assembly collapse hides tandem dups; 35 FPs are likely real amps |
+| blaKPC | plasmid | 1.00 | 0.00 | 1.00 | |
+| blaNDM | plasmid | 0.99 | 0.00 | 0.99 | |
+| blaCTX-M | plasmid | 0.82 | 0.20 | 1.00 | Irreducible FNs: reads cross-map to chromosomal blaSHV at primary alignment |
+| qnrB1 | plasmid | 0.98 | 0.03 | 1.00 | |
+| blaOXA-48 | plasmid | 0.98 | 0.01 | 0.99 | GT covers OXA-48-like family |
+| aac(6')-Ib-cr | plasmid | 0.86 | 0.13 | 0.93 | 20 FNs all have PCN ≈ 0.08 (below absent threshold) |
 
-Hold-out split: 20% stratified by blaKPC/blaCTX-M/blaNDM presence (seed=42). Model trained on 437 samples, evaluated on 109 unseen samples. Performance is consistent with the full-cohort results, confirming generalisation.
+Exp 30 hold-out (20% stratified, n=109) confirmed generalisation. Exp 31 adds blaNDM-5 and blaOXA-181 to the panel (no change to recall — these variants are present in the Phase D plasmid reference).
 
 ## Layout
 
