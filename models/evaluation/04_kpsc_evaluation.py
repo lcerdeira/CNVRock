@@ -247,7 +247,7 @@ def run_evaluation(out_dir, cfg):
         print(f"Loaded Kleborate GT → overriding {drop_cols} from AMRFinder.", flush=True)
     elif kleborate_gt_path:
         print(f"kpsc_kleborate_gt_path set but file not found: {kleborate_gt_path_resolved}. "
-              "Using AMRFinder GT for ompK35/ompK36/ramR.", flush=True)
+              "Using AMRFinder GT for blaSHV.", flush=True)
 
     # Suffix gt columns with _gt to avoid collision with prediction columns
     df = gt.merge(chrom_calls, on="sample_id", suffixes=("_gt", ""))
@@ -349,7 +349,6 @@ def run_evaluation(out_dir, cfg):
         "  counts if kpsc_kleborate_gt_path is set.",
         "  blaSHV: positive = extra chromosomal copy (count >= 2).",
         "  blaKPC/blaCTX-M/blaNDM/qnrB1/blaOXA-48/aac6-Ib-cr: positive = present.",
-        "  ompK35/ompK36/ramR: not evaluated (sequence-level disruption, not CNV).",
         "FNR: fraction of true events called as normal. Primary optimisation target.",
         "  FN CRR/PCN p50 >> 1.0 (amp/presence) or << 1.0 (del) = signal present but",
         "  being discarded — try tuning thresholds or HMM state initialisation.",

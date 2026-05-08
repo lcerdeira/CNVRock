@@ -49,13 +49,11 @@ SPECIES_PREFIXES = [
 ]
 
 # AMRFinder gene names to count (partial match on Gene symbol column).
-# Chromosomal genes: blaSHV, ompK35, ompK36, ramR
+# Chromosomal genes: blaSHV (ompK35/ompK36/ramR removed — disruption is
+#   sequence-level, not copy-number change; see evaluation/04_kpsc_evaluation.py)
 # Plasmid genes:     blaKPC, blaCTX-M, blaNDM  (any variant in the family counts)
 GENE_PATTERNS = {
     "blaSHV":    ["blaSHV"],
-    "ompK35":    ["ompK35", "OmpK35"],
-    "ompK36":    ["ompK36", "OmpK36"],
-    "ramR":      ["ramR",   "RamR"],
     "blaKPC":    ["blaKPC"],
     "blaCTX-M":  ["blaCTX-M"],
     "blaNDM":    ["blaNDM"],
@@ -199,7 +197,7 @@ def aggregate_results(sample_to_run: dict, raw_dir: Path) -> None:
         rows.append({"sample_id": run_id, **counts})
 
     rows.sort(key=lambda r: r["sample_id"])
-    genes = list(GENE_PATTERNS.keys())  # blaSHV, ompK35, ompK36, ramR, blaKPC, blaCTX-M, blaNDM
+    genes = list(GENE_PATTERNS.keys())  # blaSHV, blaKPC, blaCTX-M, blaNDM, qnrB1, blaOXA-48, aac6-Ib-cr
 
     with open(OUT_TSV, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["sample_id"] + genes, delimiter="\t")

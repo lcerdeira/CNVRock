@@ -66,7 +66,7 @@ KPSC_SPECIES = {
 }
 
 # AMRFinder genes of interest — must match GENES_OF_INTEREST in 06_gene_cnv_caller.py
-AMRFINDER_GENES = ["blaSHV", "ompK35", "ompK36", "ramR"]
+AMRFINDER_GENES = ["blaSHV"]
 
 
 # ---------------------------------------------------------------------------
