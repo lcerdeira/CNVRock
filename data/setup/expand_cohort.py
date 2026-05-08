@@ -85,7 +85,11 @@ def load_atb_metadata() -> pd.DataFrame:
     run_col     = next((c for c in asm.columns if "run" in c and "accession" in c), None)
     sample_col  = next((c for c in asm.columns if c in ("sample_accession", "name",
                                                           "sample_accession")), None)
-    aws_col     = next((c for c in asm.columns if "aws" in c or "s3" in c or "url" in c), None)
+    # Prefer the direct S3/HTTPS column; avoid OSF or tarball URL columns
+    aws_col = "aws_url" if "aws_url" in asm.columns else \
+              next((c for c in asm.columns if "aws" in c), None) or \
+              next((c for c in asm.columns if "s3" in c), None) or \
+              next((c for c in asm.columns if "url" in c and "osf" not in c and "tarball" not in c), None)
     n50_col     = next((c for c in asm.columns if "n50" in c), None)
     comp_col    = next((c for c in asm.columns if "complet" in c), None)
     cont_col    = next((c for c in asm.columns if "contam" in c), None)
