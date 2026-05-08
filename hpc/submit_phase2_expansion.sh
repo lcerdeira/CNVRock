@@ -43,7 +43,7 @@ sbatch_retry() {
 REPO_DIR="$(pwd)"
 N_SAMPLES=$(wc -l < assets/kpsc_expansion_sra_accessions.txt)
 N_ASM=$(( $(wc -l < assets/kpsc_expansion_assembly_urls.tsv) - 1 ))
-CHUNK=4999  # MaxArraySize=5000 → max task index is 4999
+CHUNK=500   # 500-task arrays submit reliably; 4999-task arrays cause SLURM controller overload
 
 # Optional: pass job IDs of already-running first chunks to chain from them
 A_PREV_JOB="${1:-}"   # e.g. 5372994 (A chunk 1 already running)
@@ -80,7 +80,7 @@ while [[ $OFFSET -lt $N_SAMPLES ]]; do
     JOB_ID=$(sbatch_retry --parsable \
         $DEP_FLAG \
         --export=BATCH_OFFSET=${OFFSET} \
-        --array=1-${SIZE}%50 \
+        --array=1-${SIZE}%${SIZE} \
         hpc/download_expansion_sra.sh) || {
             echo "  FAILED chunk A offset=$OFFSET after 8 retries — stopping A chain" >&2
             break
@@ -112,7 +112,7 @@ while [[ $OFFSET -lt $N_ASM ]]; do
     JOB_ID=$(sbatch_retry --parsable \
         $DEP_FLAG \
         --export=BATCH_OFFSET=${OFFSET} \
-        --array=1-${SIZE}%100 \
+        --array=1-${SIZE}%${SIZE} \
         hpc/download_assemblies_s3.sh) || {
             echo "  FAILED chunk B offset=$OFFSET after 8 retries — stopping B chain" >&2
             break
