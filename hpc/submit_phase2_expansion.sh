@@ -14,10 +14,13 @@
 #
 # Usage:
 #   cd ~/CNVRock
-#   bash hpc/submit_phase2_expansion.sh [A_PREV_JOB_ID] [B_PREV_JOB_ID]
+#   bash hpc/submit_phase2_expansion.sh [A_PREV_JOB_ID] [B_PREV_JOB_ID] [A_START_OFFSET] [B_START_OFFSET]
 #
 # Resume example (skip already-running chunks 1 of A and B):
 #   bash hpc/submit_phase2_expansion.sh 5372994 ""   # A chunk1 running; submit A chunk2+ and all B
+#
+# Resume with non-standard offsets (e.g. two old 4999-task jobs already cover 9998 samples):
+#   bash hpc/submit_phase2_expansion.sh 5376786 "" 9998  # A: continue from offset 9998, chain after job 5376786
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -46,8 +49,10 @@ N_ASM=$(( $(wc -l < assets/kpsc_expansion_assembly_urls.tsv) - 1 ))
 CHUNK=500   # 500-task arrays submit reliably; 4999-task arrays cause SLURM controller overload
 
 # Optional: pass job IDs of already-running first chunks to chain from them
-A_PREV_JOB="${1:-}"   # e.g. 5372994 (A chunk 1 already running)
-B_PREV_JOB="${2:-}"   # e.g. 5376786 (B chunk 1 already running)
+A_PREV_JOB="${1:-}"      # e.g. 5376786 (last A job already submitted)
+B_PREV_JOB="${2:-}"      # e.g. 5380000 (last B job already submitted)
+A_START_OFFSET="${3:-}"  # explicit offset to resume A from (default: CHUNK)
+B_START_OFFSET="${4:-}"  # explicit offset to resume B from (default: CHUNK)
 
 echo "Phase 2 expansion submission (chained chunks)"
 echo "  Samples (SRA):       $N_SAMPLES"
@@ -55,15 +60,15 @@ echo "  Samples (assembly):  $N_ASM"
 echo "  Chunk size:          $CHUNK"
 echo "  Chunks (A):          $(( (N_SAMPLES + CHUNK - 1) / CHUNK ))"
 echo "  Chains: A→A→…→A runs concurrently with B→B→…→B; C starts after last A"
-[[ -n "$A_PREV_JOB" ]] && echo "  A: continuing after job $A_PREV_JOB"
-[[ -n "$B_PREV_JOB" ]] && echo "  B: continuing after job $B_PREV_JOB"
+[[ -n "$A_PREV_JOB" ]] && echo "  A: continuing after job $A_PREV_JOB (offset=${A_START_OFFSET:-$CHUNK})"
+[[ -n "$B_PREV_JOB" ]] && echo "  B: continuing after job $B_PREV_JOB (offset=${B_START_OFFSET:-$CHUNK})"
 echo ""
 
 # ── Stream A: download FASTQs + align (chained) ──────────────────────────
 echo "=== Stream A: BAM download + align ==="
 DL_JOBS=()
 OFFSET=0
-[[ -n "$A_PREV_JOB" ]] && { DL_JOBS+=("$A_PREV_JOB"); OFFSET=$CHUNK; }
+[[ -n "$A_PREV_JOB" ]] && { DL_JOBS+=("$A_PREV_JOB"); OFFSET=${A_START_OFFSET:-$CHUNK}; }
 
 while [[ $OFFSET -lt $N_SAMPLES ]]; do
     REMAINING=$(( N_SAMPLES - OFFSET ))
@@ -96,7 +101,7 @@ echo ""
 echo "=== Stream B: assembly download ==="
 ASM_JOBS=()
 OFFSET=0
-[[ -n "$B_PREV_JOB" ]] && { ASM_JOBS+=("$B_PREV_JOB"); OFFSET=$CHUNK; }
+[[ -n "$B_PREV_JOB" ]] && { ASM_JOBS+=("$B_PREV_JOB"); OFFSET=${B_START_OFFSET:-$CHUNK}; }
 
 while [[ $OFFSET -lt $N_ASM ]]; do
     REMAINING=$(( N_ASM - OFFSET ))
