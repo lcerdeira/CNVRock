@@ -36,7 +36,10 @@ BAM_DIR="$REPO_DIR/data/raw/bam"
 
 mkdir -p "$FASTQ_TMP" "$BAM_DIR" "$REPO_DIR/logs"
 
-ACC=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$ACCESSIONS")
+# BATCH_OFFSET lets us split >5000-task jobs across multiple submissions:
+#   sbatch --export=BATCH_OFFSET=5000 --array=1-5000%50 download_expansion_sra.sh
+LINE_NUM=$(( ${BATCH_OFFSET:-0} + SLURM_ARRAY_TASK_ID ))
+ACC=$(sed -n "${LINE_NUM}p" "$ACCESSIONS")
 if [[ -z "$ACC" ]]; then
     echo "No accession for task $SLURM_ARRAY_TASK_ID — skipping."
     exit 0
