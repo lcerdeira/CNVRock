@@ -4,107 +4,164 @@
 # Three parallel streams:
 #   A) download_expansion_sra.sh    — download FASTQs + align (88k BAMs)
 #   B) download_assemblies_s3.sh    — download assemblies from S3 (Kleborate)
-#   C) collect_expansion_readcounts.sh — GATK readcounts (depends on A)
+#   C) collect_expansion_readcounts.sh — GATK readcounts (depends on all of A)
 #
-# MaxArraySize=5000, so A and C are split into chunks of 5000 with BATCH_OFFSET.
-# B reads from assembly_urls.tsv (1-indexed with header skip), also chunked.
+# Chunks within Stream A are chained (each depends on the previous), and
+# Stream B chunks are chained separately.  This keeps at most 2 large arrays
+# in the queue at once, staying well under MaxJobCount=10000.
+# A and B run concurrently because they are independent.
+# C starts only after the last chunk of A completes.
 #
 # Usage:
 #   cd ~/CNVRock
-#   bash hpc/submit_phase2_expansion.sh
+#   bash hpc/submit_phase2_expansion.sh [A_PREV_JOB_ID] [B_PREV_JOB_ID]
+#
+# Resume example (skip already-running chunks 1 of A and B):
+#   bash hpc/submit_phase2_expansion.sh 5372994 ""   # A chunk1 running; submit A chunk2+ and all B
 
-set -uo pipefail  # no -e: let sbatch_retry handle failures without aborting the script
+set -uo pipefail
 cd "$(dirname "$0")/.."
 
-# Retry sbatch up to 5 times with exponential back-off (SLURM transient errors)
+# Retry sbatch up to 8 times with growing back-off (SLURM transient errors)
 sbatch_retry() {
     local attempt=0
-    while [[ $attempt -lt 5 ]]; do
+    while [[ $attempt -lt 8 ]]; do
         out=$(sbatch "$@" 2>&1)
         if echo "$out" | grep -qE '^[0-9]+$'; then
             echo "$out"
             return 0
         fi
         attempt=$(( attempt + 1 ))
-        echo "  sbatch attempt $attempt failed: $out — retrying in $(( 60 * attempt )) s …" >&2
-        sleep $(( 60 * attempt ))
+        local delay=$(( 30 * attempt ))
+        echo "  sbatch attempt $attempt failed — retrying in ${delay}s …" >&2
+        sleep $delay
     done
-    echo "ERROR: sbatch failed after 5 attempts" >&2
+    echo "ERROR: sbatch failed after 8 attempts" >&2
     return 1
 }
 
 REPO_DIR="$(pwd)"
 N_SAMPLES=$(wc -l < assets/kpsc_expansion_sra_accessions.txt)
-N_ASM=$(( $(wc -l < assets/kpsc_expansion_assembly_urls.tsv) - 1 ))  # skip header
-CHUNK=4999  # MaxArraySize=5000 means max task index is 4999
+N_ASM=$(( $(wc -l < assets/kpsc_expansion_assembly_urls.tsv) - 1 ))
+CHUNK=4999  # MaxArraySize=5000 → max task index is 4999
 
-# Optional: resume from a specific offset (e.g. if first N chunks already submitted)
-#   bash hpc/submit_phase2_expansion.sh 4999   ← skip first chunk (offset 0)
-START_OFFSET=${1:-0}
+# Optional: pass job IDs of already-running first chunks to chain from them
+A_PREV_JOB="${1:-}"   # e.g. 5372994 (A chunk 1 already running)
+B_PREV_JOB="${2:-}"   # e.g. 5376786 (B chunk 1 already running)
 
-echo "Phase 2 expansion submission"
-echo "  Samples (SRA):      $N_SAMPLES"
-echo "  Samples (assembly): $N_ASM"
-echo "  Chunk size:         $CHUNK"
-[[ $START_OFFSET -gt 0 ]] && echo "  Resuming from offset: $START_OFFSET"
+echo "Phase 2 expansion submission (chained chunks)"
+echo "  Samples (SRA):       $N_SAMPLES"
+echo "  Samples (assembly):  $N_ASM"
+echo "  Chunk size:          $CHUNK"
+echo "  Chunks (A):          $(( (N_SAMPLES + CHUNK - 1) / CHUNK ))"
+echo "  Chains: A→A→…→A runs concurrently with B→B→…→B; C starts after last A"
+[[ -n "$A_PREV_JOB" ]] && echo "  A: continuing after job $A_PREV_JOB"
+[[ -n "$B_PREV_JOB" ]] && echo "  B: continuing after job $B_PREV_JOB"
 echo ""
 
-# ── Stream A: download FASTQs + align ────────────────────────────────────
+# ── Stream A: download FASTQs + align (chained) ──────────────────────────
 echo "=== Stream A: BAM download + align ==="
 DL_JOBS=()
-OFFSET=$START_OFFSET
+OFFSET=0
+[[ -n "$A_PREV_JOB" ]] && { DL_JOBS+=("$A_PREV_JOB"); OFFSET=$CHUNK; }
+
 while [[ $OFFSET -lt $N_SAMPLES ]]; do
     REMAINING=$(( N_SAMPLES - OFFSET ))
     SIZE=$(( REMAINING > CHUNK ? CHUNK : REMAINING ))
+
+    # Chain: this chunk depends on the previous A chunk
+    if [[ ${#DL_JOBS[@]} -gt 0 ]]; then
+        PREV="${DL_JOBS[-1]}"
+        DEP_FLAG="--dependency=afterok:${PREV}"
+    else
+        DEP_FLAG=""
+    fi
+
     JOB_ID=$(sbatch_retry --parsable \
+        $DEP_FLAG \
         --export=BATCH_OFFSET=${OFFSET} \
         --array=1-${SIZE}%50 \
-        hpc/download_expansion_sra.sh) || { echo "  SKIP chunk offset=$OFFSET (sbatch failed)"; OFFSET=$(( OFFSET + CHUNK )); continue; }
+        hpc/download_expansion_sra.sh) || {
+            echo "  FAILED chunk A offset=$OFFSET after 8 retries — stopping A chain" >&2
+            break
+        }
     DL_JOBS+=("$JOB_ID")
-    echo "  Submitted: job $JOB_ID  offset=$OFFSET  tasks=$SIZE"
+    echo "  Submitted A: job $JOB_ID  offset=$OFFSET  tasks=$SIZE${DEP_FLAG:+  (after $PREV)}"
     OFFSET=$(( OFFSET + CHUNK ))
-    sleep 60  # give SLURM time to register the array before next submission
+    sleep 5  # brief pause; no need to wait long since chunks are chained
 done
 
-# ── Stream B: assembly download (independent) ────────────────────────────
+# ── Stream B: assembly download (chained, independent of A) ──────────────
 echo ""
 echo "=== Stream B: assembly download ==="
 ASM_JOBS=()
-OFFSET=$START_OFFSET
+OFFSET=0
+[[ -n "$B_PREV_JOB" ]] && { ASM_JOBS+=("$B_PREV_JOB"); OFFSET=$CHUNK; }
+
 while [[ $OFFSET -lt $N_ASM ]]; do
     REMAINING=$(( N_ASM - OFFSET ))
     SIZE=$(( REMAINING > CHUNK ? CHUNK : REMAINING ))
-    # Assembly URL file has a header; row i (1-indexed, no header) = line i+1 in file.
-    # The download_assemblies_s3.sh already adds +1 to skip header, so pass BATCH_OFFSET as-is.
+
+    if [[ ${#ASM_JOBS[@]} -gt 0 ]]; then
+        PREV="${ASM_JOBS[-1]}"
+        DEP_FLAG="--dependency=afterok:${PREV}"
+    else
+        DEP_FLAG=""
+    fi
+
     JOB_ID=$(sbatch_retry --parsable \
+        $DEP_FLAG \
         --export=BATCH_OFFSET=${OFFSET} \
         --array=1-${SIZE}%100 \
-        hpc/download_assemblies_s3.sh) || { echo "  SKIP chunk offset=$OFFSET (sbatch failed)"; OFFSET=$(( OFFSET + CHUNK )); continue; }
+        hpc/download_assemblies_s3.sh) || {
+            echo "  FAILED chunk B offset=$OFFSET after 8 retries — stopping B chain" >&2
+            break
+        }
     ASM_JOBS+=("$JOB_ID")
-    echo "  Submitted: job $JOB_ID  offset=$OFFSET  tasks=$SIZE"
+    echo "  Submitted B: job $JOB_ID  offset=$OFFSET  tasks=$SIZE${DEP_FLAG:+  (after $PREV)}"
     OFFSET=$(( OFFSET + CHUNK ))
-    sleep 60
+    sleep 5
 done
 
-# ── Stream C: read counts (depends on ALL of Stream A) ───────────────────
+# ── Stream C: read counts (depends on LAST chunk of A) ───────────────────
 echo ""
-echo "=== Stream C: read count extraction (after Stream A) ==="
-# Build colon-separated dependency string for all DL jobs
-DEP=$(IFS=:; echo "${DL_JOBS[*]}")
-OFFSET=$START_OFFSET
-while [[ $OFFSET -lt $N_SAMPLES ]]; do
-    REMAINING=$(( N_SAMPLES - OFFSET ))
-    SIZE=$(( REMAINING > CHUNK ? CHUNK : REMAINING ))
-    JOB_ID=$(sbatch_retry --parsable \
-        --dependency=afterok:${DEP} \
-        --export=BATCH_OFFSET=${OFFSET} \
-        --array=1-${SIZE}%100 \
-        hpc/collect_expansion_readcounts.sh) || { echo "  SKIP chunk offset=$OFFSET (sbatch failed)"; OFFSET=$(( OFFSET + CHUNK )); continue; }
-    echo "  Submitted: job $JOB_ID  offset=$OFFSET  tasks=$SIZE  (after ${DEP})"
-    OFFSET=$(( OFFSET + CHUNK ))
-    sleep 60
-    sleep 2
-done
+echo "=== Stream C: read count extraction ==="
+if [[ ${#DL_JOBS[@]} -eq 0 ]]; then
+    echo "  No A jobs submitted — skipping C" >&2
+else
+    # C chunks are chained off the last A job, then chained among themselves
+    LAST_A="${DL_JOBS[-1]}"
+    C_PREV=""
+    OFFSET=0
+    while [[ $OFFSET -lt $N_SAMPLES ]]; do
+        REMAINING=$(( N_SAMPLES - OFFSET ))
+        SIZE=$(( REMAINING > CHUNK ? CHUNK : REMAINING ))
+
+        if [[ -n "$C_PREV" ]]; then
+            DEP_FLAG="--dependency=afterok:${C_PREV}"
+        else
+            DEP_FLAG="--dependency=afterok:${LAST_A}"
+        fi
+
+        JOB_ID=$(sbatch_retry --parsable \
+            $DEP_FLAG \
+            --export=BATCH_OFFSET=${OFFSET} \
+            --array=1-${SIZE}%100 \
+            hpc/collect_expansion_readcounts.sh) || {
+                echo "  FAILED chunk C offset=$OFFSET — stopping C chain" >&2
+                break
+            }
+        C_PREV="$JOB_ID"
+        echo "  Submitted C: job $JOB_ID  offset=$OFFSET  tasks=$SIZE  (after ${DEP_FLAG#*:})"
+        OFFSET=$(( OFFSET + CHUNK ))
+        sleep 5
+    done
+fi
 
 echo ""
-echo "All jobs submitted. Check with: squeue -u lshlt19"
+echo "=== Summary ==="
+echo "Stream A jobs (${#DL_JOBS[@]}): ${DL_JOBS[*]:-none}"
+echo "Stream B jobs (${#ASM_JOBS[@]}): ${ASM_JOBS[*]:-none}"
+echo "Stream C: chained after last A"
+echo ""
+echo "Check with:  squeue -u lshlt19"
