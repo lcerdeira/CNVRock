@@ -35,7 +35,8 @@ OUT_DIR="$REPO_DIR/data/raw/readcounts_expansion"
 
 mkdir -p "$OUT_DIR" "$REPO_DIR/logs"
 
-LINE=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$MANIFEST")
+LINE_NUM=$(( ${BATCH_OFFSET:-0} + SLURM_ARRAY_TASK_ID ))
+LINE=$(sed -n "${LINE_NUM}p" "$MANIFEST")
 if [[ -z "$LINE" ]]; then
     echo "No entry for task $SLURM_ARRAY_TASK_ID — skipping."
     exit 0

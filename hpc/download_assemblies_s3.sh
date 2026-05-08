@@ -27,8 +27,8 @@ ASM_DIR="$REPO_DIR/data/assemblies"
 
 mkdir -p "$ASM_DIR" "$REPO_DIR/logs"
 
-# Skip header row (line 1 is header, task IDs start at 1 → add 1)
-LINE=$(( SLURM_ARRAY_TASK_ID + 1 ))
+# Skip header row (+1) and apply BATCH_OFFSET for chunked submissions
+LINE=$(( ${BATCH_OFFSET:-0} + SLURM_ARRAY_TASK_ID + 1 ))
 ROW=$(sed -n "${LINE}p" "$URL_TSV")
 
 if [[ -z "$ROW" ]]; then
