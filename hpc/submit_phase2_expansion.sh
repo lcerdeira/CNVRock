@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.."
 REPO_DIR="$(pwd)"
 N_SAMPLES=$(wc -l < assets/kpsc_expansion_sra_accessions.txt)
 N_ASM=$(( $(wc -l < assets/kpsc_expansion_assembly_urls.tsv) - 1 ))  # skip header
-CHUNK=5000
+CHUNK=4999  # MaxArraySize=5000 means max task index is 4999
 
 echo "Phase 2 expansion submission"
 echo "  Samples (SRA):     $N_SAMPLES"
