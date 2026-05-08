@@ -13,7 +13,7 @@
 #   cd ~/CNVRock
 #   bash hpc/submit_phase2_expansion.sh
 
-set -euo pipefail
+set -uo pipefail  # no -e: let sbatch_retry handle failures without aborting the script
 cd "$(dirname "$0")/.."
 
 # Retry sbatch up to 5 times with exponential back-off (SLURM transient errors)
@@ -26,8 +26,8 @@ sbatch_retry() {
             return 0
         fi
         attempt=$(( attempt + 1 ))
-        echo "  sbatch attempt $attempt failed: $out — retrying in $(( 10 * attempt )) s …" >&2
-        sleep $(( 10 * attempt ))
+        echo "  sbatch attempt $attempt failed: $out — retrying in $(( 60 * attempt )) s …" >&2
+        sleep $(( 60 * attempt ))
     done
     echo "ERROR: sbatch failed after 5 attempts" >&2
     return 1
@@ -59,11 +59,11 @@ while [[ $OFFSET -lt $N_SAMPLES ]]; do
     JOB_ID=$(sbatch_retry --parsable \
         --export=BATCH_OFFSET=${OFFSET} \
         --array=1-${SIZE}%50 \
-        hpc/download_expansion_sra.sh)
+        hpc/download_expansion_sra.sh) || { echo "  SKIP chunk offset=$OFFSET (sbatch failed)"; OFFSET=$(( OFFSET + CHUNK )); continue; }
     DL_JOBS+=("$JOB_ID")
     echo "  Submitted: job $JOB_ID  offset=$OFFSET  tasks=$SIZE"
     OFFSET=$(( OFFSET + CHUNK ))
-    sleep 2  # avoid overwhelming the scheduler
+    sleep 60  # give SLURM time to register the array before next submission
 done
 
 # ── Stream B: assembly download (independent) ────────────────────────────
@@ -79,11 +79,11 @@ while [[ $OFFSET -lt $N_ASM ]]; do
     JOB_ID=$(sbatch_retry --parsable \
         --export=BATCH_OFFSET=${OFFSET} \
         --array=1-${SIZE}%100 \
-        hpc/download_assemblies_s3.sh)
+        hpc/download_assemblies_s3.sh) || { echo "  SKIP chunk offset=$OFFSET (sbatch failed)"; OFFSET=$(( OFFSET + CHUNK )); continue; }
     ASM_JOBS+=("$JOB_ID")
     echo "  Submitted: job $JOB_ID  offset=$OFFSET  tasks=$SIZE"
     OFFSET=$(( OFFSET + CHUNK ))
-    sleep 2
+    sleep 60
 done
 
 # ── Stream C: read counts (depends on ALL of Stream A) ───────────────────
@@ -99,9 +99,10 @@ while [[ $OFFSET -lt $N_SAMPLES ]]; do
         --dependency=afterok:${DEP} \
         --export=BATCH_OFFSET=${OFFSET} \
         --array=1-${SIZE}%100 \
-        hpc/collect_expansion_readcounts.sh)
+        hpc/collect_expansion_readcounts.sh) || { echo "  SKIP chunk offset=$OFFSET (sbatch failed)"; OFFSET=$(( OFFSET + CHUNK )); continue; }
     echo "  Submitted: job $JOB_ID  offset=$OFFSET  tasks=$SIZE  (after ${DEP})"
     OFFSET=$(( OFFSET + CHUNK ))
+    sleep 60
     sleep 2
 done
 
