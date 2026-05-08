@@ -115,6 +115,13 @@ def load_atb_metadata() -> pd.DataFrame:
     if cont_col:   rename[cont_col]   = "contamination"
     df = df.rename(columns=rename)
 
+    # Some samples have multiple comma-separated run accessions; keep only the first.
+    # (~32% of ATB samples; we use the primary run for alignment.)
+    multi_run = df["run_accession"].str.contains(",", na=False).sum()
+    if multi_run:
+        df["run_accession"] = df["run_accession"].str.split(",").str[0].str.strip()
+        print(f"  Multi-run samples (first run kept): {multi_run:,}", flush=True)
+
     # Join MLST
     if mlst_pq.exists():
         mlst = pd.read_parquet(mlst_pq)
