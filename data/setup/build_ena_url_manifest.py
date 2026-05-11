@@ -32,13 +32,7 @@ BATCH_SIZE  = 200   # ENA API handles up to ~200 per request comfortably
 SLEEP_SEC   = 1.0   # polite delay between batches
 MAX_RETRIES = 5
 
-ENA_API = (
-    "https://www.ebi.ac.uk/ena/portal/api/filereport"
-    "?result=read_run"
-    "&fields=fastq_ftp,library_layout"
-    "&format=tsv"
-    "&accession={accs}"
-)
+ENA_SEARCH_API = "https://www.ebi.ac.uk/ena/portal/api/search"
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -55,13 +49,20 @@ def ftp_to_https(ftp_path: str) -> str:
 
 def query_ena(accessions: list[str]) -> dict[str, dict]:
     """
-    Query ENA Portal API for a batch of accessions.
+    Query ENA search API for a batch of accessions using OR query syntax.
     Returns dict: accession → {layout, r1_url, r2_url}
     """
-    url = ENA_API.format(accs=",".join(accessions))
+    query = " OR ".join(f'run_accession="{a}"' for a in accessions)
+    params = {
+        "result":  "read_run",
+        "query":   query,
+        "fields":  "fastq_ftp,library_layout",
+        "format":  "tsv",
+        "limit":   0,   # no row limit
+    }
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            resp = requests.get(url, timeout=60)
+            resp = requests.get(ENA_SEARCH_API, params=params, timeout=120)
             if resp.status_code == 200:
                 break
             print(f"  HTTP {resp.status_code} on attempt {attempt}; retrying…")
