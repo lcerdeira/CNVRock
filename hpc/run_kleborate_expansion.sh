@@ -68,12 +68,21 @@ TMP_FA="$(mktemp /tmp/${SAMPLE_ACC}_XXXXXX.fa)"
 trap "rm -f $TMP_FA" EXIT
 gunzip -c "$ASM_GZ" > "$TMP_FA"
 
-# Run Kleborate v3
-kleborate \
-    --assemblies "$TMP_FA" \
-    --preset     kpsc \
-    --output     "${OUT}.tmp" \
-    --threads    "$SLURM_CPUS_PER_TASK" 2>/dev/null
+# Detect Kleborate version and run accordingly
+KLEB_VER=$(kleborate --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)
+if [[ "$KLEB_VER" == "3" ]]; then
+    kleborate \
+        --assemblies "$TMP_FA" \
+        --preset     kpsc \
+        --output     "${OUT}.tmp" \
+        --threads    "$SLURM_CPUS_PER_TASK" 2>/dev/null
+else
+    # v2 syntax
+    kleborate \
+        -a           "$TMP_FA" \
+        --resistance \
+        -o           "${OUT}.tmp" 2>/dev/null
+fi
 
 # Annotate with sample_accession (Kleborate uses the filename as strain name)
 # Replace the filename-derived strain name with the canonical sample accession
