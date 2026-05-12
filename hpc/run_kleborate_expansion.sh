@@ -69,7 +69,7 @@ trap "rm -f $TMP_FA" EXIT
 gunzip -c "$ASM_GZ" > "$TMP_FA"
 
 # Detect Kleborate version and run accordingly
-KLEB_VER=$(kleborate --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)
+KLEB_VER=$(kleborate --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)
 if [[ "$KLEB_VER" == "3" ]]; then
     kleborate \
         --assemblies "$TMP_FA" \
@@ -81,7 +81,7 @@ else
     kleborate \
         -a           "$TMP_FA" \
         --resistance \
-        -o           "${OUT}.tmp" 2>/dev/null
+        -o           "${OUT}.tmp"
 fi
 
 # Annotate with sample_accession (Kleborate uses the filename as strain name)
