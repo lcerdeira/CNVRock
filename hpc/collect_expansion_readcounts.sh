@@ -29,8 +29,10 @@ module load gatk/4.6.0.0 java/20.0.1
 
 REPO_DIR="/home/lshlt19/CNVRock"
 MANIFEST="$REPO_DIR/assets/kpsc_expansion_paths_to_bams.tsv"
-INTERVALS="$REPO_DIR/assets/kpsc-core-genome.interval_list"
-REFERENCE="$REPO_DIR/assets/HS11286.fasta"
+# Use whole-chrom intervals (NC_016845.1 only) — compatible with both the
+# basic HS11286.fasta BAMs and the HS11286_extended.fasta BAMs.
+INTERVALS="$REPO_DIR/assets/kpsc-whole-chrom.interval_list"
+REFERENCE="$REPO_DIR/assets/HS11286_extended.fasta"
 OUT_DIR="$REPO_DIR/data/raw/readcounts_expansion"
 
 mkdir -p "$OUT_DIR" "$REPO_DIR/logs"
@@ -58,6 +60,10 @@ fi
 
 echo "Task $SLURM_ARRAY_TASK_ID: $SAMPLE_ID"
 
+SCRATCH_TMP="/tmp/${SAMPLE_ID}_gatk_$$"
+mkdir -p "$SCRATCH_TMP"
+trap "rm -rf $SCRATCH_TMP" EXIT
+
 gatk CollectReadCounts \
     --java-options            "-Xmx5g" \
     --reference               "$REFERENCE" \
@@ -67,6 +73,8 @@ gatk CollectReadCounts \
     --read-filter             MappingQualityReadFilter \
     --minimum-mapping-quality 40 \
     --interval-merging-rule   OVERLAPPING_ONLY \
+    --disable-sequence-dictionary-validation \
+    --tmp-dir                 "$SCRATCH_TMP" \
     --output                  "${OUT}.tmp"
 
 mv "${OUT}.tmp" "$OUT"
