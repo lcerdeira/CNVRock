@@ -77,9 +77,9 @@ download_file() {
             [[ -s "$DST" ]] && return 0
         fi
         ATTEMPT=$(( ATTEMPT + 1 ))
-        echo "  wget attempt $ATTEMPT failed for $URL; retrying in 30 s …"
+        echo "  wget attempt $ATTEMPT failed for $URL; retrying in 120 s …"
         rm -f "$DST"
-        sleep 30
+        sleep 120
     done
     echo "ERROR: failed to download $URL" >&2
     return 1
