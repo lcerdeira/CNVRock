@@ -21,6 +21,7 @@ MANIFEST="assets/ena_url_manifest.tsv"
 CHUNK=100       # tasks per SLURM array job
 WAVE=50         # chunks per wave  (50×100 = 5000 tasks)
 SLEEP_BETWEEN=2 # seconds between sbatch calls
+CONCUR=10       # max concurrent tasks per array (limits EBI connections)
 
 if [[ ! -f "$MANIFEST" ]]; then
     echo "ERROR: manifest not found at $MANIFEST"
@@ -61,7 +62,7 @@ while [[ $OFFSET -lt $N ]]; do
         REMAINING=$(( N - START ))
         SIZE=$(( REMAINING < CHUNK ? REMAINING : CHUNK ))
         JID=$(BATCH_OFFSET=$START sbatch --parsable \
-            --array=1-${SIZE}%${SIZE} \
+            --array=1-${SIZE}%${CONCUR} \
             "$SCRIPT")
         echo "  dl: job $JID  offset=$START  size=$SIZE"
         WAVE_JOBS+=("$JID")
