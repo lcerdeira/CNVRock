@@ -32,7 +32,9 @@ MANIFEST="$REPO_DIR/assets/kpsc_expansion_paths_to_bams.tsv"
 # Use whole-chrom intervals (NC_016845.1 only) — compatible with both the
 # basic HS11286.fasta BAMs and the HS11286_extended.fasta BAMs.
 INTERVALS="$REPO_DIR/assets/kpsc-whole-chrom.interval_list"
-REFERENCE="$REPO_DIR/assets/HS11286_extended.fasta"
+# Use HS11286.fasta — valid dict/index. --disable-sequence-dictionary-validation
+# handles BAMs that were aligned to HS11286_extended.fasta instead.
+REFERENCE="$REPO_DIR/assets/HS11286.fasta"
 OUT_DIR="$REPO_DIR/data/raw/readcounts_expansion"
 
 mkdir -p "$OUT_DIR" "$REPO_DIR/logs"
