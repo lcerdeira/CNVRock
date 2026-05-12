@@ -21,7 +21,25 @@ MANIFEST="assets/ena_url_manifest.tsv"
 CHUNK=100       # tasks per SLURM array job
 WAVE=50         # chunks per wave  (50×100 = 5000 tasks)
 SLEEP_BETWEEN=2 # seconds between sbatch calls
-CONCUR=10       # max concurrent tasks per array (limits EBI connections)
+CONCUR=10       # max concurrent tasks per array (limits EBI connections to 10 simultaneous)
+
+# ── Time-window enforcement ───────────────────────────────────────────────────
+# Per agreement with HPC support (Alex), HTTPS downloads to EBI are restricted
+# to 22:00–07:00. This function sleeps until the window opens if called outside it.
+wait_for_download_window() {
+    while true; do
+        HOUR=$(date +%H)
+        if [[ $HOUR -ge 22 || $HOUR -lt 7 ]]; then
+            return 0   # inside window
+        fi
+        NEXT=$(date -d "today 22:00" +%s 2>/dev/null || date -j -f "%H:%M" "22:00" +%s 2>/dev/null)
+        NOW=$(date +%s)
+        SLEEP=$(( NEXT - NOW ))
+        [[ $SLEEP -le 0 ]] && SLEEP=$(( SLEEP + 86400 ))
+        echo "Outside download window (22:00-07:00). Sleeping ${SLEEP}s until 22:00 … ($(date))"
+        sleep "$SLEEP"
+    done
+}
 
 if [[ ! -f "$MANIFEST" ]]; then
     echo "ERROR: manifest not found at $MANIFEST"
@@ -53,6 +71,7 @@ wait_for_jobs() {
 OFFSET=0
 WAVE_NUM=0
 while [[ $OFFSET -lt $N ]]; do
+    wait_for_download_window
     WAVE_NUM=$(( WAVE_NUM + 1 ))
     echo "--- Wave $WAVE_NUM (offset=$OFFSET): $(date) ---"
     WAVE_JOBS=()
