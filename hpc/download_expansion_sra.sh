@@ -35,7 +35,9 @@ module load samtools/1.20
 
 MANIFEST="$REPO_DIR/assets/ena_url_manifest.tsv"
 REFERENCE="$REPO_DIR/assets/HS11286_extended.fasta"
-INTERVALS="$REPO_DIR/assets/HS11286_extended_intervals.interval_list"
+# 1 kb bins across chromosome + plasmids. The previous filename
+# (HS11286_extended_intervals.interval_list) did not exist on disk.
+INTERVALS="$REPO_DIR/assets/HS11286_extended_1kb.interval_list"
 COUNTS_DIR="$REPO_DIR/data/raw/readcounts_expansion"
 
 mkdir -p "$COUNTS_DIR" "$REPO_DIR/logs"
