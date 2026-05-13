@@ -29,12 +29,14 @@ module load gatk/4.6.0.0 java/20.0.1
 
 REPO_DIR="/home/lshlt19/CNVRock"
 MANIFEST="$REPO_DIR/assets/kpsc_expansion_paths_to_bams.tsv"
-# Use whole-chrom intervals (NC_016845.1 only) — compatible with both the
-# basic HS11286.fasta BAMs and the HS11286_extended.fasta BAMs.
-INTERVALS="$REPO_DIR/assets/kpsc-whole-chrom.interval_list"
-# Use HS11286.fasta — valid dict/index. --disable-sequence-dictionary-validation
-# handles BAMs that were aligned to HS11286_extended.fasta instead.
-REFERENCE="$REPO_DIR/assets/HS11286.fasta"
+# 1 kb bins across chromosome + plasmids (built via
+# `gatk PreprocessIntervals --bin-length 1000` on HS11286_extended.fasta).
+# NOTE 2026-05-13: earlier this script pointed at kpsc-whole-chrom.interval_list
+# which declared the chromosome as a *single* interval — GATK does NOT
+# subdivide intervals, so it produced 1-bin-per-sample count files unusable
+# for CNVRock. Now fixed.
+INTERVALS="$REPO_DIR/assets/HS11286_extended_1kb.interval_list"
+REFERENCE="$REPO_DIR/assets/HS11286_extended.fasta"
 OUT_DIR="$REPO_DIR/data/raw/readcounts_expansion"
 
 mkdir -p "$OUT_DIR" "$REPO_DIR/logs"
@@ -75,7 +77,6 @@ gatk CollectReadCounts \
     --read-filter             MappingQualityReadFilter \
     --minimum-mapping-quality 40 \
     --interval-merging-rule   OVERLAPPING_ONLY \
-    --disable-sequence-dictionary-validation \
     --tmp-dir                 "$SCRATCH_TMP" \
     --output                  "${OUT}.tmp"
 
