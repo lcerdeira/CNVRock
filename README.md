@@ -30,7 +30,7 @@ assets/         sample manifests, BAM accession lists, reference files,
                 AMRFinder+ and Kleborate ground-truth TSVs,
                 plasmid reference FASTAs and gene coordinate TSV
 
-hpc/            SLURM scripts for LSHTM HPC
+hpc/            SLURM scripts for HPC
   build_extended_reference.sh   BWA-index the extended reference
   remap_unmapped_to_plasmids.sh remap unmapped reads to plasmid contigs
 
