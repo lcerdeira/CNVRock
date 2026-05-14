@@ -23,6 +23,11 @@ env/
 assets/20260313_full_cnv_data_pf9.tsv
 assets/Pf_9_samples_20260227.txt
 
+# ── Manuscript drafts (kept locally, not on GitHub) ───────────────────────────
+paper/
+*.docx
+.Rhistory
+
 # ── Data & weights (large binary files — never commit) ────────────────────────
 data/*
 weights/
