@@ -1,11 +1,11 @@
-# Experiment 32 — KpSC expansion cohort scaling study: 5,000 samples
+# Experiment 35 — KpSC expansion cohort scaling study: 77906 samples
 #
 # First of four nested-subset experiments (exp 32/33/34/35) that vary ONLY the
 # training set size: 5k → 10k → 20k → 80k. Architecture, HMM, CNV caller, and
 # all thresholds are held constant so any change in metrics is attributable to
 # scaling alone.
 #
-# Sample set: assets/kpsc_expansion_subset_5k.tsv (5,000 stratified by species
+# Sample set: assets/kpsc_expansion_subset_80k.tsv (80k stratified by species
 # × Bla_Carb × ST-cap=150, seed=42). Strict superset relationships:
 #   exp32 (5k) ⊂ exp33 (10k) ⊂ exp34 (20k) ⊂ exp35 (80k=77,906)
 #
@@ -35,8 +35,8 @@ hmm:          "02_gaussian_hmm"
 cnv:          "06_gene_cnv_caller"
 evaluation:   "04_kpsc_evaluation"
 
-store_path: "../../../data/inputs/KpSC-expansion-5k-1000bp-npy"
-out_dir:    "../../../data/results/32_kpsc_expansion_5k"
+store_path: "../../../data/inputs/KpSC-expansion-80k-1000bp-npy"
+out_dir:    "../../../data/results/35_kpsc_expansion_80k"
 normalise:  true
 
 kpsc_gt_path:            "../../../assets/amrfinder_gt_expansion.tsv"
@@ -44,7 +44,7 @@ kpsc_kleborate_gt_path:  "../../../assets/kpsc_expansion_kleborate_gt.tsv"
 kpsc_meta_path:          "../../../assets/kpsc_expansion_metadata.tsv"
 
 plasmid_cnv:               "07_plasmid_cnv_caller"
-plasmid_store_path:        "../../../data/inputs/KpSC-expansion-5k-plasmid-1000bp-npy"
+plasmid_store_path:        "../../../data/inputs/KpSC-expansion-80k-plasmid-1000bp-npy"
 plasmid_gene_coords_path:  "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
 pcn_absent_threshold:      0.20
 pcn_amp_threshold:         1.50
