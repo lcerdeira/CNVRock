@@ -1,0 +1,77 @@
+# Experiment 36 — KpSC expansion cohort scaling study: 40,000 samples
+#
+# First of four nested-subset experiments (exp 32/33/34/35) that vary ONLY the
+# training set size: 5k → 10k → 20k → 80k. Architecture, HMM, CNV caller, and
+# all thresholds are held constant so any change in metrics is attributable to
+# scaling alone.
+#
+# Sample set: assets/kpsc_expansion_subset_40k.tsv (40k stratified by species
+# × Bla_Carb × ST-cap=150, seed=42). Strict superset relationships:
+#   exp32 (5k) ⊂ exp33 (10k) ⊂ exp34 (20k) ⊂ exp35 (80k=77,906)
+#
+# Inputs:
+#   - Read counts (1 kb bins, NC_016845.1):    data/inputs/KpSC-expansion-1000bp-core-npy/
+#       built from data/raw/readcounts_expansion/{ACC}.counts.tsv via
+#       data/setup/readcounts_to_npy.py
+#   - Plasmid counts (1 kb bins, plasmid refs): data/inputs/KpSC-expansion-plasmid-1000bp-npy/
+#       built once expansion BAMs have been mapped to HS11286_extended.fasta
+#   - Kleborate ground truth: assets/kpsc_expansion_kleborate_gt.tsv (88,128 rows)
+#   - AMRFinder ground truth: assets/amrfinder_gt_expansion.tsv
+#   - Sample metadata:        assets/kpsc_expansion_metadata.tsv
+#
+# Architecture, HMM, CNV caller, and thresholds inherited from exp 31 unchanged.
+# Plasmid gene panel uses the same plasmid_gene_coords.tsv (Phase D variant set:
+#   blaCTX-M-15/65/27, blaNDM-1/5, blaOXA-48/181, blaTEM-1, qnrB1, aac(6')-Ib-cr).
+#
+# Open items at exp creation time (2026-05-13):
+#   1. Expansion FASTQ → BAM → counts pipeline blocked on EBI rate limit
+#      (see Alex IT thread). Currently 8,159 / 80,496 count files exist.
+#   2. Plasmid remap counts for expansion cohort not yet produced.
+#   3. Sample metadata file may need refresh after Kleborate merge — verify
+#      columns match exp 31 expectations (species, ST, strain).
+
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+evaluation:   "04_kpsc_evaluation"
+
+store_path: "../../../data/inputs/KpSC-expansion-40k-1000bp-npy"
+out_dir:    "../../../data/results/36_kpsc_expansion_40k"
+normalise:  true
+
+kpsc_gt_path:            "../../../assets/amrfinder_gt_expansion.tsv"
+kpsc_kleborate_gt_path:  "../../../assets/kpsc_expansion_kleborate_gt.tsv"
+kpsc_meta_path:          "../../../assets/kpsc_expansion_metadata.tsv"
+
+plasmid_cnv:               "07_plasmid_cnv_caller"
+plasmid_store_path:        "../../../data/inputs/KpSC-expansion-40k-plasmid-1000bp-npy"
+plasmid_gene_coords_path:  "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
+pcn_absent_threshold:      0.20
+pcn_amp_threshold:         1.50
+
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      3
+cnv_min_gene_coverage_fraction: 0.50
+
+eval_min_group_n: 10
