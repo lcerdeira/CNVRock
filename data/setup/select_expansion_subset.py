@@ -68,11 +68,14 @@ MAX_PER_ST = 150        # cap per ST inside each stratum (avoid overweighting co
 CARB_OVERSAMPLE = 1.5   # weight applied to carbapenemase-carrying samples
 
 # Subset sizes in increasing order. Each is a strict superset of the previous.
-# None = "everything left after the previous cuts".
+# None = "everything left after the previous cuts" (full eligible pool).
+# The manuscript reports 545 / 5k / 10k / 20k / 40k for the scaling figure;
+# 80k is generated for future work / supplementary extension.
 SUBSET_TARGETS = [
     ("5k",   5_000),
     ("10k", 10_000),
     ("20k", 20_000),
+    ("40k", 40_000),
     ("80k", None),
 ]
 
@@ -215,22 +218,22 @@ def main() -> None:
                           # otherwise len(anchor) + (len(eligible) - len(anchor))
 
     # ── 6. Write nested subsets ───────────────────────────────────────────────
-    # The 80k tier (target=None) uses the FULL eligible pool — no ST cap —
-    # because for a scaling study we want to show what "all the data" gives.
-    # Nesting is preserved because every sample in the ST-capped `ordered`
-    # array is also in the full eligible set `merged`.
+    # The ST-capped `ordered` array has ~38k samples max. Any target >38k
+    # (e.g. 40k, 80k) needs to draw extra samples from beyond the ST cap.
+    # We build ONE extended ordering: first the ST-capped pool (size 38k),
+    # then everything else in random order. Taking prefixes of this extended
+    # ordering preserves nesting AND lets larger tiers exceed the cap.
     full_unrestricted_idx = merged.index.to_numpy()
+    seen = set(ordered.tolist())
+    extras = np.array([i for i in full_unrestricted_idx if i not in seen])
+    rng.shuffle(extras)
+    full_pool = np.concatenate([ordered, extras])     # full 77,906 samples
+
     for name, target in SUBSET_TARGETS:
         if target is None:
-            # Full pool: every KpSC sample with a FASTQ URL, no ST cap.
-            # Re-order so the first 20k of `ordered` come first (nesting),
-            # then append everything else in random order.
-            seen = set(ordered.tolist())
-            extras = np.array([i for i in full_unrestricted_idx if i not in seen])
-            rng.shuffle(extras)
-            indices = np.concatenate([ordered, extras])
+            indices = full_pool                       # all eligible samples
         else:
-            indices = ordered[:target]
+            indices = full_pool[:target]              # prefix → strict superset
         subset = merged.loc[indices].copy()
 
         # Sanity check: every smaller subset must be a subset of every larger.
