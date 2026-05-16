@@ -1,3 +1,8 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19478464.svg)](https://doi.org/10.5281/zenodo.19478464)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-blue.svg)](https://www.python.org/)
+[![CNVRock](./assets/cnvrock-logo.png)
+
 # CNVRock — AMR gene copy-number variation in *Klebsiella pneumoniae* using variational autoencoders
 
 Antimicrobial resistance (AMR) is one of the leading global health threats. In *Klebsiella pneumoniae* Species Complex (KpSC), resistance is driven not just by gene presence but by **how many copies** of a resistance gene a bacterium carries — amplification of chromosomal genes and variable plasmid copy number (PCN) both matter clinically.

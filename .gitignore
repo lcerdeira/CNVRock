@@ -54,6 +54,8 @@ experiments/*/config.yaml
 *.swp
 *.swo
 *~
+#claude
+.claude/
 
 # ── OS noise ──────────────────────────────────────────────────────────────────
 .DS_Store
@@ -72,3 +74,8 @@ coverage.xml
 *.nextflow*
 */work
 */readcounts
+
+# ── IDE / agent telemetry ─────────────────────────────────────────────────────
+.refact/
+tools/.last_proposal_*
+tools/.proposal_body.txt
