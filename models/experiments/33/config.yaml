@@ -15,9 +15,9 @@
 #       data/setup/readcounts_to_npy.py
 #   - Plasmid counts (1 kb bins, plasmid refs): data/inputs/KpSC-expansion-plasmid-1000bp-npy/
 #       built once expansion BAMs have been mapped to HS11286_extended.fasta
-#   - Kleborate ground truth: assets/kpsc_expansion_kleborate_gt.tsv (88,128 rows)
+#   - Kleborate ground truth: assets/kpsc_expansion_kleborate_gt_runlevel.tsv (88,128 rows)
 #   - AMRFinder ground truth: assets/amrfinder_gt_expansion.tsv
-#   - Sample metadata:        assets/kpsc_expansion_metadata.tsv
+#   - Sample metadata:        assets/kpsc_expansion_metadata_runlevel.tsv
 #
 # Architecture, HMM, CNV caller, and thresholds inherited from exp 31 unchanged.
 # Plasmid gene panel uses the same plasmid_gene_coords.tsv (Phase D variant set:
@@ -40,8 +40,8 @@ out_dir:    "../../../data/results/33_kpsc_expansion_10k"
 normalise:  true
 
 kpsc_gt_path:            "../../../assets/amrfinder_gt_expansion.tsv"
-kpsc_kleborate_gt_path:  "../../../assets/kpsc_expansion_kleborate_gt.tsv"
-kpsc_meta_path:          "../../../assets/kpsc_expansion_metadata.tsv"
+kpsc_kleborate_gt_path:  "../../../assets/kpsc_expansion_kleborate_gt_runlevel.tsv"
+kpsc_meta_path:          "../../../assets/kpsc_expansion_metadata_runlevel.tsv"
 
 plasmid_cnv:               "07_plasmid_cnv_caller"
 plasmid_store_path:        "../../../data/inputs/KpSC-expansion-10k-plasmid-1000bp-npy"
