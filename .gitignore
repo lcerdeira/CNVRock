@@ -54,6 +54,8 @@ experiments/*/config.yaml
 *.swp
 *.swo
 *~
+#claude
+.claude/
 
 # ── OS noise ──────────────────────────────────────────────────────────────────
 .DS_Store
