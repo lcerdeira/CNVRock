@@ -1,272 +1,170 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19478464.svg)](https://doi.org/10.5281/zenodo.19478464)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-blue.svg)](https://www.python.org/)
-[![CNVRock](./assets/cnvrock-logo.png)
+[![Docs](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://cnvrock.readthedocs.io/)
+
+[![CNVRock](./assets/cnvrock-logo.png)](./assets/cnvrock-logo.png)
 
 # CNVRock — AMR gene copy-number variation in *Klebsiella pneumoniae* using variational autoencoders
 
-Antimicrobial resistance (AMR) is one of the leading global health threats. In *Klebsiella pneumoniae* Species Complex (KpSC), resistance is driven not just by gene presence but by **how many copies** of a resistance gene a bacterium carries — amplification of chromosomal genes and variable plasmid copy number (PCN) both matter clinically.
+Antimicrobial resistance (AMR) is one of the leading global health threats. In *Klebsiella pneumoniae* species complex (KpSC), resistance is driven not just by gene **presence** but by **how many copies** of a resistance gene a bacterium carries — chromosomal amplification (e.g. `blaSHV`) and plasmid copy-number variation (PCN) of clinically critical genes (`blaKPC`, `blaNDM`, `blaCTX-M`, `blaOXA-48`-like). Both effects matter clinically; conventional presence-callers see neither.
 
-CNVRock adapts the [autoresearch](https://github.com/karpathy/autoresearch) strategy — where an AI agent continuously proposes and runs ML experiments overnight — to detect AMR-related copy-number variation in KpSC whole-genome sequencing data. A convolutional VAE learns a low-dimensional representation of genome-wide read depth; a Gaussian HMM segments the latent trajectories into copy-number states; a gene caller converts those states into per-gene calls. Claude proposes the next experiment, emails a summary, and a background daemon runs it after authorisation.
+CNVRock detects both from short-read sequencing using:
 
-**Results — full cohort (exp 31, n=545) with Phase D plasmid panel (blaKPC-2, blaNDM-1/5, blaCTX-M-15, blaOXA-48/181, qnrB1, aac(6')-Ib-cr):**
+- a **1D convolutional VAE** that learns a 10-dim latent embedding of genome-wide 1 kb-binned read depth,
+- a **6-state Gaussian HMM** that segments the per-sample reconstructions into copy-number states,
+- separate **per-gene CNV callers** — CRR-based for chromosomal genes, PCN-based for plasmid-borne AMR genes (aggregated by gene family so multi-mapped reads between near-identical allele variants are correctly counted).
 
-| Gene | Type | MCC | FNR | PPV | Notes |
-|------|------|-----|-----|-----|-------|
-| blaSHV | chrom amp | −0.01 | — | — | GT unreliable: assembly collapse hides tandem dups; 35 FPs are likely real amps |
-| blaKPC | plasmid | 1.00 | 0.00 | 1.00 | |
-| blaNDM | plasmid | 0.99 | 0.00 | 0.99 | |
-| blaCTX-M | plasmid | 0.82 | 0.20 | 1.00 | Irreducible FNs: reads cross-map to chromosomal blaSHV at primary alignment |
-| qnrB1 | plasmid | 0.98 | 0.03 | 1.00 | |
-| blaOXA-48 | plasmid | 0.98 | 0.01 | 0.99 | GT covers OXA-48-like family |
-| aac(6')-Ib-cr | plasmid | 0.86 | 0.13 | 0.93 | 20 FNs all have PCN ≈ 0.08 (below absent threshold) |
+## Scaling study (manuscript headline)
 
-Exp 30 hold-out (20% stratified, n=109) confirmed generalisation. Exp 31 adds blaNDM-5 and blaOXA-181 to the panel (no change to recall — these variants are present in the Phase D plasmid reference).
+We report performance across **five training-set sizes** holding architecture, HMM, and CNV-caller parameters constant — only n varies:
 
-## Layout
+| Tier | n samples | Manifest |
+|---|---|---|
+| Phase 1 baseline | 545 | (legacy) |
+| **exp 32 / 5K** | 5,000 | `assets/kpsc_expansion_subset_5k.tsv` |
+| **exp 33 / 10K** | 10,000 | `assets/kpsc_expansion_subset_10k.tsv` |
+| **exp 34 / 20K** | 20,000 | `assets/kpsc_expansion_subset_20k.tsv` |
+| **exp 36 / 40K** | 40,000 | `assets/kpsc_expansion_subset_40k.tsv` |
+
+Each manifest is a **strict superset** of the previous one (see `data/setup/select_expansion_subset.py`) — any observed change in metrics is attributable to *more training data*, not to a different sample mix.
+
+Results populate as experiments complete. See [`docs/08_scaling_study.md`](docs/08_scaling_study.md) for the live table.
+
+## Pipeline at a glance
 
 ```
+ENA (~78,000 KpSC FASTQ pairs)
+    │
+    │  IBM Aspera (ascp via bioconda aspera-cli, concur=10, MQ=0 GATK output)
+    ▼
+data/raw/fastq_subset/     ── BWA-MEM ── data/raw/bam_subset/  (kept)
+                                                │
+                                                ▼ GATK CollectReadCounts
+                              data/raw/readcounts_subset_mq0/  (1 kb bins, chrom + plasmids)
+                                                │
+                          ┌─────────────────────┴─────────────────────┐
+                          ▼                                            ▼
+       data/inputs/KpSC-expansion-{N}-mq0-1000bp-npy/    KpSC-expansion-{N}-mq0-plasmid-1000bp-npy/
+       (NC_016845.1 only, 5,334 bins)                    (7 gene families: blaKPC, blaCTX-M,
+                          │                                            blaNDM, blaOXA-48-like,
+                          │                                            blaTEM, qnrB, aac6-Ib-cr)
+                          ▼                                            ▼
+                ┌──────────────────────────────────────────────────────────┐
+                │   VAE → Gaussian HMM → CNV callers → evaluation.txt      │
+                │                  (models/train.py)                       │
+                └──────────────────────────────────────────────────────────┘
+```
+
+## Quickstart
+
+```bash
+# One-time setup (HPC):
+conda env create -f environment.yml && conda activate cnvrock
+conda install -y -c bioconda aspera-cli
+ascli config ascp install
+curl -sL https://www.ebi.ac.uk/bioimage-archive/help-download/ \
+    | sed -n '/BEGIN OPENSSH PRIVATE KEY/,/END OPENSSH PRIVATE KEY/p' \
+    > ~/.aspera/sdk/ebi_aspera_key.openssh
+chmod 600 ~/.aspera/sdk/ebi_aspera_key.openssh
+
+# Generate subset manifests (deterministic, seed=42):
+python3 data/setup/select_expansion_subset.py
+
+# Build 1 kb interval list across chrom + plasmids:
+gatk CreateSequenceDictionary -R assets/HS11286_extended.fasta
+gatk PreprocessIntervals \
+    --reference assets/HS11286_extended.fasta \
+    --bin-length 1000 --padding 0 \
+    --interval-merging-rule OVERLAPPING_ONLY \
+    --output assets/HS11286_extended_1kb.interval_list
+
+# Download + align + count one tier (idempotent; samples already done are skipped):
+sbatch --export=ALL,MANIFEST=assets/kpsc_expansion_subset_20k.tsv \
+       --array=1-4999%10 hpc/aspera_subset_pipeline.sh
+# (Plus three more chunks of size ≤5000 — SLURM MaxArraySize limit.)
+
+# Build NPY stores (per tier):
+python3 data/setup/readcounts_to_npy_kpsc.py \
+    --counts-dir data/raw/readcounts_subset_mq0 \
+    --manifest   assets/kpsc_expansion_subset_5k.tsv \
+    --out-dir    data/inputs/KpSC-expansion-5k-mq0-1000bp-npy \
+    --keep-contigs NC_016845.1
+
+python3 data/setup/plasmid_genes_to_npy_kpsc.py \
+    --counts-dir  data/raw/readcounts_subset_mq0 \
+    --manifest    assets/kpsc_expansion_subset_5k.tsv \
+    --gene-coords assets/plasmid_refs/plasmid_gene_coords.tsv \
+    --families    assets/plasmid_refs/plasmid_gene_families.tsv \
+    --out-dir     data/inputs/KpSC-expansion-5k-mq0-plasmid-1000bp-npy
+
+# Train one experiment:
+sbatch hpc/train_gpu.sh experiments/32/config.yaml
+```
+
+Full per-step explanation lives in the **[ReadTheDocs site](https://cnvrock.readthedocs.io/)**.
+
+## Repository layout
+
+```
+assets/                    sample manifests, ground truth, reference + intervals
+  HS11286_extended.fasta              chromosome + 11 plasmid contigs
+  HS11286_extended_1kb.interval_list  7,365 1 kb bins for GATK CollectReadCounts
+  kpsc_expansion_subset_{5k,10k,20k,40k,80k}.tsv  nested manifests
+  kpsc_expansion_kleborate_gt_runlevel.tsv         Kleborate v3 ground truth
+  amrfinder_gt_expansion.tsv                       AMRFinder+ ground truth
+  plasmid_refs/
+    plasmid_gene_coords.tsv     per-gene CDS coordinates on the extended ref
+    plasmid_gene_families.tsv   gene-family groupings (aggregation key)
+
 data/
-  inputs/       read-count NPY stores (chromosomal + plasmid)
-  results/      per-experiment outputs (one folder per experiment)
-  setup/        scripts to prepare reference, extract counts, build stores
+  raw/
+    fastq_subset/                  persistent FASTQs (Aspera downloads)
+    bam_subset/                    persistent BWA BAMs
+    readcounts_subset_mq0/         GATK 1 kb count TSVs
+  inputs/
+    KpSC-expansion-{N}-mq0-1000bp-npy/                chromosome NPY store
+    KpSC-expansion-{N}-mq0-plasmid-1000bp-npy/        plasmid-family NPY store
+  results/
+    {32,33,34,36}_kpsc_expansion_{5k,10k,20k,40k}/   per-tier CNVRock outputs
 
-assets/         sample manifests, BAM accession lists, reference files,
-                AMRFinder+ and Kleborate ground-truth TSVs,
-                plasmid reference FASTAs and gene coordinate TSV
+hpc/
+  aspera_subset_pipeline.sh        ascp + BWA + GATK per SLURM array task
+  train_gpu.sh                     submits one CNVRock training run on an A40
 
-hpc/            SLURM scripts for HPC
-  build_extended_reference.sh   BWA-index the extended reference
-  remap_unmapped_to_plasmids.sh remap unmapped reads to plasmid contigs
+data/setup/
+  select_expansion_subset.py       stratified nested 5K/10K/20K/40K/80K
+  readcounts_to_npy_kpsc.py        TSV → chromosome NPY store
+  plasmid_genes_to_npy_kpsc.py     TSV → plasmid-family NPY store
+  reannotate_plasmid_genes_blast.py     BLAST-based coord verification
+  reannotate_plasmid_genes_genbank.py   GenBank-based coord verification
 
 models/
-  train.py          entry point — runs a full experiment from a config
-  architectures/    versioned VAE definitions  (06_conv_vae.py, …)
-  hmm/              versioned HMM segmenters   (02_gaussian_hmm.py, …)
-  cnv/              versioned CNV callers       (06_gene_cnv_caller.py,
-                                                 07_plasmid_cnv_caller.py, …)
-  evaluation/       versioned evaluators        (04_kpsc_evaluation.py, …)
-  training/         dataset loader, trainer, inference (non-versioned)
-  experiments/      one self-contained folder per experiment
+  train.py                         single entry point: VAE + HMM + CNV + eval
+  architecture/06_conv_vae.py      1D Conv-VAE (10-dim latent)
+  hmm/02_gaussian_hmm.py           6-state Gaussian HMM segmenter
+  cnv/06_gene_cnv_caller.py        chromosomal CRR-based caller
+  cnv/07_plasmid_cnv_caller.py     plasmid PCN-based caller
+  evaluation/04_kpsc_evaluation.py per-gene MCC / FNR / PPV
+  experiments/32-36/               scaling-study experiment configs
 
-diagnostics/    Streamlit app for interactive sample inspection
+docs/                              Sphinx + MyST documentation (publishes to RTD)
+archive/experiments_pf/            historical Phase 1 experiments (exp 01–21)
 ```
 
-## Running an experiment
+## Key parameter choices
 
-```bash
-cd models/experiments/27
-bash run.sh
-```
+These are documented at length in [`docs/09_methods.md`](docs/09_methods.md); the highlights:
 
-Or directly (after `conda activate cnvrock`):
-```bash
-python models/train.py models/experiments/30/config.yaml
-```
+- **MQ filter = 0** for GATK `CollectReadCounts`. Multi-mapping between nearly-identical AMR allele variants (NDM-1 / NDM-5; OXA-48 / OXA-181; CTX-M-15 / -14 / -65 / -27) is *the signal*, not noise — filtering it out makes those genes invisible. We aggregate by gene family downstream.
+- **Aspera concurrency = 10** per array job (EBI's per-source-IP cap).
+- **Stratification**: species × `Bla_Carb` × ST cap of 150 per stratum, with 1.5× carbapenemase-carrier oversample weighting.
+- **Nested manifest construction**: one weighted shuffle of the eligible pool, then prefixes of length 5K / 10K / 20K / 40K. Strictly nested by construction.
 
-## Adding a new experiment
+## Documentation
 
-```bash
-cp -r models/experiments/26 models/experiments/27
-# edit models/experiments/27/config.yaml
-```
+The full pipeline narrative — overview, data acquisition, reference + intervals, subset selection, NPY stores, training, evaluation, scaling-study results, methods, reproducibility — is at **[cnvrock.readthedocs.io](https://cnvrock.readthedocs.io/)** and builds automatically on every push to `main` from the [`docs/`](docs/) folder.
 
-A new experiment can reuse any existing versioned component — just point `architecture`, `hmm`, `cnv`, and `evaluation` in `config.yaml` at the same numbered files and adjust parameters. Only create a new versioned file (e.g. `08_plasmid_cnv_caller.py`) when the algorithm itself changes, not just the parameters.
+## License
 
-Outputs are written to the `out_dir` defined in the config: `checkpoint.pth`, `latents.npy`, `reconstructions.npy`, `sample_ids.npy`, `segments.parquet`, `gene_calls.tsv`, `plasmid_gene_calls.tsv`, `evaluation.txt`.
-
-## How it works
-
-```mermaid
-flowchart TD
-    subgraph exp["models/experiments/N/"]
-        cfg["config.yaml\narchitecture · hmm · cnv · evaluation\nhyperparameters · data paths"]
-        runsh["run.sh"]
-    end
-
-    subgraph vc["Versioned components"]
-        arch["architectures/\n06_conv_vae.py …"]
-        hmm["hmm/\n02_gaussian_hmm.py …"]
-        cnv["cnv/\n06_gene_cnv_caller.py\n07_plasmid_cnv_caller.py …"]
-        ev["evaluation/\n04_kpsc_evaluation.py …"]
-    end
-
-    subgraph out["data/results/N/"]
-        o1["latents.npy\nreconstructions.npy"]
-        o2["segments.parquet"]
-        o3["gene_calls.tsv\nplasmid_gene_calls.tsv"]
-        o4["evaluation.txt"]
-    end
-
-    subgraph loop["Autonomous proposal loop"]
-        claude["Claude Code\n/propose-experiment"]
-        mail["📧 Proposal email"]
-        you(["You"])
-        daemon["Daemon\nlaunchd · 60 s"]
-    end
-
-    subgraph diag["Diagnostics"]
-        app["Streamlit app\ndiagnostics/app.py"]
-    end
-
-    cfg -->|"selects component\nversions & params"| vc
-    cfg --> runsh
-    runsh -->|"wrap_up.py\ninference → HMM → CNV → eval"| out
-
-    out -->|"evaluation.txt"| claude
-    claude -->|"creates N+1 folder\n& config.yaml"| exp
-    claude --> mail
-    mail --> you
-    you -->|"AUTHORISE"| daemon
-    you -->|"feedback"| daemon
-    daemon -->|"runs experiment"| runsh
-    daemon -->|"on feedback: flags\nfor Claude to revise"| claude
-
-    cfg -->|"resolves all paths\n& versions"| app
-    out --> app
-```
-
-## Experiment proposal workflow
-
-Claude analyses the latest `evaluation.txt`, proposes the next experiment, creates the folder, and emails a summary. Reply "AUTHORISE" to run it on the Mac mini; reply with feedback to get a revised proposal.
-
-**First-time setup** (install the background polling daemon):
-```bash
-bash tools/install_daemon.sh
-```
-
-**To propose the next experiment** (invoke from Claude Code):
-```
-/propose-experiment
-```
-Claude sets up the experiment folder, writes a README, and emails a ≤100-line summary.
-
-**The daemon** (`tools/check_and_run.sh`, running via launchd every 60 s) checks for a reply:
-- `AUTHORISE` → runs the experiment automatically
-- Anything else → flags that feedback is waiting; open Claude Code and run `/check-reply`
-
-**Privacy:** `check_reply.py` searches only by the exact Message-ID of the proposal email. It never lists or reads any other email. Reply body content is never written to disk or logs.
-
-## Diagnostics
-
-```bash
-cd diagnostics
-streamlit run app.py
-```
-
-Select an experiment from the dropdown — the app loads that experiment's config to resolve data paths, component versions, and all calling parameters automatically. Displays the VAE latent space, per-sample read-depth tracks, HMM segmentation, and gene calls side by side.
-
-## Data and reference
-
-- **Cohort:** KpSC samples from the [AllTheBacteria](https://www.allthebacteria.org/) catalog (quality-filtered; SRA accessions in `assets/kpsc_bam_accessions.txt`)
-- **Reference:** *K. pneumoniae* HS11286, NC_016845.1 (~5.3 Mb; GCF_000240185.1)
-- **Extended reference:** HS11286 + plasmid contigs carrying resistance genes (`assets/HS11286_extended.fasta`)
-- **Ground truth:** AMRFinder+ on AllTheBacteria assemblies + Kleborate v3 for porin/efflux status
-
-## Plasmid gene expansion
-
-New plasmid genes are added without any code changes:
-
-1. Run `data/setup/add_phase_c_genes.py` — downloads representative plasmid from NCBI, BLASTs the gene, appends contig to `HS11286_extended.fasta`, adds a row to `assets/plasmid_refs/plasmid_gene_coords.tsv`
-2. `sbatch hpc/build_extended_reference.sh` — re-index BWA
-3. `sbatch --array=1-N%50 hpc/remap_unmapped_to_plasmids.sh` — remap per-sample
-4. `python3 data/setup/merge_plasmid_counts.py ...` — update NPY store
-5. Create next experiment config; all new genes are called automatically
-
-## Installation
-
-### Prerequisites
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| conda / mamba | ≥23 | environment management |
-| CUDA | 12.x | GPU training (CPU works but is ~10× slower) |
-| BWA | ≥0.7.17 | read alignment |
-| SAMtools | ≥1.20 | BAM processing |
-| BLAST+ | ≥2.14 | plasmid gene discovery |
-
-### 1. Clone and create the environment
-
-```bash
-git clone https://github.com/lcerdeira/CNVRock.git
-cd CNVRock
-conda env create -f environment.yml   # installs PyTorch + all dependencies
-conda activate cnvrock
-```
-
-For CPU-only (no GPU), edit `environment.yml` before creating: replace `pytorch-cuda=12.4` with `cpuonly`.
-
-### 2. Prepare read-count stores
-
-The pipeline expects per-sample BAMs aligned to HS11286 (NC_016845.1). Starting from BAM files listed in `assets/kpsc_bam_accessions.txt`:
-
-```bash
-# Extract 1 kb bin read counts from each BAM
-sbatch --array=1-N%50 hpc/collect_readcounts.sh
-
-# Convert per-sample count files to a single NPY store
-python data/setup/readcounts_to_npy.py \
-    --counts-dir data/raw/ \
-    --store-path data/inputs/KpSC-HS11286-1000bp-core-npy/
-```
-
-### 3. Prepare plasmid read-count store
-
-Unmapped reads from step 2 are remapped to plasmid gene contigs:
-
-```bash
-sbatch hpc/build_extended_reference.sh          # BWA-index extended reference
-sbatch --array=1-N%50 hpc/remap_unmapped_to_plasmids.sh
-python data/setup/merge_plasmid_counts.py \
-    --counts-dir data/inputs/plasmid_remap_counts/ \
-    --store-path data/inputs/KpSC-plasmid-1000bp-npy/
-```
-
-### 4. Prepare ground truth
-
-```bash
-# AMRFinder+ copy counts (requires assemblies in data/assemblies/)
-sbatch hpc/get_amrfinder_gt.sh
-
-# Kleborate MLST / resistance (writes ST to assets/kpsc_kleborate_ground_truth.tsv)
-sbatch hpc/get_kleborate_gt.sh
-```
-
-### 5. Run an experiment
-
-```bash
-# Full pipeline: train VAE → HMM segmentation → gene calls → evaluation
-python models/train.py models/experiments/29/config.yaml
-
-# Or submit to SLURM GPU queue
-sbatch hpc/train_gpu.sh models/experiments/29/config.yaml
-```
-
-### 6. Launch the diagnostics app
-
-```bash
-cd diagnostics
-streamlit run app.py
-```
-
-Select an experiment from the dropdown — the app auto-resolves all paths from `config.yaml`.
-
----
-
-## Key findings
-
-### blaCTX-M-15 false negatives: variant-specific, not lineage-specific
-
-33 samples (6% of CTX-M-positive cases) are consistently missed across all experiments. Root cause: their CTX-M reads map to chromosomal blaSHV in the original BWA alignment and never appear as unmapped reads available for plasmid remapping.
-
-ST11 has the highest FNR (0.46) because it is enriched for **blaCTX-M-65**, a variant not represented in the plasmid reference panel. Per-sample AMRFinder+ analysis confirms: 9/12 ST11 FNs carry CTX-M-65 exclusively (PCN ≈ 0.000), whereas ST11 CTX-M-15 carriers are detected normally (PCN 0.52–4.30). Adding a blaCTX-M-65 reference contig is expected to recover these cases.
-
-### blaSHV amplification: assembly-based GT underestimates copy number
-
-AMRFinder+ reports ≤ 1 copy for all 545 samples — consistent with assembly collapse of tandem duplications in short-read de novo assembly. CNVRock calls 34 samples as amplified (CRR 1.75–10.5×), with copy-ratio signal strongly above the chromosomal median. These are likely true tandem duplications invisible to assembly-based tools; long-read sequencing would be required to confirm.
-
----
-
-## Setup
-
-See [data/setup/](data/setup/) for all data-preparation scripts. The full workflow from BAMs to a trained model takes approximately 4–6 hours on an LSHTM HPC node (1× NVIDIA A100, 32 GB RAM, 8 CPUs).
+MIT. See [`LICENSE`](LICENSE).

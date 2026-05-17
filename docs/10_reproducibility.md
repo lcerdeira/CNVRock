@@ -95,16 +95,17 @@ done
 # ── 5. NPY stores (per tier) ─────────────────────────────────────────────────
 for N in 5k 10k 20k 40k; do
     python3 data/setup/readcounts_to_npy_kpsc.py \
-        --counts-dir data/raw/readcounts_subset_mq20 \
+        --counts-dir data/raw/readcounts_subset_mq0 \
         --manifest   assets/kpsc_expansion_subset_${N}.tsv \
-        --out-dir    data/inputs/KpSC-expansion-${N}-mq20-1000bp-npy \
+        --out-dir    data/inputs/KpSC-expansion-${N}-mq0-1000bp-npy \
         --keep-contigs NC_016845.1
 
     python3 data/setup/plasmid_genes_to_npy_kpsc.py \
-        --counts-dir data/raw/readcounts_subset_mq20 \
-        --manifest   assets/kpsc_expansion_subset_${N}.tsv \
+        --counts-dir  data/raw/readcounts_subset_mq0 \
+        --manifest    assets/kpsc_expansion_subset_${N}.tsv \
         --gene-coords assets/plasmid_refs/plasmid_gene_coords.tsv \
-        --out-dir    data/inputs/KpSC-expansion-${N}-mq20-plasmid-1000bp-npy
+        --families    assets/plasmid_refs/plasmid_gene_families.tsv \
+        --out-dir     data/inputs/KpSC-expansion-${N}-mq0-plasmid-1000bp-npy
 done
 
 # ── 6. Train + evaluate ──────────────────────────────────────────────────────

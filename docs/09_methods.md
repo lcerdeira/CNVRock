@@ -3,25 +3,74 @@
 This page documents **non-obvious parameter choices** and **why** — the bits
 a reviewer will ask about.
 
-## Mapping quality threshold (MQ ≥ 20)
+## Mapping quality threshold (MQ ≥ 0) and gene-family aggregation
 
-GATK's `--minimum-mapping-quality 20` is the standard threshold for variant
-calling (GATK HaplotypeCaller, DELLY, samtools defaults all use it as their
-floor or default).
+This is the parameter choice that took the longest to get right. The
+diagnostic narrative is below; the final settings are:
 
-We **lowered from MQ = 40** (the Phase 1 value) because the extended Phase-D
-reference contains multiple plasmid contigs that share AMR-cassette sequence
-with each other. A read derived from `blaKPC-2` in a sample maps equally well
-to several plasmid contigs in the reference, gets MQ = 0, and is discarded
-entirely at MQ = 40. Result: `blaKPC-2`, `blaCTX-M-15`, `blaTEM-1` and
-`aac6-Ib-cr` returned **zero counts across all 5,000 samples** in the first
-exp 32 run.
+- GATK `CollectReadCounts --minimum-mapping-quality 0`
+- Plasmid PCN evaluated by **gene family** (sum of bin counts across all
+  allele-variant CDSs in each family), using
+  `assets/plasmid_refs/plasmid_gene_families.tsv`.
 
-MQ = 20 corresponds to ≤ 1 % mis-placement probability and recovers the
-*near-unique* mappings (those with a discriminating context window). MQ = 10
-was considered but rejected as it is rarely used in published pipelines.
+### Why MQ = 0
 
-We document this clearly in the manuscript Methods section.
+We first ran the pipeline at **MQ = 40** (the Phase 1 value), which produced
+**zero plasmid-gene counts** for `blaKPC-2`, `blaCTX-M-15`, `blaTEM-1`,
+`aac6-Ib-cr` across all 5,000 samples — while `qnrB1`, `blaOXA-181`,
+`blaNDM-5` were fine. We assumed multi-mapping with too-strict MQ and
+relaxed to MQ = 20 (the GATK / DELLY / samtools default). It did not help.
+
+Cross-checking the gene coordinates against the curated GenBank annotations
+of every contig in `HS11286_extended.fasta` revealed that
+`plasmid_gene_coords.tsv` **was correct all along** — the coordinates match
+GenBank to within ≤ 3 bp for every gene.
+
+The real cause is **multi-mapping between near-identical allele variants**:
+
+| Family | Member CDSs (in our ref) | nt identity |
+|---|---|---|
+| `blaNDM` | NDM-1 (MZ606384.2), NDM-5 (CP034201.2) | ~99.8 % (2 aa / 6 nt difference) |
+| `blaOXA-48-like` | OXA-48 (JN626286.1), OXA-181 (CP113224.1) | ~98 % (4 aa difference) |
+| `blaCTX-M` | CTX-M-15 (MK552109.1), CTX-M-14 (NZ_CP031850.1), CTX-M-65 (CP030319.1), CTX-M-27 (CP138680.1) | ~95–99 % within each subgroup |
+
+A read derived from any one of these variants maps **equally well** to all of
+them in the same family. BWA assigns MQ = 0 to these multi-mappers and
+places the read at one location at random. At any MQ ≥ 1 they are filtered
+out entirely.
+
+**MQ = 0 keeps them.** Because each multi-mapped read still ends up at *one*
+location (chosen by BWA), individual variant CDSs receive a fraction of the
+true coverage. Summing bin counts across all family members recovers the
+full per-sample per-family signal.
+
+### Why this is methodologically sound
+
+1. The multi-mapping is **between annotated allele variants of the same gene
+   family** — not between unrelated genomic regions. Counting these reads as
+   "the family is present" is biologically correct.
+2. **Clinical reporting works at family level.** AMRFinder+ output is
+   variant-level but Kleborate-style summary tables report `Bla_Carb_acquired
+   = NDM-1` or `NDM-5` interchangeably; treatment recommendations are
+   family-level.
+3. For chromosomal CNV detection (the `blaSHV` extra-copy story) the KpSC
+   chromosome is largely uniquely-mappable. MQ = 0 vs MQ = 20 affects only
+   repeat / transposon regions which the VAE absorbs as noise. Single
+   pipeline, single count file per sample.
+4. The cost of getting MQ = 0 wrong (over-counts from spurious mappings) is
+   small: BWA's secondary-alignment quality scores still exclude very poor
+   matches, and the 1 kb bin is large enough that occasional spurious
+   placements don't dominate the per-sample family count.
+
+### Why gene-family aggregation, not individual genes
+
+Individual blaNDM-1 vs blaNDM-5 detection is fundamentally impossible from
+short reads when both reference CDSs are in the alignment target: BWA
+*cannot* distinguish them above MQ = 0. AMRFinder+ resolves this differently
+— it works on **assemblies**, not raw reads, and exploits *the rest of the
+plasmid backbone* as discriminating context. CNVRock works on read depth,
+so we accept the limitation and report at family level. The variant call
+(if needed) comes from the Kleborate column in the ground-truth join.
 
 ## Concurrency cap (10 simultaneous `ascp`)
 

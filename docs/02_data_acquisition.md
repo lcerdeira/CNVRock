@@ -51,8 +51,15 @@ chmod 600 ~/.aspera/sdk/ebi_aspera_key.openssh
 3. **BWA-MEM** paired-end align to `HS11286_extended.fasta`, then `samtools
    sort` and `samtools index`. Output to `data/raw/bam_subset/`.
 4. **GATK CollectReadCounts** at 1 kb resolution across chrom + plasmid
-   contigs, with `--minimum-mapping-quality 20`. Output count TSV to
-   `data/raw/readcounts_subset_mq20/{ACC}.counts.tsv`.
+   contigs, with `--minimum-mapping-quality 0`. Output count TSV to
+   `data/raw/readcounts_subset_mq0/{ACC}.counts.tsv`.
+
+```{important}
+MQ=0 keeps **multi-mapped reads** — which is essential for AMR detection
+because nearly-identical allele variants (NDM-1 vs NDM-5, OXA-48 vs OXA-181,
+CTX-M-15/14/65/27) live on different reference contigs and reads share
+homology across them. See {doc}`09_methods` for the diagnosis.
+```
 
 FASTQs and BAMs are **kept on disk** so we can re-extract counts at different
 MQ thresholds without re-downloading.
