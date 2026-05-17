@@ -2,6 +2,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-blue.svg)](https://www.python.org/)
 [![Documentation Status](https://readthedocs.org/projects/cnvrock/badge/?version=latest)](https://cnvrock.readthedocs.io/en/latest/?badge=latest)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cnvrock.streamlit.app/)
 
 [![CNVRock](./assets/cnvrock-logo.png)](./assets/cnvrock-logo.png)
 
@@ -164,6 +165,10 @@ These are documented at length in [`docs/09_methods.md`](docs/09_methods.md); th
 ## Documentation
 
 The full pipeline narrative — overview, data acquisition, reference + intervals, subset selection, NPY stores, training, evaluation, scaling-study results, methods, reproducibility — is at **[cnvrock.readthedocs.io](https://cnvrock.readthedocs.io/en/latest/)** and builds automatically on every push to `main` from the [`docs/`](docs/) folder.
+
+## Interactive diagnostics
+
+A live Streamlit app showing the monitor / sample-viewer / latent-coverage pages on a 200-sample subsample of exp 32 is hosted at **<https://cnvrock.streamlit.app/>**. No install required for reviewers — just click and explore. The full pipeline (training + all 5 scaling tiers) reproduces locally via the [Quickstart](#quickstart) above; the app then auto-detects the full `data/results/` and switches out of demo mode.
 
 ## License
 

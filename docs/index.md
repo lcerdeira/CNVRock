@@ -38,6 +38,7 @@ the scaling study (5K → 10K → 20K → 40K).
 ## Quick links
 
 - **Repository:** <https://github.com/lcerdeira/CNVRock>
+- **Interactive diagnostics (demo):** <https://cnvrock.streamlit.app/> — Monitor / sample viewer / latent-coverage pages on a bundled 200-sample subsample of exp 32. No install required.
 - **Manuscript reference cohort:** Phase 2 expansion (~78,000 KpSC samples with FASTQ URLs on ENA)
 - **Compute:** LSHTM HPC, GPU partition (A40), Aspera SDK for high-throughput EBI downloads
 
