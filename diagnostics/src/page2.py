@@ -16,7 +16,8 @@ def page2():
     RESULTS_DIR = st.selectbox("Select results directory",
                                options=sorted(os.listdir(RESULTS_ROOT)), index=0)
     if not RESULTS_DIR:
-        st.stop("Please select a results directory.")
+        st.warning("Please select a results directory.")
+        st.stop()
 
     results    = load_results(os.path.join(RESULTS_ROOT, RESULTS_DIR))
     meta, _gff = load_meta()  # uses default KpSC path or Pf9 fallback

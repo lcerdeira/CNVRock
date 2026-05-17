@@ -17,10 +17,18 @@ def page1():
     st.title("First page")
 
     experiments = list_experiments()
+    if not experiments:
+        st.warning(
+            "No experiments found. Either you're on Streamlit Cloud demo mode "
+            "and only the bundled subsample exists (use the Monitor page), or "
+            "the `models/experiments/` directory hasn't been populated."
+        )
+        st.stop()
     EXPERIMENT  = st.selectbox("Experiment", options=experiments, index=0)
 
     if not EXPERIMENT:
-        st.stop("Please select an experiment to proceed.")
+        st.warning("Please select an experiment to proceed.")
+        st.stop()
 
     cfg = load_experiment_config(EXPERIMENT)
 
