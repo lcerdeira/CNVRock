@@ -3,16 +3,22 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from src.utils import load_results, load_meta, compute_coverage, plot_coverage
+from src.results_root import resolve_results_root
 
 
 def page2():
     st.title("Latent space coverage")
 
-    RESULTS_DIR = st.selectbox("Select results directory", options=os.listdir("../data/results/"), index=0)
+    RESULTS_ROOT = resolve_results_root()
+    if not os.path.isdir(RESULTS_ROOT) or not os.listdir(RESULTS_ROOT):
+        st.warning(f"No results directories found in {RESULTS_ROOT}.")
+        st.stop()
+    RESULTS_DIR = st.selectbox("Select results directory",
+                               options=sorted(os.listdir(RESULTS_ROOT)), index=0)
     if not RESULTS_DIR:
         st.stop("Please select a results directory.")
 
-    results    = load_results(os.path.join("../data/results/", RESULTS_DIR))
+    results    = load_results(os.path.join(RESULTS_ROOT, RESULTS_DIR))
     meta, _gff = load_meta()  # uses default KpSC path or Pf9 fallback
 
     with st.expander("Settings", expanded=False):

@@ -4,8 +4,10 @@ import os
 import pandas as pd
 import streamlit as st
 
+from src.results_root import resolve_results_root, is_demo
 
-RESULTS_ROOT = "../data/results"
+
+RESULTS_ROOT = resolve_results_root()
 
 
 def _read_json(path):
@@ -47,6 +49,14 @@ def _training_monitor(log_path):
 
 def page_monitor():
     st.title("Monitor")
+
+    if is_demo():
+        st.info(
+            "**Demo mode** — viewing the bundled 200-sample subsample of exp 32 "
+            "(`diagnostics/demo/`). Full per-experiment outputs are gitignored. "
+            "See [reproducibility](https://cnvrock.readthedocs.io/en/latest/10_reproducibility.html) "
+            "to regenerate locally."
+        )
 
     dirs = sorted(os.listdir(RESULTS_ROOT)) if os.path.isdir(RESULTS_ROOT) else []
     if not dirs:
