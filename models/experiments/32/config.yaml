@@ -35,7 +35,7 @@ hmm:          "02_gaussian_hmm"
 cnv:          "06_gene_cnv_caller"
 evaluation:   "04_kpsc_evaluation"
 
-store_path: "../../../data/inputs/KpSC-expansion-5k-mq10-1000bp-npy"
+store_path: "../../../data/inputs/KpSC-expansion-5k-mq20-1000bp-npy"
 out_dir:    "../../../data/results/32_kpsc_expansion_5k"
 normalise:  true
 
@@ -44,7 +44,7 @@ kpsc_kleborate_gt_path:  "../../../assets/kpsc_expansion_kleborate_gt_runlevel.t
 kpsc_meta_path:          "../../../assets/kpsc_expansion_metadata_runlevel.tsv"
 
 plasmid_cnv:               "07_plasmid_cnv_caller"
-plasmid_store_path:        "../../../data/inputs/KpSC-expansion-5k-mq10-plasmid-1000bp-npy"
+plasmid_store_path:        "../../../data/inputs/KpSC-expansion-5k-mq20-plasmid-1000bp-npy"
 plasmid_gene_coords_path:  "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
 pcn_absent_threshold:      0.20
 pcn_amp_threshold:         1.50

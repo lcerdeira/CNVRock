@@ -19,8 +19,8 @@
 #   3. BWA mem → samtools sort → BAM in data/raw/bam_subset/
 #   4. samtools index
 #   5. GATK CollectReadCounts at 1 kb across chromosome + plasmids,
-#      with MIN_MQ=10 (was 40 — too strict for plasmids)
-#   6. Move count file to data/raw/readcounts_subset_mq10/{ACC}.counts.tsv
+#      with MIN_MQ=20 (was 40 — too strict for multi-mapping plasmid reads)
+#   6. Move count file to data/raw/readcounts_subset_mq20/{ACC}.counts.tsv
 #
 # Idempotent: skips download/align if FASTQs/BAM already exist on disk, and
 # the script's early `[[ -f $OUT ]] && exit 0` check skips already-counted
@@ -45,15 +45,17 @@ module load bwa/0.718 samtools/1.20 gatk/4.6.0.0 java/20.0.1
 MANIFEST="${MANIFEST:-$REPO_DIR/assets/kpsc_expansion_subset_5k.tsv}"
 REFERENCE="$REPO_DIR/assets/HS11286_extended.fasta"
 INTERVALS="$REPO_DIR/assets/HS11286_extended_1kb.interval_list"
-COUNTS_DIR="$REPO_DIR/data/raw/readcounts_subset_mq10"
+COUNTS_DIR="$REPO_DIR/data/raw/readcounts_subset_mq20"
 FASTQ_DIR="$REPO_DIR/data/raw/fastq_subset"
 BAM_DIR="$REPO_DIR/data/raw/bam_subset"
 
-# MQ filter: 10 (was 40 — too strict for multi-mapping plasmid reads;
-# blaKPC-2 etc. share sequence across plasmid backbones in the extended ref
-# and get MQ=0, filtered out entirely. MQ=10 keeps reads with >=90% chance of
-# correct placement, which captures multi-plasmid AMR genes correctly.)
-MIN_MQ=10
+# MQ filter: 20 (was 40 in Phase 1 — too strict for multi-mapping plasmid reads
+# in the extended Phase-D reference; blaKPC-2 etc. share sequence across
+# plasmid backbones and get MQ=0, filtered out entirely. MQ=20 is the standard
+# threshold for variant calling (GATK HaplotypeCaller, DELLY, samtools defaults),
+# corresponding to <=1% mis-placement probability — balances multi-plasmid
+# AMR-gene recovery against chromosomal-paralog false positives.)
+MIN_MQ=20
 
 mkdir -p "$COUNTS_DIR" "$FASTQ_DIR" "$BAM_DIR" "$REPO_DIR/logs"
 
