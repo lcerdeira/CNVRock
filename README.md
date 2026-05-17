@@ -1,7 +1,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19478464.svg)](https://doi.org/10.5281/zenodo.19478464)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-blue.svg)](https://www.python.org/)
-[![Docs](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://cnvrock.readthedocs.io/)
+[![Documentation Status](https://readthedocs.org/projects/cnvrock/badge/?version=latest)](https://cnvrock.readthedocs.io/en/latest/?badge=latest)
 
 [![CNVRock](./assets/cnvrock-logo.png)](./assets/cnvrock-logo.png)
 
@@ -102,7 +102,7 @@ python3 data/setup/plasmid_genes_to_npy_kpsc.py \
 sbatch hpc/train_gpu.sh experiments/32/config.yaml
 ```
 
-Full per-step explanation lives in the **[ReadTheDocs site](https://cnvrock.readthedocs.io/)**.
+Full per-step explanation lives in the **[ReadTheDocs site](https://cnvrock.readthedocs.io/en/latest/)**.
 
 ## Repository layout
 
@@ -163,7 +163,7 @@ These are documented at length in [`docs/09_methods.md`](docs/09_methods.md); th
 
 ## Documentation
 
-The full pipeline narrative — overview, data acquisition, reference + intervals, subset selection, NPY stores, training, evaluation, scaling-study results, methods, reproducibility — is at **[cnvrock.readthedocs.io](https://cnvrock.readthedocs.io/)** and builds automatically on every push to `main` from the [`docs/`](docs/) folder.
+The full pipeline narrative — overview, data acquisition, reference + intervals, subset selection, NPY stores, training, evaluation, scaling-study results, methods, reproducibility — is at **[cnvrock.readthedocs.io](https://cnvrock.readthedocs.io/en/latest/)** and builds automatically on every push to `main` from the [`docs/`](docs/) folder.
 
 ## License
 
