@@ -7,11 +7,20 @@ When running on Streamlit Community Cloud or any fresh clone where
 reconstructions.npy is ~100 MB per experiment), we fall back to the small
 demo bundle committed at `diagnostics/demo/`. That bundle contains the
 first 200 samples of exp 32 so reviewers see a working UI immediately.
+
+All paths are resolved relative to THIS FILE's location so the app works
+regardless of where streamlit is launched from (Streamlit Cloud runs from
+the repo root; running locally with `cd diagnostics && streamlit run app.py`
+runs from `diagnostics/`).
 """
 import os
 
-DATA_RESULTS = "../data/results"
-DEMO_RESULTS = "demo"
+_HERE = os.path.dirname(os.path.abspath(__file__))               # …/diagnostics/src
+_DIAGNOSTICS = os.path.dirname(_HERE)                            # …/diagnostics
+_REPO_ROOT = os.path.dirname(_DIAGNOSTICS)                       # …/CNVRock
+
+DATA_RESULTS = os.path.join(_REPO_ROOT, "data", "results")       # production
+DEMO_RESULTS = os.path.join(_DIAGNOSTICS, "demo")                # bundled
 
 
 def resolve_results_root() -> str:
