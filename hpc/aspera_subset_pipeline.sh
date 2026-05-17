@@ -19,8 +19,10 @@
 #   3. BWA mem → samtools sort → BAM in data/raw/bam_subset/
 #   4. samtools index
 #   5. GATK CollectReadCounts at 1 kb across chromosome + plasmids,
-#      with MIN_MQ=20 (was 40 — too strict for multi-mapping plasmid reads)
-#   6. Move count file to data/raw/readcounts_subset_mq20/{ACC}.counts.tsv
+#      with MIN_MQ=0 (keeps multi-mapped reads — required to detect plasmid
+#      AMR genes whose nearly-identical alleles live on multiple reference
+#      contigs; reads are then aggregated by gene family downstream)
+#   6. Move count file to data/raw/readcounts_subset_mq0/{ACC}.counts.tsv
 #
 # Idempotent: skips download/align if FASTQs/BAM already exist on disk, and
 # the script's early `[[ -f $OUT ]] && exit 0` check skips already-counted
@@ -45,17 +47,31 @@ module load bwa/0.718 samtools/1.20 gatk/4.6.0.0 java/20.0.1
 MANIFEST="${MANIFEST:-$REPO_DIR/assets/kpsc_expansion_subset_5k.tsv}"
 REFERENCE="$REPO_DIR/assets/HS11286_extended.fasta"
 INTERVALS="$REPO_DIR/assets/HS11286_extended_1kb.interval_list"
-COUNTS_DIR="$REPO_DIR/data/raw/readcounts_subset_mq20"
+COUNTS_DIR="$REPO_DIR/data/raw/readcounts_subset_mq0"
 FASTQ_DIR="$REPO_DIR/data/raw/fastq_subset"
 BAM_DIR="$REPO_DIR/data/raw/bam_subset"
 
-# MQ filter: 20 (was 40 in Phase 1 — too strict for multi-mapping plasmid reads
-# in the extended Phase-D reference; blaKPC-2 etc. share sequence across
-# plasmid backbones and get MQ=0, filtered out entirely. MQ=20 is the standard
-# threshold for variant calling (GATK HaplotypeCaller, DELLY, samtools defaults),
-# corresponding to <=1% mis-placement probability — balances multi-plasmid
-# AMR-gene recovery against chromosomal-paralog false positives.)
-MIN_MQ=20
+# MQ filter: 0 (was 40 in Phase 1, then 20 in our first re-run).
+#
+# Diagnosis 2026-05-17 (GenBank + BLAST cross-check): the
+# plasmid_gene_coords.tsv coordinates are correct. The true cause of zero
+# plasmid-gene counts is *intentional multi-mapping*: nearly-identical AMR
+# allele variants (NDM-1 vs NDM-5, OXA-48 vs OXA-181, CTX-M-15 vs
+# CTX-M-65 vs CTX-M-27) live on different contigs in HS11286_extended.fasta,
+# and reads from a sample carrying ANY one of them multi-map equally to all,
+# get MQ=0 from BWA, and are filtered out at any MQ threshold above 0.
+#
+# At MQ=0 these multi-mapped reads are kept (BWA places them randomly at
+# one of the homologous positions). Aggregating bin counts across ALL
+# allele-variant positions per gene family (see plasmid_genes_to_npy_kpsc.py
+# --families option and assets/plasmid_refs/plasmid_gene_families.tsv)
+# recovers the full per-sample per-family signal.
+#
+# For chromosomal CNV detection (blaSHV): the KpSC chromosome is largely
+# uniquely-mappable, so MQ=0 vs MQ=20 affects only repeat / transposon
+# regions which the VAE treats as noise. Single pipeline, single count
+# file per sample.
+MIN_MQ=0
 
 mkdir -p "$COUNTS_DIR" "$FASTQ_DIR" "$BAM_DIR" "$REPO_DIR/logs"
 

@@ -1,0 +1,8 @@
+family	members	rationale
+blaKPC	blaKPC-2	Most common KpSC carbapenemase. Other blaKPC variants (blaKPC-3, -4, …) share >99% nt identity but are not in our current reference.
+blaCTX-M	blaCTX-M-15,blaCTX-M-14,blaCTX-M-65,blaCTX-M-27	CTX-M ESBL family. Group-1 (CTX-M-15, -65, -27) and group-9 (CTX-M-14) cross-map heavily at the gene CDS. Aggregating matches clinical reporting ("blaCTX-M present").
+blaNDM	blaNDM-1,blaNDM-5	NDM metallo-β-lactamases. NDM-1 vs NDM-5 differ at 2 amino acids (6 nt) — reads multi-map across both CDS positions.
+blaOXA-48-like	blaOXA-48,blaOXA-181	OXA-48-like carbapenemases. OXA-48 vs OXA-181 differ at 4 amino acids — same multi-mapping behaviour.
+blaTEM	blaTEM-1	Standalone — no significant paralog in the current reference panel.
+qnrB	qnrB1	Standalone — no significant paralog. (qnrB1 was the gene that worked correctly at MQ=20 in our diagnostic.)
+aac6-Ib-cr	aac6-Ib-cr	Standalone — no significant paralog.
