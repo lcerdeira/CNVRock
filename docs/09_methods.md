@@ -3,7 +3,54 @@
 This page documents **non-obvious parameter choices** and **why** — the bits
 a reviewer will ask about.
 
-## Mapping quality threshold (MQ ≥ 0) and gene-family aggregation
+## Hybrid mapping-quality thresholds: chromosome at MQ ≥ 20, plasmid at MQ = 0
+
+After diagnosing why MQ = 40 (Phase 1) made every variant-multi-mapped AMR
+gene invisible, we initially ran the entire pipeline at **MQ = 0**. That
+recovered all plasmid AMR genes but degraded the **chromosomal blaSHV**
+detection (call rate 0.00 at 10K samples — the model produced no calls
+because MQ = 0 admits noise from repetitive elements scattered along the
+~5.3 Mb chromosome, which competes with the genuine *blaSHV* CNV signal).
+
+The final pipeline runs **two GATK passes per sample** from the same BAM:
+
+| Output | MQ filter | Used by |
+|---|---|---|
+| `readcounts_subset_mq20/{ACC}.counts.tsv` | **≥ 20** | Chromosome NPY store (`data/inputs/KpSC-expansion-{N}-1000bp-npy/`) |
+| `readcounts_subset_mq0/{ACC}.counts.tsv` | **= 0** | Plasmid-family NPY store (`data/inputs/KpSC-expansion-{N}-mq0-plasmid-1000bp-npy/`) |
+
+Rationale per component:
+
+- **Chromosome (NC_016845.1, ~5.3 Mb)** — largely uniquely-mappable. MQ ≥ 20
+  is the GATK / DELLY / samtools standard for variant calling, corresponding
+  to ≤ 1 % mis-placement probability. Excluding the small fraction of
+  repeat/transposon multi-mappers gives the 1D Conv-VAE a cleaner per-bin
+  signal at the expense of small "blind spots" around those repeats —
+  acceptable because *blaSHV* (the chromosomal CNV target) is not in such
+  a region.
+- **Plasmid families** — near-identical allele variants (NDM-1 vs NDM-5,
+  OXA-48 vs OXA-181, CTX-M-15/14/65/27) sit on different reference contigs.
+  Reads from a sample's variant map equally to all family members → MQ = 0
+  from BWA. **MQ ≥ 1 would discard them entirely.** Keeping them at MQ = 0
+  and summing bin counts across all member-variant CDSs in each family
+  (`plasmid_genes_to_npy_kpsc.py --families plasmid_gene_families.tsv`)
+  recovers the per-sample per-family signal we want — and matches clinical
+  reporting (AMRFinder+, Kleborate report at the family level).
+
+The two MQ passes share the same BWA-MEM BAM; only GATK `CollectReadCounts`
+is run twice (~30 s of CPU per sample for the second pass), no extra
+downloads or alignments. The `hpc/recount_mq20_from_bams.sh` script handles
+the MQ=20 pass from persistent BAMs in `data/raw/bam_subset/`.
+
+### Manuscript wording
+
+> Read depths were quantified twice from each BAM: at MQ ≥ 20 across the
+> KpSC chromosome (NC_016845.1) for chromosomal CNV detection, and at
+> MQ ≥ 0 across the plasmid contigs to retain reads multi-mapping between
+> near-identical AMR allele variants. Per-sample plasmid depths were
+> aggregated by gene family before downstream analysis.
+
+## Earlier MQ choice (legacy, MQ ≥ 0 single-pass)
 
 This is the parameter choice that took the longest to get right. The
 diagnostic narrative is below; the final settings are:

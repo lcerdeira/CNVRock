@@ -35,7 +35,7 @@ hmm:          "02_gaussian_hmm"
 cnv:          "06_gene_cnv_caller"
 evaluation:   "04_kpsc_evaluation"
 
-store_path: "../../../data/inputs/KpSC-expansion-40k-mq0-1000bp-npy"
+store_path: "../../../data/inputs/KpSC-expansion-40k-mq20-1000bp-npy"
 out_dir:    "../../../data/results/36_kpsc_expansion_40k"
 normalise:  true
 
