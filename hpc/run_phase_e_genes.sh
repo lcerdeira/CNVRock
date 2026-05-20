@@ -16,25 +16,26 @@ REPO=/home/lshlt19/CNVRock
 cd "$REPO"
 export PATH="$HOME/miniconda3/envs/blast_env/bin:$HOME/miniconda3/envs/cnvrock/bin:$HOME/miniconda3/bin:$PATH"
 
-# cnvrock env has Biopython; blast_env has blastn binary. We need both: keep
-# cnvrock's python3 FIRST on PATH (so `import Bio` works) and APPEND blast_env
-# at the end so bare `blastn` is still discoverable by the subprocess call.
-source "$HOME/miniconda3/etc/profile.d/conda.sh"
-conda activate cnvrock
-export PATH="$PATH:$HOME/miniconda3/envs/blast_env/bin"
+# cnvrock env has Biopython; blast_env has blastn binary. Use absolute paths
+# for both — no reliance on `conda activate` or PATH ordering.
+CNVROCK_PY="$HOME/miniconda3/envs/cnvrock/bin/python"
+export PATH="$HOME/miniconda3/envs/blast_env/bin:$PATH"   # for bare `blastn`
 
-echo "PATH check — python3: $(command -v python3)"
-echo "PATH check — blastn:  $(command -v blastn || echo 'NOT FOUND')"
-python3 -c "import Bio; print('Biopython', Bio.__version__)"
+echo "python:  $CNVROCK_PY"
+echo "blastn:  $(command -v blastn || echo 'NOT FOUND')"
+"$CNVROCK_PY" -c "import Bio; print('Biopython', Bio.__version__)"
 
 echo "[1/3] Adding Phase E gene rows + plasmid contigs…"
-python3 data/setup/add_phase_e_genes.py
+"$CNVROCK_PY" data/setup/add_phase_e_genes.py
 
 echo "[2/3] Rebuilding BWA index for HS11286_extended.fasta…"
 module load bwa samtools gatk/4.6.0.0 java/20.0.1 2>/dev/null || true
 bwa index assets/HS11286_extended.fasta
+# Remove stale .fai and .dict so they regenerate with the new contig count —
+# GATK refuses to overwrite an existing .dict, leaving a contig-count mismatch.
+rm -f assets/HS11286_extended.fasta.fai assets/HS11286_extended.dict
 samtools faidx assets/HS11286_extended.fasta
-gatk CreateSequenceDictionary -R assets/HS11286_extended.fasta || true
+gatk CreateSequenceDictionary -R assets/HS11286_extended.fasta
 gatk PreprocessIntervals \
     --reference assets/HS11286_extended.fasta \
     --bin-length 1000 --padding 0 \

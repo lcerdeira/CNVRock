@@ -56,12 +56,16 @@ Entrez.email = "louise.cerdeira@gmail.com"
 NEW_GENES = [
     {
         "gene":             "tetA",
+        # NCBI free-text "tetA" returns plasmids whose downloaded contig may
+        # not actually carry the gene; pin to a large K. pneumoniae MDR
+        # plasmid that reliably carries tet(A) (same 302 kb backbone class as
+        # the sul2 carrier OQ801413.1).
         "query":            ('tetA AND "Klebsiella pneumoniae"[organism] '
-                             'AND plasmid[filter] AND 5000:500000[SLEN]'),
+                             'AND plasmid[filter] AND 50000:500000[SLEN]'),
         "pattern":          "tetA",
         "absent_threshold": "0.20",
-        "slen_range":       "1100:1300",   # tetA CDS ~1200 bp
-        "cds_query":        'tetA AND tetracycline AND 1100:1300[SLEN]',
+        "slen_range":       "1100:1300",   # tet(A) CDS ~1200 bp
+        "cds_query":        'tetA[gene] AND tetracycline AND 1100:1300[SLEN]',
     },
     {
         "gene":             "dfrA12",
@@ -110,21 +114,25 @@ NEW_GENES = [
     },
     {
         "gene":             "aac3-IIa",
-        "query":            ('"Klebsiella pneumoniae"[organism] AND aac3-IIa '
+        # NCBI gene name aac(3)-IIa has parentheses that break Entrez field
+        # parsing; the historical synonym "aacC2" is parenthesis-free.
+        "query":            ('aacC2 AND Enterobacteriaceae[organism] '
                              'AND plasmid[filter] AND 5000:500000[SLEN]'),
         "pattern":          "aac3",
         "absent_threshold": "0.20",
         "slen_range":       "780:900",     # aac(3)-IIa CDS ~861 bp
-        "cds_query":        'aac3-IIa AND aminoglycoside AND 780:900[SLEN]',
+        "cds_query":        'aacC2 AND aminoglycoside AND 780:900[SLEN]',
     },
     {
         "gene":             "aac3-IId",
-        "query":            ('"Klebsiella pneumoniae"[organism] AND aac3-IId '
+        # aac(3)-IId — search the parenthesis-free synonym "aacC" broadly and
+        # let BLAST + the size-restricted CDS query resolve the right copy.
+        "query":            ('aacC AND gentamicin AND Enterobacteriaceae[organism] '
                              'AND plasmid[filter] AND 5000:500000[SLEN]'),
         "pattern":          "aac3",
         "absent_threshold": "0.20",
         "slen_range":       "750:900",     # aac(3)-IId CDS ~861 bp
-        "cds_query":        'aac3-IId AND aminoglycoside AND 750:900[SLEN]',
+        "cds_query":        'aacC AND gentamicin AND 750:900[SLEN]',
     },
 ]
 
@@ -293,6 +301,7 @@ def main():
     coords = _load_coords()
     existing_genes = {r["gene"] for r in coords}
 
+    failed_genes = []
     for gene_info in NEW_GENES:
         gene       = gene_info["gene"]
         query      = gene_info["query"]
@@ -306,23 +315,25 @@ def main():
             print(f"  {gene} already in coords TSV — skipping.")
             continue
 
-        out_fa = PLASMID_DIR / f"{gene}.fasta"
-        if out_fa.exists():
-            print(f"  {gene}.fasta already downloaded.")
-            with open(out_fa) as f:
-                acc = f.readline().split()[0].lstrip(">")
-        elif "plasmid_accession" in gene_info:
-            acc, fasta_text = _fetch_accession_direct(gene_info["plasmid_accession"])
-            out_fa.write_text(fasta_text)
-            print(f"  Saved → {out_fa}")
-        else:
-            acc, fasta_text = _fetch_plasmid_ncbi(gene, query)
-            out_fa.write_text(fasta_text)
-            print(f"  Saved → {out_fa}")
+        try:
+            out_fa = PLASMID_DIR / f"{gene}.fasta"
+            if out_fa.exists():
+                print(f"  {gene}.fasta already downloaded.")
+                with open(out_fa) as f:
+                    acc = f.readline().split()[0].lstrip(">")
+            elif "plasmid_accession" in gene_info:
+                acc, fasta_text = _fetch_accession_direct(gene_info["plasmid_accession"])
+                out_fa.write_text(fasta_text)
+                print(f"  Saved → {out_fa}")
+            else:
+                acc, fasta_text = _fetch_plasmid_ncbi(gene, query)
+                out_fa.write_text(fasta_text)
+                print(f"  Saved → {out_fa}")
 
-        if _contig_in_extended(acc):
-            print(f"  {acc} already in HS11286_extended.fasta — skipping append.")
-        else:
+            if _contig_in_extended(acc):
+                print(f"  {acc} already in HS11286_extended.fasta — skipping append.")
+                continue
+
             print(f"  Locating {gene} on {acc} via BLAST …")
             gene_fasta_text = _fetch_gene_sequence(gene, slen_range, gene_info.get("cds_query"))
             with tempfile.NamedTemporaryFile(mode="w", suffix=".fasta", delete=False) as tf:
@@ -335,9 +346,9 @@ def main():
 
             if coords_hit is None:
                 print(f"  ERROR: {gene} not found on {acc} by BLAST. "
-                      f"Deleting cached {out_fa.name} — re-run to try a different plasmid.",
-                      file=sys.stderr)
+                      f"Deleting cached {out_fa.name}.", file=sys.stderr)
                 out_fa.unlink(missing_ok=True)
+                failed_genes.append(gene)
                 continue
 
             print(f"  Appending {acc} to {EXTENDED_FA.name} …")
@@ -355,6 +366,15 @@ def main():
             })
             _save_coords(coords)
             print(f"  Added {gene} → {coords_hit['contig']}:{coords_hit['start']}-{coords_hit['end']}")
+        except Exception as exc:                       # noqa: BLE001
+            print(f"  ERROR processing {gene}: {exc} — skipping, continuing.",
+                  file=sys.stderr)
+            failed_genes.append(gene)
+            continue
+
+    if failed_genes:
+        print(f"\n{len(failed_genes)} gene(s) failed and were skipped: "
+              f"{', '.join(failed_genes)}")
 
     print(f"\n{'='*60}")
     print("Done. Next steps:")

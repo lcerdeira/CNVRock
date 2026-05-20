@@ -31,9 +31,12 @@ OUT_MQ20="$REPO/data/raw/readcounts_phase_e_mq20"
 OUT_MQ0="$REPO/data/raw/readcounts_phase_e_mq0"
 mkdir -p "$OUT_MQ20" "$OUT_MQ0"
 
+# SLURM MaxArraySize is 5000; the cohort is ~15.5k BAMs. Submit in chunks of
+# ≤5000 with BATCH_OFFSET so the global index = BATCH_OFFSET + task_id - 1.
 BAM_FILES=( $(ls "$BAM_DIR"/*.bam) )
-BAM="${BAM_FILES[$((SLURM_ARRAY_TASK_ID-1))]}"
-[[ -z "$BAM" ]] && { echo "no BAM for task $SLURM_ARRAY_TASK_ID"; exit 0; }
+IDX=$(( ${BATCH_OFFSET:-0} + SLURM_ARRAY_TASK_ID - 1 ))
+BAM="${BAM_FILES[$IDX]}"
+[[ -z "$BAM" ]] && { echo "no BAM for global index $IDX"; exit 0; }
 ACC=$(basename "$BAM" .bam)
 
 OUT20="$OUT_MQ20/${ACC}.counts.tsv"
@@ -48,7 +51,10 @@ echo "Realigning $ACC…"
 samtools fastq -@ 2 -1 "$SCRATCH/R1.fq.gz" -2 "$SCRATCH/R2.fq.gz" \
                -s /dev/null -0 /dev/null "$BAM"
 
-bwa mem -t 4 "$REF" "$SCRATCH/R1.fq.gz" "$SCRATCH/R2.fq.gz" \
+# GATK CollectReadCounts requires an @RG header line to derive the sample
+# name; bwa mem only writes one when given -R explicitly.
+bwa mem -t 4 -R "@RG\tID:${ACC}\tSM:${ACC}\tPL:ILLUMINA\tLB:${ACC}" \
+  "$REF" "$SCRATCH/R1.fq.gz" "$SCRATCH/R2.fq.gz" \
   | samtools sort -@ 2 -o "$SCRATCH/aln.bam" -
 samtools index "$SCRATCH/aln.bam"
 
