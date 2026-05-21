@@ -67,7 +67,8 @@ CHROM_GENES = ["blaSHV"]
 
 # Plasmid accessory genes (from plasmid_gene_calls.tsv, produced by PCN caller)
 # GT column names match GENE_PATTERNS keys in get_amrfinder_gt.py
-PLASMID_GENES = ["blaKPC", "blaCTX-M", "blaNDM", "qnrB1", "blaOXA-48", "aac6-Ib-cr"]
+PLASMID_GENES = ["blaKPC", "blaCTX-M", "blaNDM", "qnrB1", "blaOXA-48", "aac6-Ib-cr",
+                 "dfrA12", "dfrA14", "sul1", "sul2", "aac3-IIa"]
 
 GENES     = CHROM_GENES + PLASMID_GENES
 QUANTILES = [0.10, 0.25, 0.50, 0.75, 0.90]
@@ -85,6 +86,11 @@ GENE_MODE = {
     "qnrB1":      "presence",  # plasmid PMQR; presence = quinolone resistance
     "blaOXA-48":  "presence",  # plasmid OXA-type carbapenemase
     "aac6-Ib-cr": "presence",  # plasmid aminoglycoside/fluoroquinolone resistance
+    "dfrA12":     "presence",  # plasmid trimethoprim DHFR
+    "dfrA14":     "presence",  # plasmid trimethoprim DHFR
+    "sul1":       "presence",  # plasmid sulfonamide DHPS
+    "sul2":       "presence",  # plasmid sulfonamide DHPS
+    "aac3-IIa":   "presence",  # plasmid aminoglycoside (gentamicin); aac(3)-II family
 }
 
 # Map GT column name → call column name (plasmid calls use gene name from
@@ -96,6 +102,11 @@ PLASMID_GT_TO_CALL = {
     "qnrB1":      "qnrB1",      # same name in GT and calls
     "blaOXA-48":  "blaOXA-48",
     "aac6-Ib-cr": "aac6-Ib-cr",
+    "dfrA12":     "dfrA12",
+    "dfrA14":     "dfrA14",
+    "sul1":       "sul1",
+    "sul2":       "sul2",
+    "aac3-IIa":   "aac3-IIa",
 }
 
 
