@@ -48,8 +48,13 @@ mkdir -p "$SCRATCH"
 trap "rm -rf $SCRATCH" EXIT
 
 echo "Realigning $ACC…"
-samtools fastq -@ 2 -1 "$SCRATCH/R1.fq.gz" -2 "$SCRATCH/R2.fq.gz" \
-               -s /dev/null -0 /dev/null "$BAM"
+# The source BAMs are coordinate-sorted, so mates are NOT adjacent. Running
+# `samtools fastq` directly emits properly-paired reads as singletons (lost
+# to -s /dev/null) and wrecks coverage. `samtools collate` first regroups
+# each read with its mate so -1/-2 receive complete pairs.
+samtools collate -@ 4 -O -u "$BAM" "$SCRATCH/collate_tmp" \
+  | samtools fastq -@ 2 -1 "$SCRATCH/R1.fq.gz" -2 "$SCRATCH/R2.fq.gz" \
+                   -s "$SCRATCH/singletons.fq.gz" -0 /dev/null -
 
 # GATK CollectReadCounts requires an @RG header line to derive the sample
 # name; bwa mem only writes one when given -R explicitly.
