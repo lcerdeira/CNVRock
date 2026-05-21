@@ -40,7 +40,9 @@ import pandas as pd
 
 CHROM = "NC_016845.1"  # HS11286 chromosome (RefSeq GCF download) — confirm with: samtools view -H *.bam | grep @SQ
 
-GENES_OF_INTEREST = [
+# Default KpSC chromosomal gene panel — used when the config does not set
+# `chrom_gene_coords_path`. Keeps exp 32-37 (KpSC) reproducible unchanged.
+_KPSC_DEFAULT_GENES = [
     # blaSHV-11: KPHS_25220, 861 bp, minus strand (GFF 1-based coords)
     {"call_id": "blaSHV",  "contig": CHROM, "start": 2549403, "end": 2550263},
     # ramR removed: disruption in KpSC is almost exclusively via IS element insertion
@@ -51,12 +53,38 @@ GENES_OF_INTEREST = [
 ]
 
 
+def _load_genes_of_interest(cfg):
+    """Return the chromosomal gene panel.
+
+    If the config sets `chrom_gene_coords_path`, the panel is read from that
+    TSV (columns: gene/call_id, contig, start, end; an optional `track`
+    column restricts to rows where track == 'chromosome'). This makes the
+    caller organism-agnostic — e.g. the A. baumannii AdeABC/AdeIJK panel.
+    Otherwise the KpSC default (blaSHV) is used.
+    """
+    path = cfg.get("chrom_gene_coords_path")
+    if not path:
+        return _KPSC_DEFAULT_GENES
+    df = pd.read_csv(path, sep="\t")
+    if "track" in df.columns:
+        df = df[df["track"].astype(str).str.lower() == "chromosome"]
+    id_col = "call_id" if "call_id" in df.columns else "gene"
+    genes = [
+        {"call_id": str(r[id_col]), "contig": str(r["contig"]),
+         "start": int(r["start"]), "end": int(r["end"])}
+        for _, r in df.iterrows()
+    ]
+    print(f"  loaded {len(genes)} chromosomal genes from {path}", flush=True)
+    return genes
+
+
 # ---------------------------------------------------------------------------
 # Calling logic (identical to 05_gene_cnv_caller)
 # ---------------------------------------------------------------------------
 
 def run_cnv_calls(store_path, out_dir, cfg):
-    """Compute gene-level CNV calls for all KpSC samples and write gene_calls.tsv."""
+    """Compute gene-level CNV calls for all samples and write gene_calls.tsv."""
+    genes_of_interest      = _load_genes_of_interest(cfg)
     min_cn1_proportion     = cfg["cnv_min_cn1_proportion"]
     min_confidence         = cfg["cnv_min_confidence"]
     flank_padding          = cfg["cnv_flank_padding"]
@@ -88,7 +116,7 @@ def run_cnv_calls(store_path, out_dir, cfg):
     print(f"Computing gene CNV calls for {n} KpSC samples…", flush=True)
     t0 = time.time()
 
-    gene_contigs  = {g["contig"] for g in GENES_OF_INTEREST}
+    gene_contigs  = {g["contig"] for g in genes_of_interest}
     segs_filtered = segments[segments["chrom"].isin(gene_contigs)]
     empty_segs    = pd.DataFrame(columns=["chrom", "x0", "x1", "cn", "confidence"])
     segs_by_sample = {sid: grp for sid, grp in segs_filtered.groupby("sample_id")}
@@ -96,7 +124,7 @@ def run_cnv_calls(store_path, out_dir, cfg):
     gc.collect()
 
     gene_rows = []
-    for gene in GENES_OF_INTEREST:
+    for gene in genes_of_interest:
         contig  = gene["contig"]
         g_start = gene["start"]
         g_end   = gene["end"]
@@ -171,7 +199,7 @@ def run_cnv_calls(store_path, out_dir, cfg):
     del copy_ratios, segs_by_sample
     gc.collect()
 
-    genes = [g["call_id"] for g in GENES_OF_INTEREST]
+    genes = [g["call_id"] for g in genes_of_interest]
     gene_calls_long = pd.DataFrame(gene_rows)[["sample_id", "call_id", "cn", "crr"]]
     cn_wide  = gene_calls_long.pivot(index="sample_id", columns="call_id", values="cn")
     crr_wide = gene_calls_long.pivot(index="sample_id", columns="call_id", values="crr")
