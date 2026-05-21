@@ -45,11 +45,13 @@ export PATH="$HOME/miniconda3/envs/cnvrock/bin:$HOME/miniconda3/bin:$PATH"
 module load bwa/0.718 samtools/1.20 gatk/4.6.0.0 java/20.0.1
 
 MANIFEST="${MANIFEST:-$REPO_DIR/assets/kpsc_expansion_subset_5k.tsv}"
-REFERENCE="$REPO_DIR/assets/HS11286_extended.fasta"
-INTERVALS="$REPO_DIR/assets/HS11286_extended_1kb.interval_list"
-COUNTS_DIR="$REPO_DIR/data/raw/readcounts_subset_mq0"
-FASTQ_DIR="$REPO_DIR/data/raw/fastq_subset"
-BAM_DIR="$REPO_DIR/data/raw/bam_subset"
+# Reference / output dirs are env-overridable so the same pipeline serves
+# other organisms (e.g. A. baumannii). Defaults = KpSC.
+REFERENCE="${REFERENCE:-$REPO_DIR/assets/HS11286_extended.fasta}"
+INTERVALS="${INTERVALS:-$REPO_DIR/assets/HS11286_extended_1kb.interval_list}"
+COUNTS_DIR="${COUNTS_DIR:-$REPO_DIR/data/raw/readcounts_subset_mq0}"
+FASTQ_DIR="${FASTQ_DIR:-$REPO_DIR/data/raw/fastq_subset}"
+BAM_DIR="${BAM_DIR:-$REPO_DIR/data/raw/bam_subset}"
 
 # MQ filter: 0 (was 40 in Phase 1, then 20 in our first re-run).
 #
@@ -71,7 +73,9 @@ BAM_DIR="$REPO_DIR/data/raw/bam_subset"
 # uniquely-mappable, so MQ=0 vs MQ=20 affects only repeat / transposon
 # regions which the VAE treats as noise. Single pipeline, single count
 # file per sample.
-MIN_MQ=0
+# Env-overridable: A. baumannii targets (AdeABC/AdeIJK, blaOXA) are
+# chromosomal and uniquely-mappable, so that run sets MIN_MQ=20.
+MIN_MQ="${MIN_MQ:-0}"
 
 mkdir -p "$COUNTS_DIR" "$FASTQ_DIR" "$BAM_DIR" "$REPO_DIR/logs"
 

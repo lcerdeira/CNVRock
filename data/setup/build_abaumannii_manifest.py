@@ -71,11 +71,30 @@ def main():
                 .drop_duplicates(subset=["sample_accession"]))
     print(f"  unique BioSamples with a usable run: {len(runs):,}")
 
+    # ENA fastq_ftp is ';'-separated ftp paths; the download pipeline expects
+    # https:// R1 / R2 URL columns (accession, layout, r1_url, r2_url).
+    def split_fastq(ftp):
+        parts = [p for p in str(ftp).split(";") if p]
+        urls = ["https://" + p if not p.startswith("http") else p
+                for p in parts]
+        # keep the _1 / _2 paired files; ignore a bare unpaired file
+        r1 = next((u for u in urls if "_1.fastq" in u), "")
+        r2 = next((u for u in urls if "_2.fastq" in u), "")
+        return r1, r2
+
+    r1r2 = runs["fastq_ftp"].map(split_fastq)
+    runs["r1_url"] = [x[0] for x in r1r2]
+    runs["r2_url"] = [x[1] for x in r1r2]
+    runs = runs[(runs["r1_url"] != "") & (runs["r2_url"] != "")]
+    print(f"  runs with resolvable paired FASTQ URLs: {len(runs):,}")
+
     manifest = pd.DataFrame({
-        "accession":         runs["run_accession"].values,
-        "biosample":         runs["sample_accession"].values,
-        "secondary_sample":  runs["secondary_sample_accession"].values,
-        "read_count":        runs["read_count"].astype(int).values,
+        "accession":  runs["run_accession"].values,
+        "layout":     "PAIRED",
+        "r1_url":     runs["r1_url"].values,
+        "r2_url":     runs["r2_url"].values,
+        "biosample":  runs["sample_accession"].values,
+        "read_count": runs["read_count"].astype(int).values,
     }).sort_values("accession")
     manifest.to_csv(OUT, sep="\t", index=False)
     print(f"\nwrote {OUT}  ({len(manifest):,} samples)")
