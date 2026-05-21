@@ -1,0 +1,11 @@
+gene	contig	start	end	track	role
+adeA	NZ_CP008706.1	1975742	1976932	chromosome	AdeABC efflux — periplasmic adaptor (operon member)
+adeB	NZ_CP008706.1	1976929	1980039	chromosome	AdeABC efflux — RND permease (PRIMARY tigecycline pump; amplification target)
+adeC	NZ_CP008706.1	1980116	1981513	chromosome	AdeABC efflux — outer-membrane channel (operon member)
+adeR	NZ_CP008706.1	1974853	1975596	chromosome	AdeABC two-component response regulator
+adeS	NZ_CP008706.1	1973736	1974821	chromosome	AdeABC two-component sensor kinase
+adeI	NZ_CP008706.1	824080	825330	chromosome	AdeIJK efflux — periplasmic adaptor (operon member)
+adeJ	NZ_CP008706.1	820891	824067	chromosome	AdeIJK efflux — RND permease (amplification target)
+adeK	NZ_CP008706.1	819437	820891	chromosome	AdeIJK efflux — outer-membrane channel (operon member)
+blaOXA-23	NZ_CP008706.1	562998	563819	chromosome	acquired carbapenemase (chromosomal in AB5075-UW)
+blaOXA-69	NZ_CP008706.1	2286658	2287482	chromosome	intrinsic blaOXA-51-like carbapenemase
