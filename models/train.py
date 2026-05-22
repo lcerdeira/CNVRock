@@ -87,6 +87,11 @@ def main():
     store_path = resolve(cfg["store_path"])
     out_dir    = resolve(cfg["out_dir"])
 
+    # Resolve the optional chromosomal gene-coords path so the (config-driven)
+    # CNV caller receives an absolute path regardless of CWD.
+    if cfg.get("chrom_gene_coords_path"):
+        cfg["chrom_gene_coords_path"] = resolve(cfg["chrom_gene_coords_path"])
+
     # Load versioned components named in config
     ConvVAE           = importlib.import_module(f"architectures.{cfg['architecture']}").ConvVAE
     run_hmm_all_samples = importlib.import_module(f"hmm.{cfg['hmm']}").run_hmm_all_samples
