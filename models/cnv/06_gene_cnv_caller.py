@@ -172,6 +172,14 @@ def run_cnv_calls(store_path, out_dir, cfg):
 
             if sanity_ok:
                 if fallback_eligible:
+                    # A multi-bin gene can straddle an HMM segment boundary, so no
+                    # single segment spans it (cn stays -1) even on a sane CN=1
+                    # chromosome. If the chromosome passed the sanity check and the
+                    # gene region has coverage, default to CN=1 rather than leaving
+                    # it uncallable. (blaSHV is 1 bin and always sits inside one
+                    # segment, so KpSC behaviour is unchanged.)
+                    if cn == -1 and crr_val is not None:
+                        cn = 1
                     if cn in (-1, 1) and crr_val is not None and crr_val >= crr_amp_threshold:
                         cn = 2
                 else:
