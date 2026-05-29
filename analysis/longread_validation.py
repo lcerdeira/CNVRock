@@ -67,14 +67,28 @@ def shv_copies_in_assembly(asm_fa, shv_query_fa, scratch):
                    capture_output=True, check=True)
     res = subprocess.run(
         [BLASTN, "-query", shv_query_fa, "-db", db, "-outfmt",
-         "6 pident length qlen sstart send", "-perc_identity", "95"],
+         "6 pident length qlen sseqid sstart send", "-perc_identity", "98"],
         capture_output=True, text=True, check=True)
-    copies = 0
+    # Count DISTINCT non-overlapping loci at >=98% identity & >=90% coverage —
+    # excludes SHV-family paralogs (blaLEN/blaOKP, ~80-95%) and merges
+    # fragmentary HSPs that belong to the same physical copy.
+    ivals = []
     for ln in res.stdout.splitlines():
         f = ln.split("\t")
-        pident, length, qlen = float(f[0]), int(f[1]), int(f[2])
-        if pident >= 95 and length / qlen >= 0.90:
+        pident, length, qlen, sseqid = float(f[0]), int(f[1]), int(f[2]), f[3]
+        s, e = sorted((int(f[4]), int(f[5])))
+        if pident >= 98 and length / qlen >= 0.90:
+            ivals.append((sseqid, s, e))
+    # merge overlapping/adjacent intervals on the same contig -> distinct copies
+    ivals.sort()
+    copies = 0
+    last = None
+    for sseqid, s, e in ivals:
+        if last and last[0] == sseqid and s <= last[2] + 100:
+            last = (sseqid, last[1], max(last[2], e))
+        else:
             copies += 1
+            last = (sseqid, s, e)
     return copies
 
 
