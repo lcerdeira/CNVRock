@@ -90,16 +90,34 @@ def main():
     ov = ov.merge(calls, on="sample_id", how="inner")
     print(f"  with a CNVRock blaSHV call: {len(ov)}")
 
+    import re, json
+    def biosample_to_gca(bs):
+        # esearch assembly db by biosample -> assembly UID -> esummary -> GCA
+        try:
+            q = urlopen("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+                        f"?db=assembly&term={bs}[BioSample]&retmax=5", timeout=30).read().decode()
+            ids = re.findall(r"<Id>(\d+)</Id>", q)
+            if not ids:
+                return None
+            s = urlopen("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
+                        f"?db=assembly&id={ids[0]}&retmode=json", timeout=30).read().decode()
+            d = json.loads(s)["result"][ids[0]]
+            return d.get("assemblyaccession") or d.get("synonym", {}).get("genbank")
+        except Exception:
+            return None
+
     rows = []
     for _, r in ov.iterrows():
         bs = r["sample_accession"]
+        gca = biosample_to_gca(bs)
+        if not gca:
+            continue
         with tempfile.TemporaryDirectory() as scratch:
             try:
                 subprocess.run(
-                    ["datasets", "download", "genome", "accession", bs,
-                     "--assembly-source", "all", "--include", "genome",
-                     "--filename", f"{scratch}/a.zip"],
-                    capture_output=True, timeout=120, check=True)
+                    ["datasets", "download", "genome", "accession", gca,
+                     "--include", "genome", "--filename", f"{scratch}/a.zip"],
+                    capture_output=True, timeout=180, check=True)
                 subprocess.run(["unzip", "-o", f"{scratch}/a.zip", "-d", scratch],
                                capture_output=True, check=True)
                 fnas = glob.glob(f"{scratch}/**/*.fna", recursive=True)
