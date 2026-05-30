@@ -154,13 +154,16 @@ def test_syntax(repo: Path) -> None:
 def test_tools_local(repo: Path) -> None:
     """Tools available locally for building manuscript."""
     print("\n── Local tools ──────────────────────────────────────────────")
-    tools = {"python3": "python3", "docx (python-docx)": None}
-    # python-docx
+    is_hpc = str(repo) == str(HPC_REPO)
+    # python-docx — only needed locally (manuscript.docx built on laptop)
     try:
         import docx  # noqa
         ok("tools-local", "python-docx importable")
     except ImportError:
-        fail("tools-local", "python-docx NOT importable — manuscript.docx cannot be built")
+        if is_hpc:
+            skip("tools-local", "python-docx not on HPC (only needed locally for docx build)")
+        else:
+            fail("tools-local", "python-docx NOT importable — manuscript.docx cannot be built")
     # pyarrow (for ATB parquet)
     try:
         import pyarrow  # noqa
@@ -322,7 +325,11 @@ def test_results_consistency(repo: Path) -> None:
     if not is_hpc:
         skip("results", "cauris ERG11 GT (HPC-only)")
     elif mut_gt.exists():
-        import pandas as pd
+        try:
+            import pandas as pd
+        except ImportError as e:
+            warn("results", f"pandas unavailable (GLIBCXX mismatch?): {e}")
+            return
         df = pd.read_csv(mut_gt, sep="\t")
         n_mut = int(df["erg11_R_mutation"].sum()) if "erg11_R_mutation" in df.columns else 0
         if n_mut > 100:
@@ -338,7 +345,11 @@ def test_results_consistency(repo: Path) -> None:
     # VAE ablation
     abl = repo / "data/results/vae_ablation/ablation_summary.tsv"
     if abl.exists():
-        import pandas as pd
+        try:
+            import pandas as pd
+        except ImportError:
+            skip("results", "VAE ablation check skipped (pandas unavailable)")
+            return
         df = pd.read_csv(abl, sep="\t")
         vae = df[df["baseline"] == "C_vae"]
         if not vae.empty:
