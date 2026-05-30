@@ -74,11 +74,11 @@ def main() -> None:
     id_to_exp   = {sid: i for i, sid in enumerate(exp_ids)}
 
     # CRR = observed / reconstructed
-    # bin-to-chromosome mapping
+    # bin-to-chromosome mapping — handle structured dtype ('chrom','start','end')
     chrom_bins = {}
-    for i, c in enumerate(contigs):
-        chrom_id = str(c[0]) if hasattr(c, '__iter__') else str(c)
-        chrom_bins.setdefault(chrom_id, []).append(i)
+    chrom_field = contigs["chrom"] if contigs.dtype.names and "chrom" in contigs.dtype.names else contigs
+    for i, ch in enumerate(chrom_field):
+        chrom_bins.setdefault(str(ch), []).append(i)
 
     print("Bin counts per chromosome:")
     for ch, name in zip(CHROMS, CHR_NAMES):
