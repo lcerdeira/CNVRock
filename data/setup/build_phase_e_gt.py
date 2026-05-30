@@ -38,7 +38,10 @@ NEW_GT = {
     "sul2":     ("Sul_acquired", "sul2"),
     "dfrA12":   ("Tmt_acquired", "dfrA12"),
     "dfrA14":   ("Tmt_acquired", "dfrA14"),
-    "aac3-IIa": ("AGly_acquired", "aac(3)-II"),   # family-level
+    # Named aac3-II (family level): the reference cross-maps across aac(3)-IId/
+    # -IIe/-IIa, so calls are family-wide. Dominant KpSC variants are
+    # aac(3)-IId (7,928) and aac(3)-IIe (17,626); aac(3)-IIa = 0 in ATB.
+    "aac3-II":  ("AGly_acquired", "aac(3)-II"),
 }
 
 

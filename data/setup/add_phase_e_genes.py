@@ -113,26 +113,18 @@ NEW_GENES = [
         "cds_query":        'blaOXA-232 AND beta-lactamase AND 700:850[SLEN]',
     },
     {
-        "gene":             "aac3-IIa",
-        # NCBI gene name aac(3)-IIa has parentheses that break Entrez field
-        # parsing; the historical synonym "aacC2" is parenthesis-free.
+        # Named aac3-II (family level): the reference CDS cross-maps across
+        # aac(3)-IId, -IIe, and -IIa (dominant KpSC variants are IId/IIe).
+        # A variant-specific contig would produce artificially high FNR.
+        # Search with the parenthesis-free synonym "aacC2" (= aac(3)-IIa),
+        # which BLAST + slen filter resolves to the family representative.
+        "gene":             "aac3-II",
         "query":            ('aacC2 AND Enterobacteriaceae[organism] '
                              'AND plasmid[filter] AND 5000:500000[SLEN]'),
         "pattern":          "aac3",
         "absent_threshold": "0.20",
-        "slen_range":       "780:900",     # aac(3)-IIa CDS ~861 bp
+        "slen_range":       "780:900",     # aac(3)-II CDS ~861 bp
         "cds_query":        'aacC2 AND aminoglycoside AND 780:900[SLEN]',
-    },
-    {
-        "gene":             "aac3-IId",
-        # aac(3)-IId — search the parenthesis-free synonym "aacC" broadly and
-        # let BLAST + the size-restricted CDS query resolve the right copy.
-        "query":            ('aacC AND gentamicin AND Enterobacteriaceae[organism] '
-                             'AND plasmid[filter] AND 5000:500000[SLEN]'),
-        "pattern":          "aac3",
-        "absent_threshold": "0.20",
-        "slen_range":       "750:900",     # aac(3)-IId CDS ~861 bp
-        "cds_query":        'aacC AND gentamicin AND 750:900[SLEN]',
     },
 ]
 

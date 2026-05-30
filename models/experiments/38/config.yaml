@@ -39,15 +39,15 @@
 architecture: "06_conv_vae"
 hmm:          "02_gaussian_hmm"
 cnv:          "06_gene_cnv_caller"
-evaluation:   "04_kpsc_evaluation"
+evaluation:   "05_abaumannii_evaluation"
 
 store_path: "../../../data/inputs/abaumannii-AB5075-mq20-1000bp-npy"
 out_dir:    "../../../data/results/38_abaumannii"
 chrom_gene_coords_path: "../../../assets/abaumannii_ref/gene_coords.tsv"
 normalise:  true
 
-kpsc_gt_path:            "../../../assets/amrfinder_gt_expansion.tsv"
-kpsc_meta_path:          "../../../assets/kpsc_expansion_metadata_runlevel.tsv"
+kpsc_gt_path:            "../../../assets/abaumannii_amrfinder_gt.tsv"
+# kpsc_meta_path not applicable for A. baumannii (no Kleborate)
 
 
 latent_dim:    10
