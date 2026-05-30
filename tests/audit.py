@@ -320,6 +320,13 @@ def test_results_consistency(repo: Path) -> None:
     check_metric(eval_37, "results", "dfrA12",   "MCC",       0.81)
     check_metric(eval_37, "results", "sul2",     "MCC",       0.81)
 
+    # exp40 — Phase 1 hold-out OOD evaluation (§3.7)
+    eval_40 = repo / "data/results/40_phase1_holdout_10k/evaluation.txt"
+    check_metric(eval_40, "results", "blaKPC",   "MCC",       1.00, tol=0.01)
+    check_metric(eval_40, "results", "blaNDM",   "MCC",       0.99, tol=0.02)
+    check_metric(eval_40, "results", "blaCTX-M", "MCC",       0.82, tol=0.03)
+    check_metric(eval_40, "results", "aac6-Ib-cr","MCC",      0.86, tol=0.03)
+
     # C. auris mutation GT (HPC path)
     mut_gt = repo / "data/results/cauris_mutation_gt/cauris_erg11_mutation_gt.tsv"
     if not is_hpc:
