@@ -1,0 +1,71 @@
+# Experiment 40 — Phase 1 hold-out evaluation using the 10K expansion model.
+#
+# Purpose: Out-of-distribution (OOD) generalisation test.
+#   - Model: exp33 trained checkpoint (10,000-sample expansion cohort)
+#   - Data:  545-sample Phase 1 legacy cohort (NEVER seen at training time
+#            at any expansion tier — strict OOD)
+#   - Metric: per-gene MCC / FNR / PPV on the full Phase 1 set
+#
+# This fills §3.7 of the manuscript. The Phase 1 cohort is the independent
+# pilot used to design the pipeline before expansion data were available.
+# Its samples are not in any expansion manifest (verified by set-difference).
+#
+# Key design decisions:
+#   - epochs=0, patience=1 → training is skipped (early-stopping triggers
+#     immediately); the pretrained_checkpoint is loaded and inference runs
+#   - plasmid_store_path uses the Phase 1 plasmid counts (KpSC-plasmid-1000bp-npy)
+#     which were built against HS11286_extended.fasta at MQ=0, same reference
+#     as expansion plasmid stores
+#   - GT: amrfinder_gt_training.tsv (Phase 1 AMRFinder GT, 545 rows)
+#   - No Kleborate GT available for Phase 1 → blaSHV evaluated without
+#     Kleborate copy-count override (AMRFinder blaSHV presence only)
+#
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+evaluation:   "04_kpsc_evaluation"
+
+store_path:  "../../../data/inputs/KpSC-HS11286-1000bp-core-npy"
+out_dir:     "../../../data/results/40_phase1_holdout_10k"
+normalise:   true
+
+# Load exp33 checkpoint — skip training entirely
+pretrained_checkpoint: "../../../data/results/33_kpsc_expansion_10k/checkpoint.pth"
+epochs:   0
+patience: 1
+
+kpsc_gt_path:   "../../../assets/amrfinder_gt_training.tsv"
+# No Kleborate GT for Phase 1 — blaSHV uses AMRFinder presence only
+kpsc_meta_path: "../../../assets/kpsc_sample_metadata.tsv"
+
+plasmid_cnv:              "07_plasmid_cnv_caller"
+plasmid_store_path:       "../../../data/inputs/KpSC-plasmid-1000bp-npy"
+plasmid_gene_coords_path: "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
+pcn_absent_threshold:     0.20
+pcn_amp_threshold:        1.50
+
+# Architecture identical to exp33 — must match checkpoint
+latent_dim:    10
+batch_size:    128
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      3
+cnv_min_gene_coverage_fraction: 0.50
+
+eval_min_group_n: 5
