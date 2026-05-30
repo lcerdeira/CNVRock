@@ -36,8 +36,21 @@ MANIFEST10K = REPO / "assets/kpsc_expansion_subset_10k.tsv"
 HS11286 = REPO / "assets/HS11286_extended.fasta"
 GENE_CALLS = REPO / "data/results/33_kpsc_expansion_10k/gene_calls.tsv"
 OUT = REPO / "data/results/longread_validation"
-BLASTN = "blastn"  # from blast_env on PATH
+BLASTN = "blastn"        # from blast_env on PATH
 MAKEBLASTDB = "makeblastdb"
+
+
+def _check_tools() -> None:
+    """Fail fast if required external tools are not on PATH."""
+    import shutil
+    missing = [t for t in [BLASTN, MAKEBLASTDB, "datasets", "unzip"]
+               if not shutil.which(t)]
+    if missing:
+        raise RuntimeError(
+            f"Required tools not found on PATH: {missing}\n"
+            f"Run this script with blast_env active:\n"
+            f"  conda activate blast_env && python3 analysis/longread_validation.py"
+        )
 SHV_CONTIG, SHV_START, SHV_END = "NC_016845.1", 2549403, 2550263
 
 
@@ -103,6 +116,7 @@ def shv_copies_in_assembly(asm_fa, shv_query_fa, scratch):
 
 
 def main():
+    _check_tools()          # fail fast if blast/datasets not on PATH
     OUT.mkdir(parents=True, exist_ok=True)
     shv = extract_shv_cds()
     shv_fa = OUT / "blaSHV_cds.fasta"
