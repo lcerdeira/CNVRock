@@ -33,6 +33,12 @@ REGION = f"{CONTIG}:{START}-{END}"
 # canonical ERG11 azole-resistance substitutions in C. auris
 HOTSPOTS = {126: ("F", "L"), 132: ("Y", "F"), 143: ("K", "R")}
 
+# samtools path — the cnvrock env (Biopython) doesn't ship samtools;
+# use the aligners env which has it. Fall back to plain "samtools" if
+# the explicit path doesn't exist (e.g. on a different cluster node).
+_SAMTOOLS_EXPLICIT = "/home/lshlt19/miniconda3/envs/aligners/bin/samtools"
+SAMTOOLS = _SAMTOOLS_EXPLICIT if Path(_SAMTOOLS_EXPLICIT).exists() else "samtools"
+
 
 def ref_protein():
     for rec in SeqIO.parse(str(REF), "fasta"):
@@ -49,7 +55,7 @@ def sample_protein(bam, scratch):
     cons = os.path.join(scratch, "cons.fa")
     # samtools consensus restricted to the gene region
     with open(cons, "w") as fh:
-        subprocess.run(["samtools", "consensus", "-r", REGION, "-f", "fasta", bam],
+        subprocess.run([SAMTOOLS, "consensus", "-r", REGION, "-f", "fasta", bam],
                        stdout=fh, stderr=subprocess.DEVNULL, check=True)
     recs = list(SeqIO.parse(cons, "fasta"))
     if not recs:
