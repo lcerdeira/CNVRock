@@ -10,4 +10,6 @@ dfrA12	dfrA12	Trimethoprim DHFR (Phase E). dfrA12 vs dfrA14 ~60-70% nt identity 
 dfrA14	dfrA14	Trimethoprim DHFR (Phase E). Standalone.
 sul1	sul1	Sulfonamide DHPS (Phase E). sul1 vs sul2 ~50% identity — distinct genes, not allele variants; kept separate.
 sul2	sul2	Sulfonamide DHPS (Phase E). Standalone.
-aac3-II	aac3-II	Aminoglycoside 3-N-acetyltransferase II family (Phase E). Reference cross-maps across aac(3)-IId/-IIe/-IIa — GT and calls are family-level. Dominant KpSC variants: aac(3)-IId (7,928) and aac(3)-IIe (17,626). Distinct from aac6-Ib-cr.
+# aac(3)-II removed: reference contig was aac(3)-IIa (zero prevalence in KpSC);
+# signal came entirely from cross-mapping of aac(3)-IId/-IIe reads. Removed from
+# panel rather than mislabelling as family-level. See commit note in git log.

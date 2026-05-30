@@ -112,20 +112,12 @@ NEW_GENES = [
         "slen_range":       "700:850",     # OXA-232 CDS ~798 bp
         "cds_query":        'blaOXA-232 AND beta-lactamase AND 700:850[SLEN]',
     },
-    {
-        # Named aac3-II (family level): the reference CDS cross-maps across
-        # aac(3)-IId, -IIe, and -IIa (dominant KpSC variants are IId/IIe).
-        # A variant-specific contig would produce artificially high FNR.
-        # Search with the parenthesis-free synonym "aacC2" (= aac(3)-IIa),
-        # which BLAST + slen filter resolves to the family representative.
-        "gene":             "aac3-II",
-        "query":            ('aacC2 AND Enterobacteriaceae[organism] '
-                             'AND plasmid[filter] AND 5000:500000[SLEN]'),
-        "pattern":          "aac3",
-        "absent_threshold": "0.20",
-        "slen_range":       "780:900",     # aac(3)-II CDS ~861 bp
-        "cds_query":        'aacC2 AND aminoglycoside AND 780:900[SLEN]',
-    },
+    # aac(3)-II removed from panel (2026-05-30):
+    # Reference contig was aac(3)-IIa (zero prevalence in KpSC cohort in ATB).
+    # Signal came entirely from cross-mapping of aac(3)-IId/-IIe reads.
+    # Renaming to family-level was inaccurate; removal is the honest choice.
+    # If re-added, fetch a separate aac(3)-IId contig (n=7,928 KpSC isolates)
+    # and a separate aac(3)-IIe contig (n=17,626) and evaluate independently.
 ]
 
 BLAST_MIN_IDENTITY = 80.0

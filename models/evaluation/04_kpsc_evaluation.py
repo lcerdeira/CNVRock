@@ -68,7 +68,9 @@ CHROM_GENES = ["blaSHV"]
 # Plasmid accessory genes (from plasmid_gene_calls.tsv, produced by PCN caller)
 # GT column names match GENE_PATTERNS keys in get_amrfinder_gt.py
 PLASMID_GENES = ["blaKPC", "blaCTX-M", "blaNDM", "qnrB1", "blaOXA-48", "aac6-Ib-cr",
-                 "dfrA12", "dfrA14", "sul1", "sul2", "aac3-II"]
+                 "dfrA12", "dfrA14", "sul1", "sul2"]
+# aac(3)-II removed (2026-05-30): reference contig was aac(3)-IIa, which has
+# zero prevalence in KpSC; signal was cross-mapping from IId/IIe. Removed.
 
 GENES     = CHROM_GENES + PLASMID_GENES
 QUANTILES = [0.10, 0.25, 0.50, 0.75, 0.90]
@@ -90,8 +92,7 @@ GENE_MODE = {
     "dfrA14":     "presence",  # plasmid trimethoprim DHFR
     "sul1":       "presence",  # plasmid sulfonamide DHPS
     "sul2":       "presence",  # plasmid sulfonamide DHPS
-    "aac3-II":    "presence",  # plasmid aminoglycoside (gentamicin); aac(3)-II family
-                              # (cross-maps across aac(3)-IId/-IIe/-IIa; family-level)
+
 }
 
 # Map GT column name → call column name (plasmid calls use gene name from
@@ -107,7 +108,6 @@ PLASMID_GT_TO_CALL = {
     "dfrA14":     "dfrA14",
     "sul1":       "sul1",
     "sul2":       "sul2",
-    "aac3-II":    "aac3-II",   # GT col = call col (both family-level)
 }
 
 

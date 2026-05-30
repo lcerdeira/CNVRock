@@ -38,10 +38,9 @@ NEW_GT = {
     "sul2":     ("Sul_acquired", "sul2"),
     "dfrA12":   ("Tmt_acquired", "dfrA12"),
     "dfrA14":   ("Tmt_acquired", "dfrA14"),
-    # Named aac3-II (family level): the reference cross-maps across aac(3)-IId/
-    # -IIe/-IIa, so calls are family-wide. Dominant KpSC variants are
-    # aac(3)-IId (7,928) and aac(3)-IIe (17,626); aac(3)-IIa = 0 in ATB.
-    "aac3-II":  ("AGly_acquired", "aac(3)-II"),
+    # aac(3)-II removed (2026-05-30): reference contig was aac(3)-IIa (zero
+    # prevalence in KpSC); cross-mapping from IId/IIe made family-level GT
+    # necessary but scientifically inaccurate. Removed from panel.
 }
 
 
