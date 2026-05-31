@@ -33,22 +33,23 @@ sys.path.insert(0, str(REPO / "models"))
 
 def get_model_and_store(exp_id: int, hpc_root: Path) -> tuple:
     """Load VAE checkpoint and data store for a given experiment."""
-    import yaml
+    import yaml, importlib
     cfg_path = hpc_root / "models/experiments" / str(exp_id) / "config.yaml"
     cfg = yaml.safe_load(cfg_path.read_text())
 
-    # Resolve store path
+    # Resolve paths
     store_path = (cfg_path.parent / cfg["store_path"]).resolve()
     out_dir    = (cfg_path.parent / cfg["out_dir"]).resolve()
     ckpt_path  = out_dir / "checkpoint.pth"
 
-    # Load architecture
-    from architectures.conv_vae_06 import ConvVAE06 as VAE
-    model = VAE(
-        input_length = np.load(str(store_path / "counts.npy"),
-                               mmap_mode="r").shape[1],
-        latent_dim   = cfg["latent_dim"],
-    )
+    # Load architecture — module name starts with digit, use importlib
+    sys.path.insert(0, str(hpc_root / "models"))
+    arch_mod = importlib.import_module("architectures.06_conv_vae")
+    ConvVAE  = arch_mod.ConvVAE
+
+    n_bins_raw = np.load(str(store_path / "counts.npy"),
+                         mmap_mode="r").shape[1]
+    model = ConvVAE(latent_dim=cfg["latent_dim"], n_bins_raw=n_bins_raw)
     state = torch.load(str(ckpt_path), map_location="cpu", weights_only=True)
     model.load_state_dict(state)
     return model, store_path, cfg
@@ -61,9 +62,10 @@ def mc_reconstruct(model: torch.nn.Module,
     N MC-Dropout forward passes.
     Returns tensor of shape (n_mc, batch_size, n_bins).
     """
-    model.train()   # KEEP DROPOUT ACTIVE
+    model.train()   # KEEP DROPOUT ACTIVE — essential for MC Dropout
     with torch.no_grad():
-        recs = torch.stack([model(x)[0] for _ in range(n_mc)], dim=0)
+        # forward returns dict {"recon": (B,L), "z": (mu, logvar)}
+        recs = torch.stack([model(x)["recon"] for _ in range(n_mc)], dim=0)
     return recs  # (n_mc, B, L)
 
 
@@ -98,11 +100,11 @@ def run(exp_id: int, hpc_root: Path, n_mc: int = 50,
     all_mean = []
     all_std  = []
     for i in range(0, len(X_sub), bs):
-        batch = X_sub[i:i+bs].unsqueeze(1)   # (B, 1, L)
-        recs  = mc_reconstruct(model, batch, n_mc)  # (n_mc, B, 1, L)
-        recs  = recs.squeeze(2)                     # (n_mc, B, L)
+        # ConvVAE encoder does .unsqueeze(1) internally — pass (B, L)
+        batch = X_sub[i:i+bs]               # (B, L)
+        recs  = mc_reconstruct(model, batch, n_mc)  # (n_mc, B, L)
         # CRR per MC sample: x / x̂  (broadcast)
-        x_obs = batch.squeeze(1)                    # (B, L)
+        x_obs = batch                               # (B, L)
         crr_mc = x_obs.unsqueeze(0) / (recs + 1e-6)  # (n_mc, B, L)
         all_mean.append(crr_mc.mean(0).cpu().numpy())  # (B, L)
         all_std.append(crr_mc.std(0).cpu().numpy())    # (B, L) uncertainty
