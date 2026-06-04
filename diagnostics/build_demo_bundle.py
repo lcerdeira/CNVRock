@@ -63,15 +63,18 @@ def main() -> None:
             sub.to_csv(out / fn, sep="\t", index=False)
             print(f"  {fn}: {len(df)} → {len(sub)} rows")
 
-    # ── segments.parquet (filter by sample_id column) ─────────────────────
+    # ── segments.parquet (filter by sample_id column) — optional ──────────
     seg = src / "segments.parquet"
     if seg.exists():
-        s = pd.read_parquet(seg)
-        idcol = next((c for c in s.columns if "sample" in c.lower()), None)
-        if idcol:
-            s = s[s[idcol].astype(str).isin(keep_set)]
-        s.to_parquet(out / "segments.parquet")
-        print(f"  segments.parquet: {len(s)} rows")
+        try:
+            s = pd.read_parquet(seg)
+            idcol = next((c for c in s.columns if "sample" in c.lower()), None)
+            if idcol:
+                s = s[s[idcol].astype(str).isin(keep_set)]
+            s.to_parquet(out / "segments.parquet")
+            print(f"  segments.parquet: {len(s)} rows")
+        except Exception as e:
+            print(f"  segments.parquet SKIPPED (no parquet engine): {e}")
 
     # ── Copy small metadata files verbatim ────────────────────────────────
     for fn in ("evaluation.txt", "training_log.json"):
