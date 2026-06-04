@@ -402,7 +402,7 @@ def test_manuscript(repo: Path) -> None:
         warn("manuscript", "Title may not be updated")
     # .docx exists
     check_file(repo / "paper/manuscript.docx", "manuscript", min_bytes=50000)
-    check_file(repo / "paper/psi_nature_microbiology.docx", "manuscript", min_bytes=20000)
+    check_file(repo / "paper/cover_letter_npj_amr.docx", "manuscript", min_bytes=20000)
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
