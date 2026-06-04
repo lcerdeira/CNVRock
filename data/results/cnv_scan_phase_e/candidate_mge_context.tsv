@@ -1,0 +1,40 @@
+bin_cluster	max_n_STs	best_q	genes	KEGG_pathways	nearest_IS	AMR_within_20kb
+279–281	21	0.0003258609580764	KPHS_02370, KPHS_02380, KPHS_02390, KPHS_02410, KPHS_02420	Fructose and mannose metabolism (4); Phosphotransferase system (PTS) (3)	ISNCY (93kb)	none
+4473	13	0.0054068708552671	KPHS_44360, KPHS_44370	—	IS5 (39kb)	none
+2687	9	0.0171830810315573	KPHS_26730, KPHS_26740	Pentose phosphate pathway (1); ABC transporters (1); Bacterial chemotaxis (1)	IS1380 (4kb)	none
+2698	8	0.0013898654695978	KPHS_26850, KPHS_26860	—	IS1380 (15kb)	none
+4465	8	0.047240326653086	KPHS_44270, KPHS_44280	Nicotinate and nicotinamide metabolism (1); Biosynthesis of cofactors (1)	IS5 (47kb)	none
+2351–2353	5	7.720055847342225e-06	KPHS_23170, KPHS_23180, KPHS_23190, KPHS_23200, KPHS_23210, KPHS_23220	Bacterial secretion system (1)	IS66 (54kb)	clpV/tssH[vfdb]; hcp/tssD[vfdb]; icmF/tssM[vfdb]; ompA[vfdb]; sciN/tssJ[vfdb]; tssF[vfdb]; tssG[vfdb]
+1479–1480	5	3.2941377274599286e-05	KPHS_14280, KPHS_14290, KPHS_14260, KPHS_14270	ABC transporters (2); Butanoate metabolism (1)	IS3 (17kb)	entF[vfdb]; entS[vfdb]; fepA[vfdb]; fepC[vfdb]; fepD[vfdb]; fepG[vfdb]; fes[vfdb]
+1519	5	6.65589197202876e-05	KPHS_14620, KPHS_14630	Cysteine and methionine metabolism (1)	IS3 (within)	entA[vfdb]; entB[vfdb]; entC[vfdb]; entE[vfdb]; entS[vfdb]; fepB[vfdb]; fepD[vfdb]
+4469	5	0.0001853530048728	KPHS_44320, KPHS_44330	Fatty acid degradation (1); Phenylalanine metabolism (1); Benzoate degradation (1)	IS5 (43kb)	none
+3260–3263	5	0.0014911360125064	KPHS_32750, KPHS_32760, KPHS_32770, KPHS_32780	Bacterial secretion system (1)	IS5 (10kb)	none
+1621	5	0.037041567116392	KPHS_15540, KPHS_15550, KPHS_15560	Glutathione metabolism (2)	IS3 (101kb)	fur[vfdb]
+1486	4	0.0001892603868667	KPHS_14330, KPHS_14340	Pentose phosphate pathway (1); Carbon fixation by Calvin cycle (1); Microbial metabolism in diverse environments (1)	IS3 (24kb)	entA[vfdb]; entB[vfdb]; entC[vfdb]; entE[vfdb]; entF[vfdb]; entS[vfdb]; fepA[vfdb]; fepB[vfdb]; fepC[vfdb]; fepD[vfdb]; fepG[vfdb]; fes[vfdb]
+2853	4	0.0010942863478841	KPHS_28500	Nitrogen metabolism (1); Microbial metabolism in diverse environments (1); Nitrogen cycle (1)	IS1380 (170kb)	none
+787–788	4	0.0018848715735288	KPHS_07470, KPHS_07460	Two-component system (2)	IS21 (80kb)	LptD[card]
+3241	4	0.0073955547928332	KPHS_32500	Bacterial secretion system (1)	IS5 (6kb)	none
+1433–1435	3	5.45262073233864e-06	KPHS_13800, KPHS_13810, KPHS_13820, KPHS_13830, KPHS_13840	Phosphotransferase system (PTS) (4); Fructose and mannose metabolism (1); Amino sugar and nucleotide sugar metabolism (1)	IS3 (11kb)	ramA[card]
+1483	3	1.3769323205784202e-05	KPHS_14310, KPHS_14320	ABC transporters (1); Glycerolipid metabolism (1)	IS3 (21kb)	entC[vfdb]; entE[vfdb]; entF[vfdb]; entS[vfdb]; fepA[vfdb]; fepB[vfdb]; fepC[vfdb]; fepD[vfdb]; fepG[vfdb]; fes[vfdb]
+2346	3	1.9936533574834286e-05	KPHS_23140	Bacterial secretion system (1)	IS66 (49kb)	clpV/tssH[vfdb]; dotU/tssL[vfdb]; hcp/tssD[vfdb]; icmF/tssM[vfdb]; ompA[vfdb]; sciN/tssJ[vfdb]; tssF[vfdb]; tssG[vfdb]; vasE/tssK[vfdb]; vipA/tssB[vfdb]; vipB/tssC[vfdb]
+5169	3	4.627195478186026e-05	KPHS_51480, KPHS_51490	—	IS1 (within)	none
+5077	3	8.870463750426916e-05	KPHS_50590	—	IS3 (within)	eptB[card]
+2537	3	0.0018916144563222	KPHS_25080, KPHS_25090, KPHS_25100	—	IS1380 (22kb)	SHV-182[card]; blaSHV-158_1[resfinder]
+2663–2665	3	0.0028619017037248	KPHS_26510, KPHS_26520, KPHS_26480, KPHS_26490	Glycolysis / Gluconeogenesis (1); Carbon fixation by Calvin cycle (1); Microbial metabolism in diverse environments (1)	IS1380 (14kb)	none
+4695	3	0.006623556129501	KPHS_46730, KPHS_46740	Ascorbate and aldarate metabolism (1)	IS5 (180kb)	none
+3237	3	0.007071587355346	KPHS_32470, KPHS_32480	Bacterial secretion system (1)	IS5 (10kb)	none
+2695	3	0.0084016785734457	KPHS_26810, KPHS_26820, KPHS_26830	Lysine biosynthesis (1); Microbial metabolism in diverse environments (1); Biosynthesis of amino acids (1)	IS1380 (12kb)	none
+4584	3	0.0200301919575079	KPHS_45590, KPHS_45600, KPHS_45610	—	IS5 (69kb)	none
+5287	3	0.0247635674575997	KPHS_52680, KPHS_52690	Galactose metabolism (2); Microbial metabolism in diverse environments (1)	IS21 (7kb)	none
+2280	2	2.640605566739396e-06	KPHS_22350, KPHS_22360	—	IS66 (12kb)	none
+3884	2	4.290804797047863e-06	KPHS_38540	Glycerophospholipid metabolism (1)	ISNCY (36kb)	none
+2331	2	5.706914395949721e-06	KPHS_23010	—	IS66 (34kb)	clpV/tssH[vfdb]; dotU/tssL[vfdb]; hcp/tssD[vfdb]; icmF/tssM[vfdb]; ompA[vfdb]; tssF[vfdb]; tssG[vfdb]; vasE/tssK[vfdb]; vipA/tssB[vfdb]; vipB/tssC[vfdb]
+2922	2	6.337031138932602e-05	KPHS_29230, KPHS_29240	Tyrosine metabolism (1); Phenylalanine metabolism (1); Xylene degradation (1)	IS3 (119kb)	none
+2623	2	0.0001746945501626	KPHS_26060	Two-component system (1)	IS1380 (56kb)	iroE[vfdb]
+1909	2	0.0001805005248267	KPHS_18420, KPHS_18430	—	IS1380 (142kb)	none
+4639	2	0.0003560037439456	KPHS_46150, KPHS_46160	—	IS5 (124kb)	none
+3429	2	0.0003560742705952	KPHS_34560	—	IS5 (148kb)	irp1[vfdb]; irp2[vfdb]; rcsA[vfdb]; ybtA[vfdb]; ybtP[vfdb]; ybtQ[vfdb]; ybtS[vfdb]; ybtX[vfdb]
+3067	2	0.0004530238736027	KPHS_30750, KPHS_30760	—	IS3 (23kb)	none
+2705	2	0.0015782985513982	KPHS_26930, KPHS_26940, KPHS_26950	Ascorbate and aldarate metabolism (2); Microbial metabolism in diverse environments (2); Phosphotransferase system (PTS) (2)	IS1380 (22kb)	none
+1625	2	0.0033526890360132	KPHS_15590, KPHS_15600	—	IS3 (105kb)	none
+4090	2	0.0077297895102564	KPHS_40500, KPHS_40510	—	IS1380 (within)	none

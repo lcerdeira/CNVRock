@@ -1,0 +1,92 @@
+gene	product	KO	KO_name	KEGG_pathways	KEGG_modules	EC	bins	max_n_STs	best_q
+KPHS_02370	sorbose permease IID component	K02815	—	Fructose and mannose metabolism | Phosphotransferase system (PTS)	—	—	279	21	0.0003258609580764
+KPHS_02380	sorbose permease IIC component	K02814	—	Fructose and mannose metabolism | Phosphotransferase system (PTS)	—	—	279	21	0.0003258609580764
+KPHS_02390	PTS enzyme IIAB, mannose-specific	K02813	—	Fructose and mannose metabolism | Phosphotransferase system (PTS)	—	2.7.1.206	279	21	0.0003258609580764
+KPHS_02410	sorbitol-6-phosphate 2-dehydrogenase	K00068	—	Fructose and mannose metabolism	—	1.1.1.140	281	14	0.0075996149032605
+KPHS_02420	SorC family transcriptional regulator	—	—	—	—	—	281	14	0.0075996149032605
+KPHS_44360	short chain dehydrogenase	—	—	—	—	—	4473	13	0.0054068708552671
+KPHS_44370	3-phenylpropionate dioxygenase subunit alpha	—	—	—	—	—	4473	13	0.0054068708552671
+KPHS_26730	carbohydrate kinase	K00852	—	Pentose phosphate pathway	—	2.7.1.15	2687	9	0.0171830810315573
+KPHS_26740	putative ABC transporter, nucleotide binding/ATPase protein	K10439	—	ABC transporters | Bacterial chemotaxis	—	—	2687	9	0.0171830810315573
+KPHS_26850	LysR family transcriptional regulator	—	—	—	—	—	2698	8	0.0013898654695978
+KPHS_26860	MFS family transporter	—	—	—	—	—	2698	8	0.0013898654695978
+KPHS_44270	putative aldehyde dehydrogenase	—	—	—	—	—	4465	8	0.047240326653086
+KPHS_44280	aspartate dehydrogenase	K06989	—	Nicotinate and nicotinamide metabolism | Biosynthesis of cofactors	kpm_M00115	1.4.1.21	4465	8	0.047240326653086
+KPHS_14280	sugar ABC transporter permease	K17203	—	ABC transporters	—	—	1479,1480	5	3.2941377274599286e-05
+KPHS_23170	type VI secretion system baseplate subunit TssF	K11896	—	—	—	—	2351	5	4.3750814705773235e-05
+KPHS_23180	type VI secretion system baseplate subunit TssG	K11895	—	—	—	—	2351	5	4.3750814705773235e-05
+KPHS_14290	putative ribose ABC transport system ATP-binding component	K17204	—	ABC transporters	—	—	1480	5	5.668575673894835e-05
+KPHS_14620	IS3 family transposase	K07497	—	—	—	—	1519	5	6.65589197202876e-05
+KPHS_14630	methylthioribose kinase	K00899	—	Cysteine and methionine metabolism	kpm_M00034	2.7.1.100	1519	5	6.65589197202876e-05
+KPHS_44320	major facilitator superfamily transporter MFS_1	—	—	—	—	—	4469	5	0.0001853530048728
+KPHS_44330	putative ferredoxin reductase subunit	K00529	—	Fatty acid degradation | Phenylalanine metabolism | Benzoate degradation | Microbial metabolism in diverse environments | Degradation of aromatic compounds	kpm_M00545	1.18.1.3	4469	5	0.0001853530048728
+KPHS_32750	OmpA family protein	—	—	—	—	—	3260	5	0.0014911360125064
+KPHS_15540	putative hydrolase-oxidase	—	—	—	—	—	1621	5	0.037041567116392
+KPHS_15550	putative carboxylase	K23123	—	Glutathione metabolism	—	3.5.2.9	1621	5	0.037041567116392
+KPHS_15560	putative carboxylase	K23124	—	Glutathione metabolism	—	3.5.2.9	1621	5	0.037041567116392
+KPHS_14330	putative sugar-binding domain protein	—	—	—	—	—	1486	4	0.0001892603868667
+KPHS_14340	transketolase domain-containing protein	K00615	—	Pentose phosphate pathway | Carbon fixation by Calvin cycle | Microbial metabolism in diverse environments | Carbon metabolism | Biosynthesis of amino acids	kpm_M00004 | kpm_M00007	2.2.1.1	1486	4	0.0001892603868667
+KPHS_28500	cryptic nitrate reductase 2 subunit alpha	K00370	—	Nitrogen metabolism | Microbial metabolism in diverse environments | Nitrogen cycle | Two-component system	kpm_M00530	1.7.5.1	2853	4	0.0010942863478841
+KPHS_32760	membrane protein	K11892	—	Bacterial secretion system	—	—	3262	4	0.0017125194549491
+KPHS_32770	type VI secretion system baseplate subunit TssK	K11893	—	—	—	—	3262,3263	4	0.0017125194549491
+KPHS_07470	Citrate lyase alpha chaincitrate lyase alpha-subunit	K01643	—	Two-component system	—	2.8.3.10	787,788	4	0.0018848715735288
+KPHS_07460	putative citrate lyase beta chain (acyl lyase subunit)	K01644	—	Two-component system	—	4.1.3.34	787	4	0.0047311407485841
+KPHS_32500	type VI secretion protein VasK	K11891	—	Bacterial secretion system	—	—	3241	4	0.0073955547928332
+KPHS_13800	putative inner membrane protein	—	—	—	—	—	1433	3	5.45262073233864e-06
+KPHS_13810	putative transport protein, PTS system	K19509	—	Phosphotransferase system (PTS)	—	—	1433	3	5.45262073233864e-06
+KPHS_14310	sugar ABC transporter periplasmic sugar-binding protein	K17202	—	ABC transporters	—	—	1483	3	1.3769323205784202e-05
+KPHS_14320	Carbohydrate kinase, FGGY-like protein	K00864	—	Glycerolipid metabolism	—	2.7.1.30	1483	3	1.3769323205784202e-05
+KPHS_23140	ImcF domain-containing protein	K11891	—	Bacterial secretion system	—	—	2346	3	1.9936533574834286e-05
+KPHS_51480	putative ABC-type multidrug transport system, ATPase component	K01990	—	—	—	—	5169	3	4.627195478186026e-05
+KPHS_51490	putative transposase	K07480	—	—	—	—	5169	3	4.627195478186026e-05
+KPHS_50590	IS3 family transposase	K07497	—	—	—	—	5077	3	8.870463750426916e-05
+KPHS_25080	putative 2-component transcriptional regulator	—	—	—	—	—	2537	3	0.0018916144563222
+KPHS_25090	hypothetical protein	—	—	—	—	—	2537	3	0.0018916144563222
+KPHS_25100	hypothetical protein	—	—	—	—	—	2537	3	0.0018916144563222
+KPHS_46730	alpha-dehydro-beta-deoxy-D-glucarate aldolase	K01630	—	Ascorbate and aldarate metabolism	—	4.1.2.20	4695	3	0.006623556129501
+KPHS_46740	putative transport protein	K12299	—	—	—	—	4695	3	0.006623556129501
+KPHS_32470	type VI secretion system lipoprotein TssJ	K11906	—	Bacterial secretion system	—	—	3237	3	0.007071587355346
+KPHS_32480	type VI secretion system baseplate subunit TssG	K11895	—	—	—	—	3237	3	0.007071587355346
+KPHS_26510	putative helix-turn-helix AraC-type transcriptional regulator	—	—	—	—	—	2665	3	0.0073689028585992
+KPHS_26520	glyceraldehyde-3-phosphate dehydrogenase	K00134	—	Glycolysis / Gluconeogenesis | Carbon fixation by Calvin cycle | Microbial metabolism in diverse environments | Carbon metabolism | Biosynthesis of amino acids	kpm_M00001 | kpm_M00002 | kpm_M00003 | kpm_M00552	1.2.1.12	2665	3	0.0073689028585992
+KPHS_26810	putative acetylornithine deacetylase	K01439	—	Lysine biosynthesis | Microbial metabolism in diverse environments | Biosynthesis of amino acids	kpm_M00016	3.5.1.18	2695	3	0.0084016785734457
+KPHS_26820	cell envelope integrity inner membrane protein	—	—	—	—	—	2695	3	0.0084016785734457
+KPHS_26830	N-acylhomoserine lactone degredation protein AhlK	K13075	—	Quorum sensing	—	3.1.1.81	2695	3	0.0084016785734457
+KPHS_45590	2,5-diketo-D-gluconate reductase A	K06221	—	—	—	1.1.1.346	4584	3	0.0200301919575079
+KPHS_45600	GNAT family N-acetyltransferase	—	—	—	—	—	4584	3	0.0200301919575079
+KPHS_45610	radical SAM domain-containing protein	—	—	—	—	—	4584	3	0.0200301919575079
+KPHS_52680	putative mandelate racemase/muconate lactonizing enzyme	K01684	—	Galactose metabolism | Microbial metabolism in diverse environments	kpm_M00552	4.2.1.6	5287	3	0.0247635674575997
+KPHS_52690	putative keto-hydroxyglutarate-aldolase/keto- deoxy- phosphogluconate aldolase	K01631	—	Galactose metabolism	kpm_M00552	4.1.2.21	5287	3	0.0247635674575997
+KPHS_22350	putative intracellular protease/amidase	K05520	—	—	—	3.5.1.124	2280	2	2.6406055667393956e-06
+KPHS_22360	site-specific integrase	—	—	—	—	—	2280	2	2.6406055667393956e-06
+KPHS_38540	ethanolamine ammonia-lyase, heavy chain	K03735	—	Glycerophospholipid metabolism	—	4.3.1.7	3884	2	4.290804797047863e-06
+KPHS_23010	OmpA/MotB domain-containing protein	—	—	—	—	—	2331	2	5.706914395949721e-06
+KPHS_23190	type VI secretion system lipoprotein TssJ	K11906	—	Bacterial secretion system	—	—	2353	2	7.720055847342225e-06
+KPHS_23200	hypothetical protein	—	—	—	—	—	2353	2	7.720055847342225e-06
+KPHS_23210	hypothetical protein	—	—	—	—	—	2353	2	7.720055847342225e-06
+KPHS_23220	oxidoreductase	K19336	—	—	—	—	2353	2	7.720055847342225e-06
+KPHS_14260	short-chain dehydrogenase/reductase SDR	K03366	—	Butanoate metabolism	—	1.1.1.76 | 1.1.1.304	1479	2	3.2941377274599286e-05
+KPHS_14270	ribose transport system permease	—	—	—	—	—	1479	2	3.2941377274599286e-05
+KPHS_13820	putative inner membrane protein	K19508	—	Phosphotransferase system (PTS)	—	—	1435	2	5.9966461812212794e-05
+KPHS_13830	putative transport protein, PTS system	K19507	—	Phosphotransferase system (PTS)	—	—	1435	2	5.9966461812212794e-05
+KPHS_13840	putative transport protein, PTS system	K02793	—	Fructose and mannose metabolism | Amino sugar and nucleotide sugar metabolism | Phosphotransferase system (PTS)	—	2.7.1.191	1435	2	5.9966461812212794e-05
+KPHS_29230	Zinc-containing alcohol dehydrogenase superfamily protein	K00055	—	Tyrosine metabolism | Phenylalanine metabolism | Xylene degradation | Toluene degradation | Microbial metabolism in diverse environments | Degradation of aromatic compounds	—	1.1.1.90	2922	2	6.337031138932602e-05
+KPHS_29240	putative carboxylesterase	K03929	—	—	—	—	2922	2	6.337031138932602e-05
+KPHS_26060	putative fimbrial biogenesis outer membrane usher protein	K07347	—	Two-component system	—	—	2623	2	0.0001746945501626
+KPHS_18420	diaminopropionate ammonia-lyase	K01751	—	—	—	4.3.1.15	1909	2	0.0001805005248267
+KPHS_18430	putative transmembrane amino acid transporter protein	K03837	—	—	—	—	1909	2	0.0001805005248267
+KPHS_46150	putative major Intrinsic protein channel, glycerol diffusion	K02440	—	—	—	—	4639	2	0.0003560037439456
+KPHS_46160	glycerol dehyrdratase activator	—	—	—	—	—	4639	2	0.0003560037439456
+KPHS_34560	LysR family transcriptional regulator	K18900	—	—	—	—	3429	2	0.0003560742705952
+KPHS_30750	putative sugar transport protein	K23241	—	—	—	—	3067	2	0.0004530238736027
+KPHS_30760	glyoxalase I, nickel isomerase	—	—	—	—	—	3067	2	0.0004530238736027
+KPHS_26930	PTS family protein II component	K02822	—	Ascorbate and aldarate metabolism | Microbial metabolism in diverse environments | Phosphotransferase system (PTS)	kpm_M00550	2.7.1.194	2705	2	0.0015782985513982
+KPHS_26940	PTS system protein	K02821	—	Ascorbate and aldarate metabolism | Microbial metabolism in diverse environments | Phosphotransferase system (PTS)	kpm_M00550	2.7.1.194	2705	2	0.0015782985513982
+KPHS_26950	putative periplasmic binding protein/LacI transcriptional regulator	—	—	—	—	—	2705	2	0.0015782985513982
+KPHS_26480	hypothetical protein	—	—	—	—	—	2663	2	0.0028619017037248
+KPHS_26490	alpha/beta hydrolase	K06889	—	—	—	—	2663	2	0.0028619017037248
+KPHS_15590	DUF979 domain-containing protein	—	—	—	—	—	1625	2	0.0033526890360132
+KPHS_15600	pyroglutamyl-peptidase I	K01304	—	—	—	3.4.19.3	1625	2	0.0033526890360132
+KPHS_40500	DUF21 domain-containing protein	—	—	—	—	—	4090	2	0.0077297895102564
+KPHS_40510	transposase	—	—	—	—	—	4090	2	0.0077297895102564
+KPHS_32780	hypothetical protein	—	—	—	—	—	3263	2	0.038924157721539
