@@ -1,4 +1,4 @@
-# Demo: exp 33 (KpSC 10K) — 200-sample subsample
+# Demo: KpSC 10K — 200-sample subsample
 
 First 200 sample IDs (alphabetical) from `data/results/33_kpsc_expansion_10k/`, sliced for the Streamlit diagnostics app. The full results directory is gitignored because of reconstructions.npy size.
 

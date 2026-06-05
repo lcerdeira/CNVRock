@@ -1,4 +1,4 @@
-# Demo: exp 39 (C. auris) — 200-sample subsample
+# Demo: C. auris — 200-sample subsample
 
 First 200 sample IDs (alphabetical) from `data/results/39_cauris/`, sliced for the Streamlit diagnostics app. The full results directory is gitignored because of reconstructions.npy size.
 

@@ -713,7 +713,13 @@ def plot_copy_number(data, segments=None):
             in_run = False
     if in_run:
         low_ends.append(float(filtered["start"].iloc[-1]))
-    s1 = ColumnDataSource(data=dict(x=x, y=y_ratio))
+    # Cap copy-ratio for display: division-by-near-zero at no-coverage bins
+    # produces astronomical artefacts that would otherwise dominate the y-axis
+    # and hide the real amplification signal. Cap at 50× and let the axis adapt
+    # so genuine amplifications (e.g. blaSHV 85×, ERG11 15×) read off the plot.
+    DISPLAY_CAP = 50.0
+    y_disp = np.clip(y_ratio, None, DISPLAY_CAP)
+    s1 = ColumnDataSource(data=dict(x=x, y=y_disp))
     s2 = ColumnDataSource(data=dict(x=x, input=y_input, reconstruction=y_recon))
 
     for left, right in zip(low_starts, low_ends):
@@ -722,8 +728,9 @@ def plot_copy_number(data, segments=None):
                                        fill_color="red", fill_alpha=0.10, line_color=None))
 
     p1.line('x', 'y', source=s1, line_width=1, color="#aaaaaa", alpha=0.7)
+    finite_max = np.nanmax(y_disp) if np.isfinite(y_disp).any() else 5.0
     p1.y_range.start = -0.1
-    p1.y_range.end = 5.1
+    p1.y_range.end = max(5.1, float(finite_max) * 1.1)   # adaptive, ≥ CN-5 view
     p1.xaxis.formatter = NumeralTickFormatter(format="0,0")
 
     if len(segs) > 0:

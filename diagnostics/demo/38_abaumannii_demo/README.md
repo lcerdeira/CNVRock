@@ -1,4 +1,4 @@
-# Demo: exp 38 (A. baumannii) — 200-sample subsample
+# Demo: A. baumannii — 200-sample subsample
 
 First 200 sample IDs (alphabetical) from `data/results/38_abaumannii/`, sliced for the Streamlit diagnostics app. The full results directory is gitignored because of reconstructions.npy size.
 
