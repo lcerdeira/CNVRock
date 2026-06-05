@@ -272,9 +272,14 @@ def compute_coverage(latents_df, n_void=20_000, umap_n_neighbors=15, umap_min_di
     n_dims   = z.shape[1]
     rng      = np.random.default_rng(42)
 
+    n_samples     = z.shape[0]
     sample_tree   = cKDTree(z)
     sample_dists  = sample_tree.query(z, k=2,   p=1, workers=-1)[0][:, 1]
-    cluster_dists = sample_tree.query(z, k=501, p=1, workers=-1)[0][:, -1]
+    # k must not exceed the sample count: a demo bundle has only ~200 samples,
+    # whereas full experiments have thousands. Querying k>n returns inf
+    # distances (cluster_radius → inf → NaN noise → UMAP fails). Cap at n.
+    k_cluster      = min(501, n_samples)
+    cluster_dists  = sample_tree.query(z, k=k_cluster, p=1, workers=-1)[0][:, -1]
     cluster_radius = float(np.median(cluster_dists))  # ~7 — inter-cluster scale
 
     # Perturb real samples with Laplace noise targeting cluster-scale displacement
