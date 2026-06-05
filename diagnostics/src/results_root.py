@@ -23,15 +23,28 @@ DATA_RESULTS = os.path.join(_REPO_ROOT, "data", "results")       # production
 DEMO_RESULTS = os.path.join(_DIAGNOSTICS, "demo")                # bundled
 
 
+_EXPERIMENT_MARKERS = ("latents.npy", "reconstructions.npy", "training_log.json")
+
+
+def _looks_like_experiment(path: str) -> bool:
+    """A directory is a real experiment output only if it carries at least
+    one model artefact. This guards against stray committed sub-directories
+    (e.g. `data/results/cnv_scan_phase_e/` holding only annotation TSVs),
+    which must NOT flip the app out of demo mode on a fresh clone / cloud."""
+    return any(os.path.isfile(os.path.join(path, m)) for m in _EXPERIMENT_MARKERS)
+
+
 def resolve_results_root() -> str:
     """First directory among (DATA_RESULTS, DEMO_RESULTS) that exists AND
-    contains at least one experiment subdirectory."""
+    contains at least one real experiment subdirectory (model artefacts —
+    not just any committed folder)."""
     for candidate in (DATA_RESULTS, DEMO_RESULTS):
         if not os.path.isdir(candidate):
             continue
         subdirs = [d for d in os.listdir(candidate)
                    if os.path.isdir(os.path.join(candidate, d))
-                   and not d.startswith("__")]
+                   and not d.startswith("__")
+                   and _looks_like_experiment(os.path.join(candidate, d))]
         if subdirs:
             return candidate
     return DATA_RESULTS                       # error path, keeps message clean
