@@ -124,7 +124,11 @@ def load_meta(meta_path=None):
 def load_inputs(inputs_path):
     contigs    = np.load(os.path.join(inputs_path, "contigs.npy"), allow_pickle=True)
     counts     = np.load(os.path.join(inputs_path, "counts.npy"))
-    sample_ids = np.load(os.path.join(inputs_path, "sample_ids.npy"), allow_pickle=True)
+    # Demo bundles store a counts-aligned id file (subset that had counts);
+    # fall back to the store-wide sample_ids.npy for full experiments.
+    _cids = os.path.join(inputs_path, "counts_sample_ids.npy")
+    _ids  = _cids if os.path.isfile(_cids) else os.path.join(inputs_path, "sample_ids.npy")
+    sample_ids = np.load(_ids, allow_pickle=True)
 
     counts_df = pd.DataFrame(counts, index=sample_ids)
     contigs_df = pd.DataFrame(contigs)

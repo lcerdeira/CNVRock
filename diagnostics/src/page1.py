@@ -16,25 +16,70 @@ from bokeh.resources import CDN
 def page1():
     st.title("First page")
 
-    experiments = list_experiments()
-    if not experiments:
-        st.warning(
-            "No experiments found. Either you're on Streamlit Cloud demo mode "
-            "and only the bundled subsample exists (use the Monitor page), or "
-            "the `models/experiments/` directory hasn't been populated."
-        )
-        st.stop()
-    EXPERIMENT  = st.selectbox("Experiment", options=experiments, index=0)
+    import json, os
+    from src.results_root import is_demo, list_demo_bundles
 
-    if not EXPERIMENT:
-        st.warning("Please select an experiment to proceed.")
-        st.stop()
-
-    cfg = load_experiment_config(EXPERIMENT)
+    showcase = {}
+    if is_demo():
+        # Streamlit Cloud / fresh clone: serve self-contained demo bundles
+        # (results + inputs store + curated showcase isolates).
+        bundles = list_demo_bundles()
+        if not bundles:
+            st.warning("Demo mode, but no bundles found in `diagnostics/demo/`.")
+            st.stop()
+        st.caption("🔬 Demo mode — bundled 200-sample subsamples "
+                   "(showcase isolates highlight the strongest CNV signals).")
+        EXPERIMENT  = st.selectbox("Demo dataset", options=list(bundles.keys()),
+                                   index=0)
+        bundle_dir  = bundles[EXPERIMENT]
+        # Load the real experiment config (committed in models/experiments/)
+        # for the HMM / CNV parameters, then point data paths at the bundle.
+        exp_id = EXPERIMENT.split("_")[0]
+        try:
+            cfg = load_experiment_config(exp_id)
+        except Exception:
+            cfg = {"hmm": "02_gaussian_hmm", "hmm_n_states": 6,
+                   "hmm_self_transition": 0.80, "hmm_low_cov_threshold": 10}
+        cfg["out_dir"]       = bundle_dir
+        cfg["store_path"]    = bundle_dir
+        cfg["kpsc_meta_path"] = None
+        sc_path = os.path.join(bundle_dir, "showcase.json")
+        if os.path.isfile(sc_path):
+            showcase = json.load(open(sc_path))
+        has_inputs = os.path.isfile(os.path.join(bundle_dir, "counts.npy"))
+    else:
+        experiments = list_experiments()
+        if not experiments:
+            st.warning(
+                "No experiments found. Populate `models/experiments/` or run "
+                "from a clone with `diagnostics/demo/` bundles present."
+            )
+            st.stop()
+        EXPERIMENT = st.selectbox("Experiment", options=experiments, index=0)
+        if not EXPERIMENT:
+            st.warning("Please select an experiment to proceed.")
+            st.stop()
+        cfg = load_experiment_config(EXPERIMENT)
+        has_inputs = True
 
     results = load_results(cfg["out_dir"])
-    inputs  = load_inputs(cfg["store_path"])
-    meta, gff = load_meta(cfg.get("kpsc_meta_path"))
+    inputs  = load_inputs(cfg["store_path"]) if has_inputs else None
+    if is_demo():
+        # demo subsamples carry no rich metadata; keep the table/filter empty
+        meta, gff = pd.DataFrame(), pd.DataFrame(columns=["seqid", "start", "end", "ID"])
+    else:
+        meta, gff = load_meta(cfg.get("kpsc_meta_path"))
+
+    # Showcase isolates — quick jump to curated strong-signal examples
+    if showcase:
+        sc_ids = [s for s in showcase if s in results["latents"].index]
+        if sc_ids:
+            label = "  ·  ".join(f"**{s}** — {showcase[s]}" for s in sc_ids)
+            st.info("**Showcase isolates** (click to load): " + label)
+            cols = st.columns(min(len(sc_ids), 5))
+            for i, s in enumerate(sc_ids):
+                if cols[i % len(cols)].button(showcase[s], key=f"sc_{s}"):
+                    st.session_state["sample_select"] = s
 
     # --- Sample filter ---------------------------------------------------------
     filter_key = f"meta_filter_{EXPERIMENT}"
@@ -156,6 +201,10 @@ def page1():
     pca_df, variance = compute_pca(results["latents"])
     contours = compute_pca_contours(pca_df, meta)
 
+    if inputs is None or SAMPLE_ID not in inputs["counts"].index:
+        st.warning("Read-count inputs not bundled for this sample — "
+                   "copy-number profile unavailable (latent view only).")
+        st.stop()
     data = process_sample(
         inputs["contigs"], inputs["counts"].loc[SAMPLE_ID],
         results["reconstructions"].loc[SAMPLE_ID]

@@ -40,3 +40,18 @@ def resolve_results_root() -> str:
 def is_demo() -> bool:
     """True if we are currently serving from the demo bundle."""
     return resolve_results_root() == DEMO_RESULTS
+
+
+def list_demo_bundles() -> dict:
+    """Return {bundle_name: abs_path} for every demo bundle that has the
+    minimum files for the sample viewer (latents + reconstructions)."""
+    out = {}
+    if not os.path.isdir(DEMO_RESULTS):
+        return out
+    for d in sorted(os.listdir(DEMO_RESULTS)):
+        p = os.path.join(DEMO_RESULTS, d)
+        if (os.path.isdir(p)
+                and os.path.isfile(os.path.join(p, "latents.npy"))
+                and os.path.isfile(os.path.join(p, "reconstructions.npy"))):
+            out[d] = p
+    return out
