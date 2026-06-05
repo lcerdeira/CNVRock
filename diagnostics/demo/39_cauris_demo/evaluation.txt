@@ -1,0 +1,49 @@
+================================================================
+GUIDANCE
+----------------------------------------------------------------
+Ground truth: AMRFinder+ (blaSHV, blaKPC, blaCTX-M, blaNDM, qnrB1,
+  blaOXA-48, aac6-Ib-cr); blaSHV overridden with Kleborate BLAST copy
+  counts if kpsc_kleborate_gt_path is set.
+  blaSHV: positive = extra chromosomal copy (count >= 2).
+  blaKPC/blaCTX-M/blaNDM/qnrB1/blaOXA-48/aac6-Ib-cr: positive = present.
+FNR: fraction of true events called as normal. Primary optimisation target.
+  FN CRR/PCN p50 >> 1.0 (amp/presence) or << 1.0 (del) = signal present but
+  being discarded — try tuning thresholds or HMM state initialisation.
+PPV: precision. Low PPV acceptable if FNR is the priority.
+  Assembly-derived ground truth is imperfect — apparent FPs may be real.
+delta: model-added missingness on GT-callable samples (HMM sanity failures).
+Note: bacteria are haploid. CN=1 is the normal chromosomal baseline.
+
+================================================================
+KpSC experiment evaluation
+Generated : 2026-05-29T18:30:18.338559
+Out dir   : /home/lshlt19/CNVRock/models/experiments/39/../../../data/results/39_cauris
+Ground truth: AMRFinder+ (blaSHV, plasmid genes)
+================================================================
+
+OVERALL
+----------------------------------------------------------------
+Gene         Mode        MCC   FNR   PPV  call_rate   n_eval
+----------------------------------------------------------------
+
+MISSINGNESS
+----------------------------------------------------------------
+Gene            gt_miss  pred_miss    delta
+----------------------------------------------------------------
+
+CRR/PCN BY PREDICTED LABEL
+  (chromosomal genes: CRR = gene/flank copy ratio; plasmid genes: PCN = depth/chrom_median)
+----------------------------------------------------------------
+  label             n  p10   p25   p50   p75   p90
+
+CRR/PCN BY CALL OUTCOME  (evaluable samples only)
+----------------------------------------------------------------
+  outcome           n  p10   p25   p50   p75   p90
+
+SEGMENT DIAGNOSTICS
+----------------------------------------------------------------
+  (K. pneumoniae is haploid — CN=1 is the normal baseline.)
+  callability (samples with any non-CN1 segment): 1.000
+  within-chrom CN transitions per sample (percentiles):
+    p10=10.0  p25=14.0  p50=18.0  p75=24.0  p90=34.0
+  n_samples analysed: 4867

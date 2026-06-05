@@ -38,7 +38,7 @@ the scaling study (5K → 10K → 20K → 40K).
 ## Quick links
 
 - **Repository:** <https://github.com/lcerdeira/CNVRock>
-- **Interactive diagnostics (demo):** <https://cnvrock.streamlit.app/> — Monitor / sample viewer / latent-coverage pages on a bundled 200-sample subsample of exp 32. No install required.
+- **Interactive diagnostics (demo):** <https://cnvrock.streamlit.app/> — Monitor / sample-viewer / latent-coverage pages on bundled 200-sample subsamples of all three organisms (*K. pneumoniae* 10 K tier, *A. baumannii*, *C. auris*). No install required. The **Monitor** page (training curves + per-gene evaluation) runs directly on the cloud demo; the sample-viewer and latent-coverage pages additionally need the full per-experiment outputs and are intended for local use (`cd diagnostics && streamlit run app.py` after running an experiment). Demo bundles are (re)built with `diagnostics/build_demo_bundle.py`.
 - **Manuscript reference cohort:** Phase 2 expansion (~78,000 KpSC samples with FASTQ URLs on ENA)
 - **Compute:** LSHTM HPC, GPU partition (A40), Aspera SDK for high-throughput EBI downloads
 
