@@ -73,13 +73,16 @@ def fit_birth_death(cn_counts: dict[int, int]) -> dict:
     cn_vals = np.repeat(list(range(1, 6)), obs)
     p_hat = 1.0 / cn_vals.mean()
 
-    # Bootstrap CI for p
+    # Bootstrap CI for p and for the derived λ/μ ratio (2000 resamples)
     rng = np.random.default_rng(42)
     p_boot = []
-    for _ in range(500):
+    for _ in range(2000):
         sample = rng.choice(cn_vals, size=len(cn_vals), replace=True)
         p_boot.append(1.0 / sample.mean())
+    p_boot = np.asarray(p_boot)
     p_ci = np.percentile(p_boot, [2.5, 97.5])
+    lam_boot = (1.0 - p_boot) / p_boot      # monotone transform of p
+    lam_ci = np.percentile(lam_boot, [2.5, 97.5])
 
     # Selection coefficient
     s = 2 * p_hat - 1   # = (λ-μ)/(λ+μ)
@@ -101,6 +104,8 @@ def fit_birth_death(cn_counts: dict[int, int]) -> dict:
         "p_ci_lo":      p_ci[0],
         "p_ci_hi":      p_ci[1],
         "lambda_over_mu": lam_over_mu,
+        "lam_ci_lo":    lam_ci[0],
+        "lam_ci_hi":    lam_ci[1],
         "selection_s":  s,
         "selection_interp": (
             "strong positive" if s > 0.3 else

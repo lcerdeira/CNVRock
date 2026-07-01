@@ -1,0 +1,62 @@
+# Experiment 41 — L_sin ablation (exp 33 with the auxiliary CNV-alignment loss OFF)
+#
+# Purpose: isolate the marginal contribution of the auxiliary CNV-alignment
+# loss (L_sin) to CNVRock's copy-number recovery. This config is IDENTICAL to
+# exp 33 (10K tier) in every parameter EXCEPT `sin_loss_max_weight`, which is
+# set to 0.0 (L_sin disabled). Comparing exp 41 vs exp 33 on the same
+# evaluation set (spike-in RMSE, per-gene MCC/FNR, VAE noise floor — the
+# Table 1 metrics) quantifies whether L_sin helps, hurts, or is inert.
+#
+# Run on HPC (GPU) where the 10K training stores live:
+#   python models/train.py models/experiments/41/config.yaml
+# then compare exp 41 vs exp 33 with analysis/vae_ablation.py-style scoring.
+#
+# Everything below is copied verbatim from exp 33 except sin_loss_max_weight
+# and out_dir.
+
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+evaluation:   "04_kpsc_evaluation"
+
+store_path: "../../../data/inputs/KpSC-expansion-10k-mq20-1000bp-npy"
+out_dir:    "../../../data/results/41_kpsc_lsin_ablation"
+normalise:  true
+
+kpsc_gt_path:            "../../../assets/amrfinder_gt_expansion.tsv"
+kpsc_kleborate_gt_path:  "../../../assets/kpsc_expansion_kleborate_gt_runlevel.tsv"
+kpsc_meta_path:          "../../../assets/kpsc_expansion_metadata_runlevel.tsv"
+
+plasmid_cnv:               "07_plasmid_cnv_caller"
+plasmid_store_path:        "../../../data/inputs/KpSC-expansion-10k-mq0-plasmid-1000bp-npy"
+plasmid_gene_coords_path:  "../../../assets/plasmid_refs/plasmid_gene_coords.tsv"
+pcn_absent_threshold:      0.20
+pcn_amp_threshold:         1.50
+
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+
+# ── ABLATION: auxiliary CNV-alignment loss disabled ──────────────────
+sin_loss_max_weight:    0.0     # exp 33 uses 1.0; 0.0 removes L_sin entirely
+sin_loss_warmup_epochs: 30
+
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      3
+cnv_min_gene_coverage_fraction: 0.50
+
+eval_min_group_n: 10
