@@ -24,7 +24,7 @@
 
 set -uo pipefail
 REPO=/home/lshlt19/CNVRock
-BIN=/home/lshlt19/miniforge3/envs/nexus_env/bin        # minimap2 + samtools
+BIN=/home/lshlt19/miniforge3/envs/lralign/bin          # modern minimap2 + samtools>=1.17
 export PATH="$BIN:$PATH"
 
 MANIFEST=$REPO/data/results/longread_validation_ont_manifest.tsv
@@ -40,10 +40,10 @@ CHR=NC_016845.1
 SHV_START=2549403
 SHV_END=2550263
 
-# Manifest columns: sample_accession, run_accession, fastq_ftp, base_count, read_count
+# Manifest columns (ENA order): run_accession, sample_accession, fastq_ftp, base_count, read_count
 LINE=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "$MANIFEST")
-SAMPLE=$(echo "$LINE" | cut -f1)
-RUN=$(echo "$LINE"    | cut -f2)
+RUN=$(echo "$LINE"    | cut -f1)
+SAMPLE=$(echo "$LINE" | cut -f2)
 FTP=$(echo "$LINE"    | cut -f3)
 OUT=$OUTDIR/${RUN}.tsv
 [ -s "$OUT" ] && { echo "already done: $RUN"; exit 0; }
@@ -57,7 +57,8 @@ wget -q -O "$FQ" "$URL" || { echo "download failed: $RUN"; exit 1; }
 
 echo "[$(date)] aligning $RUN"
 minimap2 -t 4 -ax map-ont "$REF" "$FQ" 2>/dev/null \
-  | samtools sort -@ 4 -o "$SCRATCH/$RUN.bam" - || { echo "align failed: $RUN"; exit 1; }
+  | samtools sort -@ 4 -T "$SCRATCH/sorttmp" -o "$SCRATCH/$RUN.bam" - \
+  || { echo "align failed: $RUN"; exit 1; }
 samtools index "$SCRATCH/$RUN.bam"
 
 # mean depth at blaSHV (all positions, incl. zero)
