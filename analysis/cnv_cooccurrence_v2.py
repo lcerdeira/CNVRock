@@ -239,7 +239,7 @@ def make_figure(res: pd.DataFrame, genes: list, path: Path) -> None:
     fig.suptitle("CNV two-layer co-occurrence — carriage exclusion vs "
                  "copy-number co-amplification (10 K KpSC)", fontsize=11)
     fig.tight_layout(rect=[0, 0, 1, 0.96])
-    fig.savefig(path, dpi=150)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 
