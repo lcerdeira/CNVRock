@@ -78,7 +78,7 @@ def main() -> None:
     axB.axvline(AMP, ls=":", lw=0.8, color=(0.7, 0.2, 0.2))
     axB.set_xlabel("spurious blaSHV CRR (HS11286 reference)", fontsize=10)
     axB.set_ylabel("blaLEN CRR (K. variicola reference)", fontsize=10)
-    axB.set_title(f"(B) The HS11286 call is not the real locus (ρ = {rho:.2f})",
+    axB.set_title(f"(B) HS11286 blaSHV is a distorted proxy for blaLEN (ρ = {rho:.2f})",
                   fontsize=10, fontweight="bold")
     axB.legend(fontsize=8, frameon=False)
     for ax in (axA, axB):
