@@ -10,8 +10,11 @@ callers to recover both chromosomal and plasmid CN events from short-read
 sequencing.
 
 This site documents the **end-to-end pipeline** used in the manuscript:
-sample selection, data acquisition, reference preparation, model training, and
-the scaling study (5K → 10K → 20K → 40K).
+sample selection, data acquisition, reference preparation, model training, the
+scaling study (5K → 10K → 20K; the pre-registered 40K and 80K tiers were
+deprecated once performance was shown to saturate by 10K), and the
+[validation and robustness](11_validation.md) analyses that test the
+copy-number values themselves.
 
 ```{toctree}
 :maxdepth: 2
@@ -33,6 +36,7 @@ the scaling study (5K → 10K → 20K → 40K).
 08_scaling_study.md
 09_methods.md
 10_reproducibility.md
+11_validation.md
 ```
 
 ## Quick links
