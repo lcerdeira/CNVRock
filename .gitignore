@@ -79,3 +79,10 @@ coverage.xml
 .refact/
 tools/.last_proposal_*
 tools/.proposal_body.txt
+
+# Sphinx build output (Read the Docs builds its own copy)
+docs/_build/
+
+# Transient state written by the proposal/notification tooling
+tools/.last_proposal_*
+tools/.proposal_body.txt
