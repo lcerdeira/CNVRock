@@ -1,0 +1,76 @@
+# Experiment 47 — Staphylococcus aureus (fifth organism, first Gram-positive).
+#
+# USA300 FPR3757 extended reference (chromosome NC_007793.1, 2,872,769 bp +
+# four plasmid contigs pUSA01/02/03 and pI258; 5 contigs, 2,950 1 kb bins).
+# n = 2,999 samples, stratified on oxacillin phenotype (assets/saureus_subset.tsv).
+#
+# Two-track panel, like KpSC (contrast with A. baumannii exp 38, chromosome-only):
+#   chromosome (MQ>=20, CRR caller): mecA, norA, pbp4, gdpP
+#     assets/saureus_ref/gene_coords_chrom.tsv
+#   plasmid    (MQ=0, PCN caller):   blaZ, blaR1, blaI, ermC, ermB, tetK, mupA
+#     assets/saureus_ref/gene_coords_plasmid.tsv
+#
+# Ground truth: assets/amrfinder_gt_saureus.tsv (AMRFinderPlus presence; 6
+#   evaluable acquired genes — mecA, blaZ, ermC, ermB, tetK, mupA. norA is
+#   intrinsic and evaluated by CRR distribution, no binary GT).
+#
+# Encoder note: at 2,880 padded bins the bottleneck is 90 positions and the
+# compression is 287:1 — the gentlest of the five organisms (KpSC 533:1),
+# so no architecture change (verified 2026-07-20). n_bins is auto-handled.
+#
+# Inputs to build once the alignment array (job 6376265) completes:
+#   - MQ>=20 chromosome store: data/inputs/saureus-USA300-mq20-1000bp-npy/
+#       from data/raw/saureus_readcounts_mq20/ (hpc/recount_mq20_from_bams.sh)
+#   - MQ=0 plasmid store:      data/inputs/saureus-USA300-mq0-plasmid-1000bp-npy/
+#       from data/raw/saureus_readcounts_mq0/ (already being generated)
+#   both via data/setup/readcounts_to_npy.py
+#
+# NOTE: evaluation module not yet written. 04_kpsc_evaluation.py assumes
+# Kleborate; A. baumannii needed its own (05_abaumannii_evaluation.py). A
+# generalised evaluator keyed on the amrfinder_gt_*.tsv format is the clean
+# path — write and test it against real results once the stores exist.
+
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+plasmid_cnv:  "07_plasmid_cnv_caller"
+# evaluation:  TBD (see note above)
+
+store_path:                "../../../data/inputs/saureus-USA300-mq20-1000bp-npy"
+plasmid_store_path:        "../../../data/inputs/saureus-USA300-mq0-plasmid-1000bp-npy"
+out_dir:                   "../../../data/results/47_saureus"
+chrom_gene_coords_path:    "../../../assets/saureus_ref/gene_coords_chrom.tsv"
+plasmid_gene_coords_path:  "../../../assets/saureus_ref/gene_coords_plasmid.tsv"
+normalise:  true
+
+kpsc_gt_path: "../../../assets/amrfinder_gt_saureus.tsv"
+
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      6
+cnv_min_gene_coverage_fraction: 0.50
+
+pcn_absent_threshold: 0.20
+pcn_amp_threshold:    1.50
+
+eval_min_group_n: 10

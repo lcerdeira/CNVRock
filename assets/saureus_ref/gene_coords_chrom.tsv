@@ -1,0 +1,5 @@
+call_id	contig	start	end	track
+mecA	NC_007793.1	39127	41136	chromosome
+gdpP	NC_007793.1	18345	20312	chromosome
+pbp4	NC_007793.1	701460	702755	chromosome
+norA	NC_007793.1	754417	755583	chromosome

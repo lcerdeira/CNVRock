@@ -1,0 +1,78 @@
+# Experiment 46 — Escherichia coli (fourth organism).
+#
+# EC958 extended reference: clinical ST131 chromosome (HG941718.1, 5,109,767 bp)
+# + the blaSHV amplification plasmid pDA61218-116 (CP061207.1, Jonsson 2026)
+# + the KpSC Enterobacteriaceae plasmid contigs (second-option reference, so
+# the plasmid panel transfers whole and stays directly comparable to KpSC).
+# n = 3,000 samples, stratified on ceftriaxone phenotype (assets/ecoli_subset.tsv).
+#
+# Two-track panel:
+#   chromosome (MQ>=20, CRR caller): ampC, acrA, acrB, tolC, marR, marA, ompC, ompF
+#     assets/ecoli_ref/gene_coords_chrom.tsv
+#     NB blaSHV is NOT chromosomal in E. coli (contrast KpSC) — the chromosomal
+#     story here is ampC / efflux / porins, and may be a negative result.
+#   plasmid    (MQ=0, PCN caller):   the KpSC acquired panel (blaCTX-M, blaKPC,
+#     blaNDM, blaTEM, blaOXA-48-like, qnrB, aac6-Ib-cr, sul1/2, dfrA12/14) plus
+#     plasmid-borne blaSHV on CP061207.1 — read directly against Jonsson 2026.
+#     assets/ecoli_ref/gene_coords_plasmid.tsv
+#
+# Ground truth: assets/amrfinder_gt_ecoli.tsv (AMRFinderPlus presence; 13
+#   evaluable acquired genes. ampC/acrB are intrinsic — evaluated by CRR).
+#
+# Encoder: EC958 pads to 5,120 bins, bottleneck 160, compression 511:1 —
+# essentially identical to KpSC (533:1). No architecture change.
+#
+# BLOCKED: E. coli alignment is on hold pending the temporary HPC quota bump
+# (paper/email_alex_quota.md). Extended reference is specified but not yet
+# materialised on the HPC. Build order once quota lands:
+#   1. concat EC958 + CP061207.1 + KpSC plasmid contigs -> EC958_extended.fasta
+#   2. index + 1 kb interval list (hpc/build_saureus_reference.sh, adapted)
+#   3. align array with KEEP_FASTQ=0
+#   4. MQ>=20 store + MQ=0 plasmid store via readcounts_to_npy.py
+#
+# NOTE: evaluation module TBD, same as exp 47 — generalise once results exist.
+
+architecture: "06_conv_vae"
+hmm:          "02_gaussian_hmm"
+cnv:          "06_gene_cnv_caller"
+plasmid_cnv:  "07_plasmid_cnv_caller"
+# evaluation:  TBD
+
+store_path:                "../../../data/inputs/ecoli-EC958-mq20-1000bp-npy"
+plasmid_store_path:        "../../../data/inputs/ecoli-EC958-mq0-plasmid-1000bp-npy"
+out_dir:                   "../../../data/results/46_ecoli"
+chrom_gene_coords_path:    "../../../assets/ecoli_ref/gene_coords_chrom.tsv"
+plasmid_gene_coords_path:  "../../../assets/ecoli_ref/gene_coords_plasmid.tsv"
+normalise:  true
+
+kpsc_gt_path: "../../../assets/amrfinder_gt_ecoli.tsv"
+
+latent_dim:    10
+batch_size:    128
+epochs:        150
+lr:            1.0e-4
+weight_decay:  1.0e-5
+max_beta:      1.0
+warmup_epochs: 20
+patience:      20
+
+sin_loss_max_weight:    1.0
+sin_loss_warmup_epochs: 30
+
+hmm_n_states:          6
+hmm_self_transition:   0.80
+hmm_low_cov_threshold: 10
+hmm_n_jobs:            -1
+
+cnv_min_cn1_proportion:         0.55
+cnv_min_confidence:             0.50
+cnv_flank_padding:              100000
+cnv_crr_amp_threshold:          1.75
+cnv_crr_gate_threshold:         1.75
+cnv_crr_min_bins_fallback:      6
+cnv_min_gene_coverage_fraction: 0.50
+
+pcn_absent_threshold: 0.20
+pcn_amp_threshold:    1.50
+
+eval_min_group_n: 10

@@ -1,0 +1,9 @@
+call_id	contig	start	end	track
+ampC	HG941718.1	4792829	4793995	chromosome
+acrA	HG941718.1	513629	514858	chromosome
+acrB	HG941718.1	510457	513606	chromosome
+tolC	HG941718.1	3477973	3479454	chromosome
+marR	HG941718.1	1707272	1707706	chromosome
+marA	HG941718.1	1707721	1708110	chromosome
+ompC	HG941718.1	2508757	2509878	chromosome
+ompF	HG941718.1	1067337	1068425	chromosome
