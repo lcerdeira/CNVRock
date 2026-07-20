@@ -1,0 +1,12 @@
+call_id	contig	start	end	track
+mecA	NC_007793.1	39127	41136	chrom
+gdpP	NC_007793.1	18345	20312	chrom
+pbp4	NC_007793.1	701460	702755	chrom
+norA	NC_007793.1	754417	755583	chrom
+tetK	NC_007791.1	36	1415	plasmid
+mupA	NC_007792.1	2162	5236	plasmid
+ermC	NC_007792.1	7865	8599	plasmid
+blaZ	NC_013319.1	11076	11921	plasmid
+blaR1	NC_013319.1	12028	13785	plasmid
+blaI	NC_013319.1	13775	14155	plasmid
+ermB	NC_013319.1	19031	19768	plasmid
