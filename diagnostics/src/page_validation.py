@@ -99,24 +99,30 @@ def page_validation():
     with tab_ci:
         st.subheader("Per-call uncertainty")
         c1, c2, c3 = st.columns(3)
-        c1.metric("Calls with an interval", "6 261")
-        c2.metric("Amplified calls", "94")
-        c3.metric("CI excludes 1.0", "94 / 94")
+        c1.metric("Isolates in scope", "6 078")
+        c2.metric("Amplified calls", "162")
+        c3.metric("CI excludes 1.0", "162 / 162")
         _figure("percall_uncertainty.png",
                 "Top blaSHV amplification calls with 95 % depth-bootstrap "
                 "confidence intervals.")
         st.markdown(
-            "Each chromosomal blaSHV copy-ratio carries a 95 % interval from "
-            "a parametric depth bootstrap (Poisson gene depth over the ~2 kb "
-            "locus, resampled local flank, 1 000 replicates). Every "
-            "amplification call is statistically separated from single-copy, "
-            "so none is a depth-sampling artefact. Median CI width is 0.115 "
-            "across all calls and 0.304 among amplified ones."
+            "Each chromosomal blaSHV copy-ratio carries a 95 % interval "
+            "obtained by bootstrapping **the estimator the caller actually "
+            "reports**: the VAE-normalised gene-bin copy-ratio divided by its "
+            "chromosomal flank mean. Poisson resampling of the gene-bin "
+            "counts is exact (1 000 replicates); the flank mean, spanning "
+            "5 133 bins, is propagated analytically under the central limit "
+            "theorem. Every amplification call is statistically separated "
+            "from single-copy, so none is a depth-sampling artefact. Median "
+            "CI width is 0.168 across all calls and 0.313 among amplified "
+            "ones."
         )
         st.caption(
-            "This is a depth-based bootstrap, not MC-dropout over the VAE — "
-            "the quantity that carries the call is the observed gene depth, "
-            "not the reconstruction."
+            "Scope matches the main text: chromosomal blaSHV is called only "
+            "for K. pneumoniae and K. quasipneumoniae, since K. variicola "
+            "carries blaLEN at the syntenic locus and cross-maps. The script "
+            "reproduces the caller's own copy-ratio to floating-point "
+            "precision (max discrepancy 1.8e-15)."
         )
 
     # ── multi-reference chromosomal calling ─────────────────────────────────

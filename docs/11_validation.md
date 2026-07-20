@@ -71,26 +71,35 @@ Script: `analysis/threshold_sensitivity.py`.
 
 Aggregate metrics say nothing about whether an *individual* amplification
 call is trustworthy. We attached a confidence interval to every chromosomal
-*blaSHV* copy-ratio using a parametric depth bootstrap: Poisson gene depth
-over the ~2 kb locus, with the local flank resampled, 1 000 replicates.
+*blaSHV* copy-ratio by bootstrapping **the estimator the caller actually
+reports** — the VAE-normalised gene-bin copy-ratio divided by its
+chromosomal flank mean. Poisson resampling of the gene-bin counts is exact
+(1 000 replicates); the flank mean, spanning 5 133 bins, is propagated
+analytically under the central limit theorem rather than resampled, which
+would cost a great deal for a negligible correction.
 
 ![Per-call uncertainty](../assets/validation/percall_uncertainty.png)
 
 | Quantity | Value |
 |---|---|
-| Calls with an interval | 6 261 |
-| Amplification calls (CRR ≥ 1.75) | 94 |
-| Amplification calls whose 95 % CI excludes 1.0 | **94 / 94** |
-| Median CI width (all calls) | 0.115 |
-| Median CI width (amplified calls) | 0.304 |
+| Isolates in scope (*K. pneumoniae* / *K. quasipneumoniae*) | 6 078 |
+| Amplification calls (CRR ≥ 1.75) | 162 |
+| Amplification calls whose 95 % CI excludes 1.0 | **162 / 162** |
+| Median CI width (all calls) | 0.168 |
+| Median CI width (amplified calls) | 0.313 |
+| Max discrepancy vs the pipeline's own CRR | 1.8 × 10⁻¹⁵ |
 
 Every amplification call is statistically separated from single-copy, so
 none of them is a depth-sampling artefact.
 
-```{note}
-This is a **depth-based** bootstrap, not MC-dropout over the VAE. The
-distinction matters: MC-dropout would perturb the reconstruction $\hat{x}$,
-whereas the quantity that carries the call is the observed gene depth.
+```{warning}
+An earlier version of this analysis bootstrapped a *different* quantity —
+raw gene depth over the median of a local ±100 kb window, with no VAE
+normalisation — on the mistaken premise that the chromosomal call does not
+use the reconstruction. It does. That version left 87 of the published
+amplification calls outside the analysis entirely. The figures above come
+from the corrected script, which reproduces the caller's own copy-ratio to
+floating-point precision.
 ```
 
 Script: `analysis/percall_uncertainty.py`.

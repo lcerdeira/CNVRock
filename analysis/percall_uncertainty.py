@@ -2,20 +2,29 @@
 """
 Per-call uncertainty for the chromosomal blaSHV copy-ratio (A7).
 
-Monte-Carlo dropout perturbs the VAE reconstruction (the expected-depth
-baseline), but the chromosomal gene call is a DEPTH ratio (gene vs flank)
-that does not use the reconstruction — so dropout does not yield a clean
-per-call confidence interval. The dominant source of per-call uncertainty
-is instead the Poisson sampling noise of the read depth over the ~2 kb
-blaSHV locus. We quantify it directly with a parametric bootstrap on the
-raw 1 kb read counts (mq ≥ 20 chromosomal store):
+This bootstraps THE ESTIMATOR THE PIPELINE ACTUALLY CALLS. An earlier version
+of this script bootstrapped a different quantity — raw gene depth over the
+median of a *local* +/-100 kb window — on the mistaken premise that the
+chromosomal call does not use the VAE reconstruction. It does. The caller
+(models/cnv/06_gene_cnv_caller.py) computes a *double* ratio:
 
-  CRR = mean(depth over blaSHV bins) / median(depth over local flank bins)
+    copy_ratio[i,b] = counts[i,b] / safe_recon[i,b]      # VAE-normalised bin
+    CRR[i]          = mean(copy_ratio over gene bins)
+                    / mean(copy_ratio over flank bins)
 
-Per sample, 1 000 bootstrap replicates draw the gene read count from a
-Poisson and resample the flank bins, giving a 95 % CI on the CRR. This is a
-genuine per-call confidence interval usable for clinical triage: a call
-whose CI excludes 1.0 is a confident amplification.
+where safe_recon falls back to the sample mean wherever the reconstruction is
+below hmm_low_cov_threshold, and the flank is every chromosomal bin OUTSIDE
+gene +/- cnv_flank_padding (i.e. the rest of the chromosome, not a local
+window). Bootstrapping the wrong estimator put 87 of the 171 published
+amplification calls outside the analysis entirely.
+
+Uncertainty model. The gene sits on ~2 kb, so its copy-ratio is dominated by
+Poisson sampling of the reads in those few bins; we resample them exactly.
+The flank spans thousands of bins, so by the CLT its mean is Gaussian with a
+variance we propagate analytically rather than resampling (which would cost
+n_samples x n_boot x n_flank draws for a negligible correction).
+
+A call whose 95 % CI excludes 1.0 is a confident amplification.
 
     python3 analysis/percall_uncertainty.py
 """
@@ -29,84 +38,120 @@ from pathlib import Path
 
 REPO   = Path(__file__).resolve().parents[1]
 STORE  = REPO / "data/inputs/KpSC-expansion-10k-mq20-1000bp-npy"
-GCALLS = REPO / "data/results/33_kpsc_expansion_10k/gene_calls.tsv"
+RESULT = REPO / "data/results/33_kpsc_expansion_10k"
 OUT    = REPO / "data/results/percall_uncertainty"
-CHROM  = "NC_016845.1"
-SHV_START, SHV_END = 2549403, 2550263          # blaSHV CDS
-FLANK_HALF = 100_000                            # ±100 kb local flank
-N_BOOT = 1000
-AMP = 1.75
+
+CHROM              = "NC_016845.1"
+SHV_START, SHV_END = 2549403, 2550263      # blaSHV CDS (hardcoded in the caller)
+FLANK_PADDING      = 100_000               # cfg cnv_flank_padding
+LOW_COV            = 10                    # cfg hmm_low_cov_threshold
+AMP                = 1.75                  # cfg cnv_crr_amp_threshold
+N_BOOT             = 1000
+SEED               = 42
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    counts  = np.load(STORE / "counts.npy")                       # (n, L) uint32
-    ids     = np.load(STORE / "sample_ids.npy", allow_pickle=True)
-    contigs = np.load(STORE / "contigs.npy", allow_pickle=True)
 
-    def in_range(lo, hi):
-        return np.array([i for i, c in enumerate(contigs)
-                         if str(c[0]) == CHROM and int(c[1]) >= lo and int(c[2]) <= hi])
-    gene_bins  = in_range(SHV_START - 999, SHV_END + 999)          # bins over the CDS
-    flank_bins = np.array([b for b in in_range(SHV_START - FLANK_HALF, SHV_END + FLANK_HALF)
-                           if b not in set(gene_bins.tolist())])
-    print(f"blaSHV gene bins: {list(gene_bins)} | flank bins: {len(flank_bins)}")
+    # Chromosomal blaSHV is only meaningful for K. pneumoniae /
+    # K. quasipneumoniae: K. variicola carries blaLEN at the syntenic locus and
+    # its reads cross-map onto the HS11286 blaSHV coordinates (see
+    # analysis/kvariicola_multiref.py). The manuscript restricts the call to
+    # those two species, so this analysis must use the same scope.
+    meta = pd.read_csv(REPO / "assets/kpsc_expansion_metadata_runlevel.tsv",
+                       sep="\t")[["sample_id", "Species"]]
+    eligible = set(meta.loc[meta["Species"].astype(str)
+                   .str.contains("pneumoniae|quasipneumoniae", na=False),
+                   "sample_id"])
 
-    rng = np.random.default_rng(42)
-    g_reads = counts[:, gene_bins].sum(axis=1).astype(float)       # total gene reads
-    n_gbin  = len(gene_bins)
-    flank_c = counts[:, flank_bins].astype(float)
-    flank_med = np.median(flank_c, axis=1)
-    crr = (g_reads / n_gbin) / np.where(flank_med > 0, flank_med, np.nan)
+    counts  = np.load(STORE / "counts.npy").astype(np.float64)
+    contigs = pd.DataFrame(np.load(STORE / "contigs.npy", allow_pickle=True))
+    contigs.columns = ["chrom", "start", "end"][:contigs.shape[1]]
+    recons  = np.load(RESULT / "reconstructions.npy").astype(np.float64)
+    ids     = np.load(RESULT / "sample_ids.npy", allow_pickle=True)
+    assert counts.shape == recons.shape, (counts.shape, recons.shape)
 
-    lo = np.full(len(ids), np.nan); hi = np.full(len(ids), np.nan)
-    for i in range(len(ids)):
-        fm = flank_med[i]
-        if not np.isfinite(crr[i]) or fm <= 0:
-            continue
-        gb = rng.poisson(g_reads[i], N_BOOT) / n_gbin              # Poisson gene depth
-        fb = np.median(rng.choice(flank_c[i], size=(N_BOOT, flank_c.shape[1]),
-                                  replace=True), axis=1)           # resampled flank
+    # ── reproduce the caller's normalisation exactly ────────────────────────
+    sample_mean = counts.mean(axis=1, keepdims=True)
+    safe_recon  = np.where(recons >= LOW_COV, recons, sample_mean)
+    copy_ratio  = counts / (safe_recon + 1e-6)
+
+    chroms = contigs["chrom"].values.astype(str)
+    starts = contigs["start"].values.astype(float)
+    chrom_mask = chroms == CHROM
+    s          = starts[chrom_mask]
+    gene_mask  = (s >= SHV_START) & (s <= SHV_END)
+    flank_mask = (s < SHV_START - FLANK_PADDING) | (s > SHV_END + FLANK_PADDING)
+    print(f"gene bins: {int(gene_mask.sum())} | flank bins: {int(flank_mask.sum())} "
+          f"| chromosomal bins: {int(chrom_mask.sum())}")
+
+    cr_chrom = copy_ratio[:, chrom_mask]
+    cnt_c    = counts[:, chrom_mask]
+    rec_c    = safe_recon[:, chrom_mask]
+
+    mean_gene  = np.nanmean(cr_chrom[:, gene_mask],  axis=1)
+    mean_flank = np.nanmean(cr_chrom[:, flank_mask], axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        crr = np.where(mean_flank > 0, mean_gene / mean_flank, np.nan)
+
+    # ── uncertainty ─────────────────────────────────────────────────────────
+    # gene: exact Poisson resampling of the few gene-bin counts
+    g_cnt = cnt_c[:, gene_mask]                       # (n, G)
+    g_rec = rec_c[:, gene_mask] + 1e-6
+    G     = g_cnt.shape[1]
+    # flank: Gaussian by CLT.  var(mean) = (1/K^2) * sum(lambda_j / r_j^2)
+    f_cnt = cnt_c[:, flank_mask]
+    f_rec = rec_c[:, flank_mask] + 1e-6
+    K     = f_cnt.shape[1]
+    flank_sd = np.sqrt(np.nansum(f_cnt / f_rec**2, axis=1)) / K
+
+    rng = np.random.default_rng(SEED)
+    lo = np.full(len(ids), np.nan)
+    hi = np.full(len(ids), np.nan)
+    ok = np.isfinite(crr) & (mean_flank > 0)
+    for i in np.flatnonzero(ok):
+        gb = rng.poisson(g_cnt[i], size=(N_BOOT, G)) / g_rec[i]     # (B, G)
+        gb = gb.mean(axis=1)
+        fb = rng.normal(mean_flank[i], flank_sd[i], size=N_BOOT)
         fb = np.where(fb > 0, fb, np.nan)
-        b = gb / fb
+        b  = gb / fb
         lo[i], hi[i] = np.nanpercentile(b, [2.5, 97.5])
 
-    d = pd.DataFrame({"sample_id": ids, "shv_crr": crr,
-                      "ci_lo": lo, "ci_hi": hi})
+    d = pd.DataFrame({"sample_id": ids, "shv_crr": crr, "ci_lo": lo, "ci_hi": hi})
     d["ci_width"] = d["ci_hi"] - d["ci_lo"]
     d = d[np.isfinite(d["shv_crr"]) & np.isfinite(d["ci_width"])]
+    n_all = len(d)
+    d = d[d["sample_id"].isin(eligible)].reset_index(drop=True)
+    print(f"species scope: {len(d)} of {n_all} samples are "
+          f"K. pneumoniae / K. quasipneumoniae")
     d.to_csv(OUT / "blashv_percall_ci.tsv", sep="\t", index=False)
 
-    amp = d[d["shv_crr"] >= AMP]
-    # a call is a "confident amplification" when its 95% CI excludes 1.0
+    amp  = d[d["shv_crr"] >= AMP]
     conf = amp[amp["ci_lo"] > 1.0]
-    print(f"\nn samples: {len(d)}")
-    print(f"median CRR MC-CI width: {d['ci_width'].median():.3f}")
-    print(f"amplified calls (CRR ≥ {AMP}): {len(amp)}")
-    print(f"  of which CI excludes 1.0 (confident amplification): "
-          f"{len(conf)} ({100*len(conf)/max(len(amp),1):.0f}%)")
+    print(f"\nn samples with a CI: {len(d)}")
+    print(f"median CI width (all): {d['ci_width'].median():.3f}")
+    print(f"amplified calls (CRR >= {AMP}): {len(amp)}")
+    print(f"  of which CI excludes 1.0: {len(conf)} "
+          f"({100*len(conf)/max(len(amp),1):.0f} %)")
     print(f"  median CI width, amplified: {amp['ci_width'].median():.3f}")
 
-    # cross-check bootstrap CRR against the pipeline's crr_blaSHV
-    try:
-        gc = pd.read_csv(GCALLS, sep="\t")[["sample_id", "crr_blaSHV"]]
-        m = d.merge(gc, on="sample_id", how="inner").dropna()
-        from scipy import stats
-        rho, _ = stats.spearmanr(m["shv_crr"], m["crr_blaSHV"])
-        print(f"\nbootstrap CRR vs pipeline crr_blaSHV: Spearman ρ = {rho:.2f} "
-              f"(n = {len(m)})  [sanity check]")
-    except Exception as e:
-        print("cross-check skipped:", e)
+    # ── agreement with the pipeline's own call (should now be exact) ────────
+    gc = pd.read_csv(RESULT / "gene_calls.tsv", sep="\t")[["sample_id", "crr_blaSHV"]]
+    m  = d.merge(gc, on="sample_id", how="inner").dropna(subset=["crr_blaSHV"])
+    delta = (m["shv_crr"] - m["crr_blaSHV"]).abs()
+    n_amp_pipe = int((m["crr_blaSHV"] >= AMP).sum())
+    print(f"\nagreement with pipeline crr_blaSHV (n = {len(m)}):")
+    print(f"  max |difference| = {delta.max():.2e}   median = {delta.median():.2e}")
+    print(f"  amplified: pipeline {n_amp_pipe}  vs  this script {len(amp)}")
 
-    # ── figure: CRR with 95% CI, ranked (amplified region) ──────────────
+    # ── figure ──────────────────────────────────────────────────────────────
     top = d.sort_values("shv_crr", ascending=False).head(60).reset_index(drop=True)
     fig, ax = plt.subplots(figsize=(7.5, 5.2))
     x = np.arange(len(top))
     ax.errorbar(x, top["shv_crr"],
                 yerr=[top["shv_crr"] - top["ci_lo"], top["ci_hi"] - top["shv_crr"]],
-                fmt="o", ms=3, lw=0.8, color="#1f4e79", ecolor="#9bb8d3",
-                capsize=1.5)
-    ax.axhline(AMP, ls="--", color="#b00", lw=1, label=f"amplified ≥ {AMP}")
+                fmt="o", ms=3, lw=0.8, color="#1f4e79", ecolor="#9bb8d3", capsize=1.5)
+    ax.axhline(AMP, ls="--", color="#b00", lw=1, label=f"amplified >= {AMP}")
     ax.axhline(1.0, ls=":", color="#888", lw=1, label="single copy")
     ax.set_xlabel("isolate (top 60 by blaSHV CRR)", fontsize=10)
     ax.set_ylabel("blaSHV copy-ratio  (95 % bootstrap CI)", fontsize=10)
