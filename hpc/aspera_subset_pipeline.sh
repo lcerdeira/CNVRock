@@ -181,4 +181,17 @@ gatk CollectReadCounts \
     --output                  "${OUT}.tmp"
 
 mv "${OUT}.tmp" "$OUT"
-echo "Done: $ACC → $OUT (FASTQs + BAM kept)"
+
+# ── Optional FASTQ cleanup ───────────────────────────────────────────────────
+# By default FASTQs are kept (per user request 2026-05-17). For large
+# multi-organism runs where storage is the binding constraint, set
+# KEEP_FASTQ=0 to drop the raw reads once the BAM and counts exist. The BAM is
+# retained (needed for the MQ>=20 chromosomal second pass), and the FASTQ is
+# re-downloadable from ENA, so this is a safe, reversible space saving.
+KEEP_FASTQ="${KEEP_FASTQ:-1}"
+if [[ "$KEEP_FASTQ" == "0" && -s "$OUT" && -s "$BAM" ]]; then
+    rm -f "$R1" "$R2" "$FASTQ_DIR/${ACC}.fastq.gz"
+    echo "Done: $ACC → $OUT (BAM kept, FASTQ removed)"
+else
+    echo "Done: $ACC → $OUT (FASTQs + BAM kept)"
+fi
