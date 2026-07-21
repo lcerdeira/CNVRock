@@ -118,10 +118,35 @@ def run_evaluation(out_dir: str, cfg: dict) -> pd.DataFrame:
     call_cols = {c for c in calls.columns
                  if c != "sample_id" and not c.startswith(("crr_", "pcn_"))}
 
+    # Genes whose GT is presence but whose locus is an acquired chromosomal
+    # element (SCCmec-borne mecA), not a core gene: the chromosomal caller emits
+    # an *amplification* call (CN>=2) for these, which is the wrong target —
+    # presence is CN 0 vs >=1. Score them on the copy-ratio directly instead:
+    # crr ~ 1 where the locus is present, ~ 0 where the element is absent.
+    # Config: crr_presence_genes: {mecA: 0.5}  (gene -> presence threshold).
+    crr_presence = cfg.get("crr_presence_genes", {}) or {}
+    if isinstance(crr_presence, (list, tuple)):
+        crr_presence = {g: 0.5 for g in crr_presence}
+
     df = calls.merge(gt, on="sample_id", how="inner")
     rows = []
     for fam in gt_genes:
         truth = df[f"__gt__{fam}"]
+        if fam in crr_presence:
+            thr = float(crr_presence[fam])
+            crr_col = f"crr_{fam}"
+            if crr_col not in df.columns:
+                rows.append({"gene": fam, "mcc": None, "fnr": None, "ppv": None,
+                             "n_pos": int((truth > 0).sum()), "n_eval": 0,
+                             "note": f"no {crr_col} column"})
+                continue
+            pred = (df[crr_col] >= thr).astype("Int64")
+            pred[df[crr_col].isna()] = pd.NA
+            m = _metrics(truth, pred)
+            m["gene"] = fam
+            m["note"] = f"presence via crr>={thr}"
+            rows.append(m)
+            continue
         members = _members_for(fam, fam_map, call_cols)
         if not members:
             rows.append({"gene": fam, "mcc": None, "fnr": None, "ppv": None,

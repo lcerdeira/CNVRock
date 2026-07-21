@@ -74,4 +74,7 @@ cnv_min_gene_coverage_fraction: 0.50
 pcn_absent_threshold: 0.20
 pcn_amp_threshold:    1.50
 
+crr_presence_genes:
+  mecA: 0.5   # SCCmec-borne — presence, not amplification
+
 eval_min_group_n: 10
