@@ -34,7 +34,7 @@ architecture: "06_conv_vae"
 hmm:          "02_gaussian_hmm"
 cnv:          "06_gene_cnv_caller"
 plasmid_cnv:  "07_plasmid_cnv_caller"
-# evaluation:  TBD (see note above)
+evaluation:   "06_organism_evaluation"
 
 store_path:                "../../../data/inputs/saureus-USA300-mq20-1000bp-npy"
 plasmid_store_path:        "../../../data/inputs/saureus-USA300-mq0-plasmid-1000bp-npy"
@@ -44,6 +44,7 @@ plasmid_gene_coords_path:  "../../../assets/saureus_ref/gene_coords_plasmid.tsv"
 normalise:  true
 
 kpsc_gt_path: "../../../assets/amrfinder_gt_saureus.tsv"
+plasmid_family_map_path: "../../../assets/saureus_ref/gene_families.tsv"
 
 latent_dim:    10
 batch_size:    128
