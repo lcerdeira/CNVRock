@@ -25,10 +25,12 @@ REPO_DIR=/home/lshlt19/CNVRock
 export PATH="$HOME/miniconda3/envs/cnvrock/bin:$HOME/miniconda3/bin:$PATH"
 module load gatk/4.6.0.0 java/20.0.1
 
-REFERENCE="$REPO_DIR/assets/HS11286_extended.fasta"
-INTERVALS="$REPO_DIR/assets/HS11286_extended_1kb.interval_list"
-BAM_DIR="$REPO_DIR/data/raw/bam_subset"
-COUNTS_DIR="$REPO_DIR/data/raw/readcounts_subset_mq20"
+# Env-var overridable (KpSC defaults preserved when unset), so other organisms
+# can point the recount at their own reference / BAMs without editing this file.
+REFERENCE="${REFERENCE:-$REPO_DIR/assets/HS11286_extended.fasta}"
+INTERVALS="${INTERVALS:-$REPO_DIR/assets/HS11286_extended_1kb.interval_list}"
+BAM_DIR="${BAM_DIR:-$REPO_DIR/data/raw/bam_subset}"
+COUNTS_DIR="${COUNTS_DIR:-$REPO_DIR/data/raw/readcounts_subset_mq20}"
 BAMS_LIST="${BAMS_LIST:-$REPO_DIR/assets/_bams_list_for_mq20.txt}"
 
 mkdir -p "$COUNTS_DIR" "$REPO_DIR/logs"
