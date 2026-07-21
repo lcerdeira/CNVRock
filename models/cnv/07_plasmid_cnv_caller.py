@@ -125,6 +125,7 @@ def run_plasmid_cnv_calls(out_dir: str, cfg: dict) -> None:
 
     p_chroms = plasmid_contigs["chrom"].values
     p_starts = plasmid_contigs["start"].values.astype(float)
+    p_ends   = plasmid_contigs["end"].values.astype(float)
 
     rows = []
     for gene_info in genes:
@@ -133,11 +134,17 @@ def run_plasmid_cnv_calls(out_dir: str, cfg: dict) -> None:
         g_end   = gene_info["end"]
         gene    = gene_info["gene"]
 
-        # Use all bins on this contig — the interval list already scopes to the
-        # gene+flank region, so no further coordinate filtering is needed.
-        # (GATK CollectReadCounts with a single interval produces one aggregate
-        # count covering the whole region, not individual 1 kb sub-bins.)
-        gene_mask = (p_chroms == contig)
+        # Match this gene's exact (contig, start, end) store column, not just
+        # the contig. When several genes share a plasmid contig — e.g.
+        # blaZ/blaR1/blaI/ermB all on pI258 in S. aureus — a contig-only mask
+        # would pool them and hand every gene the same whole-contig depth
+        # (blaZ at 72 % carriage and ermB at 1 % would then look identical).
+        # Each store column is already a per-gene aggregate, so the exact
+        # coordinate selects the right one. For one-gene-per-contig references
+        # (KpSC) the contig appears once and every start/end matches, so this is
+        # identical to the previous contig-only mask.
+        gene_mask = ((p_chroms == contig)
+                     & (p_starts == g_start) & (p_ends == g_end))
         n_gene_bins = int(gene_mask.sum())
 
         if n_gene_bins == 0:
