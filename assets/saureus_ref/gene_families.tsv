@@ -1,12 +1,12 @@
-family	member_call_ids	aggregated	note
-mecA	mecA	standalone	SCCmec-borne PBP2a; mecC is a divergent homolog (~70% identity) not present in this reference and would cross-map if encountered
-blaZ	blaZ	standalone	class A penicillinase on pI258
-blaR1	blaR1	standalone	bla operon signal transducer
-blaI	blaI	standalone	bla operon repressor
-ermB	ermB	standalone	distinct gene from ermC (~55% identity), not an allele variant
-ermC	ermC	standalone	distinct gene from ermB, kept unaggregated
-tetK	tetK	standalone	efflux; tetM is ribosomal protection, a distinct mechanism
-mupA	mupA	standalone	mupirocin-resistant Ile-tRNA ligase
-norA	norA	standalone	chromosomal efflux
-pbp4	pbp4	standalone	chromosomal
-gdpP	gdpP	standalone	chromosomal
+family	members	note
+mecA	mecA	SCCmec-borne PBP2a; mecC is a divergent homolog (~70% identity) not present in this reference and would cross-map if encountered
+blaZ	blaZ	class A penicillinase on pI258
+blaR1	blaR1	bla operon signal transducer
+blaI	blaI	bla operon repressor
+ermB	ermB	distinct gene from ermC (~55% identity), not an allele variant
+ermC	ermC	distinct gene from ermB, kept unaggregated
+tetK	tetK	efflux; tetM is ribosomal protection, a distinct mechanism
+mupA	mupA	mupirocin-resistant Ile-tRNA ligase
+norA	norA	chromosomal efflux
+pbp4	pbp4	chromosomal
+gdpP	gdpP	chromosomal
