@@ -161,6 +161,75 @@ def main() -> None:
     res.to_csv(out, sep="\t", index=False)
     print(f"\nSaved {out}")
 
+    # ── discriminating test: spike-in recovery at low magnitude ─────────────
+    # mecA presence is the easiest possible case — binary, ~1000x coverage.
+    # The question that separates the two normalisers is whether they resolve
+    # SUBTLE copy gain, which is where a difference in noise floor bites.
+    # Inject a known factor f into a random region of a random sample and ask
+    # each arm to recover it; ground truth is exact by construction.
+    print("\n" + "=" * 66)
+    print("SPIKE-IN RECOVERY (exact ground truth, 60 bins per region)")
+    print("=" * 66)
+    rng = np.random.default_rng(7)
+    n_bins  = cnt_c.shape[1]
+    region  = 60
+    n_tests = 400
+    # restrict to bins with usable coverage in both arms
+    usable = np.flatnonzero(np.nanmedian(cnt_c, axis=0) > LOW_COV)
+    usable = usable[(usable > region) & (usable < n_bins - region)]
+
+    spike_rows = []
+    for f in (1.25, 1.5, 2.0, 3.0, 5.0):
+        rec_vae, rec_mlst = [], []
+        for _ in range(n_tests):
+            si = int(rng.integers(0, cnt_c.shape[0]))
+            b0 = int(rng.choice(usable))
+            sl = slice(b0, b0 + region)
+            obs = cnt_c[si, sl] * f                      # inject known gain
+
+            # VAE arm: observed / expected-depth baseline
+            exp_v = np.where(recons[si, cmask][sl] >= LOW_COV,
+                             recons[si, cmask][sl], sample_mean[si, 0])
+            v = np.nanmean(obs / (exp_v + 1e-6))
+            # renormalise by the sample's own unspiked VAE level, so both arms
+            # are expressed on the same "1.0 = single copy" scale
+            scale = np.nanmedian(cr[si])
+            if not np.isfinite(scale) or scale <= 0:
+                continue
+            rec_vae.append(v / scale)
+
+            # MLST arm: observed / median depth across the 7 MLST loci
+            if np.isfinite(denom[si]) and denom[si] > 0:
+                rec_mlst.append(np.nanmean(obs) / denom[si])
+
+        # Report a robust error alongside RMSE: a single divide-by-near-zero
+        # replicate sends RMSE to infinity, so an outlier-sensitive metric
+        # cannot arbitrate between the two arms on its own.
+        def summarise(vals):
+            a = np.asarray(vals, dtype=float)
+            a = a[np.isfinite(a)]
+            return {
+                "median": round(float(np.median(a)), 3),
+                "bias":   round(float(np.median(a) / f - 1), 3),   # relative
+                "mae":    round(float(np.median(np.abs(a - f))), 3),
+                "rmse":   round(float(np.sqrt(np.mean((a - f) ** 2))), 3),
+                "n":      int(a.size),
+            }
+        sv, sm = summarise(rec_vae), summarise(rec_mlst)
+        spike_rows.append({
+            "spike_factor": f,
+            "VAE_median": sv["median"], "VAE_bias": sv["bias"],
+            "VAE_mae": sv["mae"], "VAE_rmse": sv["rmse"],
+            "MLST_median": sm["median"], "MLST_bias": sm["bias"],
+            "MLST_mae": sm["mae"], "MLST_rmse": sm["rmse"],
+        })
+
+    sp = pd.DataFrame(spike_rows)
+    print(sp.to_string(index=False))
+    sp_out = RESULT / "mlst_spikein_recovery.tsv"
+    sp.to_csv(sp_out, sep="\t", index=False)
+    print(f"\nSaved {sp_out}")
+
 
 if __name__ == "__main__":
     main()

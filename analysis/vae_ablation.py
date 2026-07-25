@@ -36,11 +36,22 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# K. pneumoniae 7-gene MLST housekeeping set (Institut Pasteur scheme);
-# approximate HS11286 NC_016845.1 CDS-midpoint positions (bp).
+# K. pneumoniae MLST housekeeping set (Institut Pasteur scheme), HS11286
+# NC_016845.1 CDS-midpoint positions (bp).
+#
+# CORRECTED 2026-07-22. The previous values were labelled as the MLST set but
+# were wrong by megabases (gapA was off by ~1 Mb, infB by ~3.5 Mb, rpoB by
+# ~4.6 Mb), so baseline B was in fact 7 arbitrary chromosomal bins rather than
+# the housekeeping set it claimed to be. Positions below were read from the
+# HS11286 feature table by product annotation, since that assembly uses
+# KPHS_* locus tags rather than gene names.
+#
+# tonB is omitted: the HS11286 annotation contains only "TonB-dependent
+# receptor" entries, which are different genes, and no unambiguous tonB. Six
+# loci are used rather than guessing a seventh.
 MLST_GENES = {
-    "gapA": 3128000, "infB": 1240000, "mdh": 2660000,
-    "pgi": 4150000,  "phoE": 280000,  "rpoB": 4790000, "tonB": 1990000,
+    "gapA": 2133023, "infB": 4733635, "mdh": 2815555,
+    "pgi":  288228,  "phoE": 1076695, "rpoB": 229368,
 }
 AMP_THRESHOLD = 1.75
 
