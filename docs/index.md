@@ -33,7 +33,6 @@ copy-number values themselves.
 :maxdepth: 2
 :caption: Manuscript
 
-08_scaling_study.md
 09_methods.md
 10_reproducibility.md
 11_validation.md
@@ -62,6 +61,7 @@ copy-number values themselves.
 
 ```{note}
 This documentation is built automatically by Read the Docs on every push to
-`main`. The scaling-study tables and figures populate as the experiments
-complete (see {doc}`08_scaling_study`).
+`main`. The KpSC scaling study and the evolutionary analyses (selection
+dynamics, genome-wide scan, co-occurrence) now live under `kpsc_paper/`,
+where they are being prepared as a separate manuscript.
 ```

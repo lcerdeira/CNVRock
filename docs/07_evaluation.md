@@ -69,6 +69,6 @@ Plus optional **per-ST** and **segment diagnostics** sections.
 
 ```{tip}
 For the manuscript, the most important rows are the OVERALL MCC values for
-each gene at each scaling tier (5K → 10K → 20K → 40K). These populate the
-{doc}`08_scaling_study` table.
+each gene at each scaling tier (5K → 10K → 20K). The scaling study itself now
+sits under `kpsc_paper/`, where it is being written up separately.
 ```
